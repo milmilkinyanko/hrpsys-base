@@ -648,9 +648,9 @@ void Stabilizer::getActualParameters ()
   } else {
     on_ground = calcZMP(act_zmp, ref_zmp(2));
   }
-  //for capture point
+  // for capture point
   hrp::Vector3 tmp_act_cog = act_cog;
-  act_cog(2) = act_zmp(2);
+  act_cp(2) = act_zmp(2);
   // set actual contact states
   m_actContactStates.data[contact_states_index_map["rleg"]] = isContact(contact_states_index_map["rleg"]);
   m_actContactStates.data[contact_states_index_map["lleg"]] = isContact(contact_states_index_map["lleg"]);
@@ -680,7 +680,9 @@ void Stabilizer::getActualParameters ()
       target_ee_diff_p[i] -= foot_origin_rot.transpose() * (act_ee_p - foot_origin_pos);
     }
     // capture point
-    act_cp = tmp_act_cog + act_cogvel / std::sqrt(eefm_gravitational_acceleration / tmp_act_cog(2));
+    for(size_t i = 0; i < 2; i++) {
+      act_cp(i) = tmp_act_cog(i) + act_cogvel(i) / std::sqrt(eefm_gravitational_acceleration / act_cog(2));
+    }
     rel_act_cp = m_robot->rootLink()->R.transpose() * (act_cp - m_robot->rootLink()->p);
     act_cp = act_cog + act_cogvel / std::sqrt(eefm_gravitational_acceleration / act_cog(2));
     // <= Actual foot_origin frame
@@ -912,7 +914,7 @@ void Stabilizer::getTargetParameters ()
   ref_cog = m_robot->calcCM();
   // for capture point
   hrp::Vector3 tmp_ref_cog = ref_cog;
-  tmp_ref_cog(2) = ref_zmp(2);
+  ref_cp(2) = ref_zmp(2);
   for (size_t i = 0; i < stikp.size(); i++) {
     hrp::Link* target = m_robot->link(stikp[i].target_name);
     //target_ee_p[i] = target->p + target->R * stikp[i].localCOPPos;
@@ -946,7 +948,9 @@ void Stabilizer::getTargetParameters ()
     }
     target_foot_origin_rot = foot_origin_rot;
     // capture point
-    ref_cp = tmp_ref_cog + ref_cogvel / std::sqrt(eefm_gravitational_acceleration / tmp_ref_cog(2));
+    for(size_t i = 0; i < 2; i++) {
+      ref_cp(i) = tmp_ref_cog(i) + ref_cogvel(i) / std::sqrt(eefm_gravitational_acceleration / ref_cog(2));
+    }
     rel_ref_cp = m_robot->rootLink()->R.transpose() * (ref_cp - m_robot->rootLink()->p);
     ref_cp = ref_cog + ref_cogvel / std::sqrt(eefm_gravitational_acceleration / ref_cog(2));
     // <= Reference foot_origin frame
@@ -1331,6 +1335,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
     i_stp.eefm_ref_zmp_aux[i] = ref_zmp_aux(i);
     i_stp.eefm_body_attitude_control_time_const[i] = eefm_body_attitude_control_time_const[i];
     i_stp.eefm_body_attitude_control_gain[i] = eefm_body_attitude_control_gain[i];
+    i_stp.ref_capture_point[i] = ref_cp(i);
+    i_stp.act_capture_point[i] = act_cp(i);
   }
   i_stp.eefm_pos_time_const_support.length(stikp.size());
   i_stp.eefm_pos_damping_gain.length(stikp.size());
@@ -1428,6 +1434,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
     ref_zmp_aux(i) = i_stp.eefm_ref_zmp_aux[i];
     eefm_body_attitude_control_gain[i] = i_stp.eefm_body_attitude_control_gain[i];
     eefm_body_attitude_control_time_const[i] = i_stp.eefm_body_attitude_control_time_const[i];
+    ref_cp(i) = i_stp.ref_capture_point[i];
+    act_cp(i) = i_stp.act_capture_point[i];
   }
   bool is_damping_parameter_ok = true;
   if ( i_stp.eefm_pos_damping_gain.length () == stikp.size() &&
