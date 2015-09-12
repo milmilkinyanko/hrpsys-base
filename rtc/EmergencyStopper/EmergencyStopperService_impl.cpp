@@ -20,6 +20,11 @@ void EmergencyStopperService_impl::releaseMotion()
     m_emergencystopper->releaseMotion();
 }
 
+void EmergencyStopperService_impl::forceReleaseMotion()
+{
+    m_emergencystopper->forceReleaseMotion();
+}
+
 CORBA::Boolean EmergencyStopperService_impl::getEmergencyStopperParam(OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param)
 {
     return m_emergencystopper->getEmergencyStopperParam(i_param);

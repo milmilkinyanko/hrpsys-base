@@ -15,8 +15,12 @@ module OpenHRP
       double default_recover_time;
       /// Sync time for retrieve motion [s]
       double default_retrieve_time;
+      /// Sync time for force release motion [s]
+      double default_force_release_time;
       /// Stop mode or not.
       boolean is_stop_mode;
+      /// force release mode or not.
+      boolean is_force_release_mode;
     };
 
     /**
@@ -30,6 +34,12 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     void releaseMotion();
+
+    /**
+     * @brief Force Release Motion.
+     * @return true if set successfully, false otherwise
+     */
+    void forceReleaseMotion();
 
     /**
      * @brief Get EmergencyStopperParam

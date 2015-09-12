@@ -101,6 +101,7 @@ public:
     // virtual RTC::ReturnCode_t onRateChanged(RTC::UniqueId ec_id);
     bool stopMotion();
     bool releaseMotion();
+    bool forceReleaseMotion();
     bool getEmergencyStopperParam(OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param);
     bool setEmergencyStopperParam(const OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param);
 
@@ -163,6 +164,8 @@ private:
     std::queue<std::vector<double> > m_input_posture_queue;
     int emergency_stopper_beep_count, emergency_stopper_beep_freq;
     coil::Mutex m_mutex;
+    double force_release_time, default_force_release_time;
+    bool is_force_release_mode;
 };
 
 

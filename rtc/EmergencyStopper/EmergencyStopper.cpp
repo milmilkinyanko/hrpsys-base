@@ -117,11 +117,13 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
 
     is_stop_mode = prev_is_stop_mode = false;
     is_initialized = false;
+    is_force_release_mode = false;
 
     recover_time = retrieve_time = 0;
     recover_time_dt = 1.0;
     default_recover_time = 2.5/m_dt;
     default_retrieve_time = 1;
+    force_release_time = default_force_release_time = 2.0/m_dt;
     //default_retrieve_time = 1.0/m_dt;
     m_stop_posture = new double[m_robot->numJoints()];
     m_interpolator = new interpolator(m_robot->numJoints(), recover_time_dt);
@@ -264,6 +266,16 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
                 m_q.data[i] = m_qRef.data[i];
             }
         }
+    } else if (is_force_release_mode) {
+        if (force_release_time > 0) {
+            force_release_time = force_release_time - recover_time_dt;
+            m_interpolator->setGoal(m_qRef.data.get_buffer(), force_release_time);
+            m_interpolator->get(m_q.data.get_buffer());
+        } else {
+            is_force_release_mode = false;
+            force_release_time = default_force_release_time;
+            m_interpolator->set(m_q.data.get_buffer());
+        }
     } else { // stop mode
         recover_time = default_recover_time;
         if (retrieve_time > 0 ) {
@@ -364,12 +376,22 @@ bool EmergencyStopper::releaseMotion()
     return true;
 }
 
+bool EmergencyStopper::forceReleaseMotion()
+{
+    is_force_release_mode = true;
+    std::cerr << "[" << m_profile.instance_name << "] forceReleaseMotion is called" << std::endl;
+
+    return true;
+}
+
 bool EmergencyStopper::getEmergencyStopperParam(OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param)
 {
     std::cerr << "[" << m_profile.instance_name << "] getEmergencyStopperParam" << std::endl;
     i_param.default_recover_time = default_recover_time*m_dt;
     i_param.default_retrieve_time = default_retrieve_time*m_dt;
+    i_param.default_force_release_time = default_force_release_time*m_dt;
     i_param.is_stop_mode = is_stop_mode;
+    i_param.is_force_release_mode = is_force_release_mode;
     return true;
 };
 
@@ -378,7 +400,8 @@ bool EmergencyStopper::setEmergencyStopperParam(const OpenHRP::EmergencyStopperS
     std::cerr << "[" << m_profile.instance_name << "] setEmergencyStopperParam" << std::endl;
     default_recover_time = i_param.default_recover_time/m_dt;
     default_retrieve_time = i_param.default_retrieve_time/m_dt;
-    std::cerr << "[" << m_profile.instance_name << "]   default_recover_time = " << default_recover_time*m_dt << "[s], default_retrieve_time = " << default_retrieve_time*m_dt << "[s]" << std::endl;
+    default_force_release_time = i_param.default_force_release_time/m_dt;
+    std::cerr << "[" << m_profile.instance_name << "]   default_recover_time = " << default_recover_time*m_dt << "[s], default_retrieve_time = " << default_retrieve_time*m_dt << "[s], default_force_release_time = " << default_force_release_time*m_dt << "[s]" << std::endl;
     return true;
 };
 
