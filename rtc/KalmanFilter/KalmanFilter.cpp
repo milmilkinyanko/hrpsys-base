@@ -206,7 +206,11 @@ RTC::ReturnCode_t KalmanFilter::onExecute(RTC::UniqueId ec_id)
   }
   if (m_accIn.isNew()){
     m_accIn.read();
-
+    if (m_acc.data.ax == 0.0 &&
+        m_acc.data.ay == 0.0 &&
+        m_acc.data.az == 0.0) {
+        return RTC::RTC_OK;
+    }
     Eigen::Vector3d acc = m_sensorR * hrp::Vector3(m_acc.data.ax-sx_ref+acc_offset(0), m_acc.data.ay-sy_ref+acc_offset(1), m_acc.data.az-sz_ref+acc_offset(2)); // transform to imaginary acc data
     acc = sensorR_offset * acc;
     Eigen::Vector3d gyro = m_sensorR * hrp::Vector3(m_rate.data.avx, m_rate.data.avy, m_rate.data.avz); // transform to imaginary rate data
