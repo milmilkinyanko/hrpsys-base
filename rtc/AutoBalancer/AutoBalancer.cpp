@@ -369,6 +369,7 @@ RTC::ReturnCode_t AutoBalancer::onDeactivated(RTC::UniqueId ec_id)
 #define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
 //#define DEBUGP2 ((loop%200==0))
 #define DEBUGP2 (false)
+#define DEBUGP3 (m_debugLevel > 2)
 RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 {
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
@@ -416,10 +417,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
-        // if (!is_stop_mode) {
-        //     std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
-        //     is_stop_mode = true;
-        // }
+        if (DEBUGP3 && !is_stop_mode) {
+            std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
+            is_stop_mode = true;
+            gg->emergency_stop();
+        }
     }
 
     Guard guard(m_mutex);
@@ -601,7 +603,7 @@ void AutoBalancer::getTargetParameters()
     }
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
-      gg_solved = gg->proc_one_tick();
+      gg_solved = gg->proc_one_tick(DEBUGP3 ? 1 : 0);
       {
           std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
           coordinates tmpc;
@@ -1033,7 +1035,7 @@ void AutoBalancer::startWalking ()
     gg->set_default_zmp_offsets(default_zmp_offsets);
     gg->initialize_gait_parameter(ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
-  while ( !gg->proc_one_tick() );
+  while ( !gg->proc_one_tick(DEBUGP3 ? 1 : 0) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
