@@ -102,6 +102,8 @@ class PDcontroller
   InPort<TimedDoubleSeq> m_angleIn;
   TimedDoubleSeq m_angleRef;
   InPort<TimedDoubleSeq> m_angleRefIn;
+  TimedDoubleSeq m_gainPercentage;
+  InPort<TimedDoubleSeq> m_gainPercentageIn;
   
   // </rtc-template>
 
@@ -134,7 +136,7 @@ class PDcontroller
   double dt;
   std::ifstream gain;
   std::string gain_fname;
-  hrp::dvector qold, qold_ref, Pgain, Dgain, tlimit_ratio;
+  hrp::dvector qold, qold_ref, Pgain, default_Pgain, Dgain, default_Dgain,  tlimit_ratio;
   size_t dof, loop;
   unsigned int m_debugLevel;
 };

@@ -480,6 +480,11 @@ class HrpsysConfigurator:
         if self.el:
             connectPorts(self.rh.port("q"), self.el.port("qCurrent"))
 
+        # connection for pdc
+        if self.simulation_mode:
+            if self.pdc:
+                connectPorts(self.abc.port("gainPercentage"), self.pdc.port("gainPercentage"))
+
     def activateComps(self):
         '''!@brief
         Activate components(plugins)

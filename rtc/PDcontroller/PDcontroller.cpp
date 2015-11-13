@@ -37,6 +37,7 @@ PDcontroller::PDcontroller(RTC::Manager* manager)
     // <rtc-template block="initializer">
     m_angleIn("angle", m_angle),
     m_angleRefIn("angleRef", m_angleRef),
+    m_gainPercentageIn("gainPercentage", m_gainPercentage),
     m_torqueOut("torque", m_torque),
     dt(0.005),
     // </rtc-template>
@@ -83,6 +84,7 @@ RTC::ReturnCode_t PDcontroller::onInitialize()
   // Set InPort buffers
   addInPort("angle", m_angleIn);
   addInPort("angleRef", m_angleRefIn);
+  addInPort("gainPercentage", m_gainPercentageIn);
   
   // Set OutPort buffer
   addOutPort("torque", m_torqueOut);
@@ -148,12 +150,17 @@ RTC::ReturnCode_t PDcontroller::onExecute(RTC::UniqueId ec_id)
   if(m_angleRefIn.isNew()){
     m_angleRefIn.read();
   }
+  if(m_gainPercentageIn.isNew()){
+    m_gainPercentageIn.read();
+  }
 
   for(int i=0; i<dof; i++){
     double q = m_angle.data[i];
     double q_ref = m_angleRef.data[i];
     double dq = (q - qold[i]) / dt;
     double dq_ref = (q_ref - qold_ref[i]) / dt;
+    Pgain[i] = default_Pgain[i] * m_gainPercentage.data[i]/100.0;
+    Dgain[i] = default_Dgain[i] * m_gainPercentage.data[i]/100.0;
     qold[i] = q;
     qold_ref[i] = q_ref;
     m_torque.data[i] = -(q - q_ref) * Pgain[i] - (dq - dq_ref) * Dgain[i];
@@ -191,18 +198,20 @@ void PDcontroller::readGainFile()
     m_angleRef.data.length(dof);
     Pgain.resize(dof);
     Dgain.resize(dof);
+    default_Pgain.resize(dof);
+    default_Dgain.resize(dof);
     gain.open(gain_fname.c_str());
     tlimit_ratio.resize(dof);
     if (gain.is_open()){
       double tmp;
       for (int i=0; i<dof; i++){
           if (gain >> tmp) {
-              Pgain[i] = tmp;
+              Pgain[i] = default_Pgain[i] = tmp;
           } else {
               std::cerr << "[" << m_profile.instance_name << "] Gain file [" << gain_fname << "] is too short" << std::endl;
           }
           if (gain >> tmp) {
-              Dgain[i] = tmp;
+              Dgain[i] = default_Dgain[i] = tmp;
           } else {
               std::cerr << "[" << m_profile.instance_name << "] Gain file [" << gain_fname << "] is too short" << std::endl;
           }

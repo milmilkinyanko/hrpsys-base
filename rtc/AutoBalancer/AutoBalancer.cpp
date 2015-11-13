@@ -60,6 +60,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_cogOut("cogOut", m_cog),
       m_AutoBalancerServicePort("AutoBalancerService"),
+      m_gainPercentageOut("gainPercentage", m_gainPercentage),
       // </rtc-template>
       move_base_gain(0.8),
       m_robot(hrp::BodyPtr()),
@@ -99,6 +100,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("contactStates", m_contactStatesOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("cogOut", m_cogOut);
+    addOutPort("gainPercentage", m_gainPercentageOut);
   
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -138,6 +140,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     qorg.resize(m_robot->numJoints());
     qrefv.resize(m_robot->numJoints());
     m_baseTform.data.length(12);
+    m_gainPercentage.data.length(m_robot->numJoints());
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -541,11 +544,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       prev_imu_sensor_vel = imu_sensor_vel;
     }
 
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_gainPercentage.data[i] = m_qRef.data[i];
+    }
+
     // control parameters
     m_contactStates.tm = m_qRef.tm;
     m_contactStatesOut.write();
     m_controlSwingSupportTime.tm = m_qRef.tm;
     m_controlSwingSupportTimeOut.write();
+    m_gainPercentage.tm = m_qRef.tm;
+    m_gainPercentageOut.write();
 
     for (unsigned int i=0; i<m_ref_forceOut.size(); i++){
         m_force[i].tm = m_qRef.tm;
