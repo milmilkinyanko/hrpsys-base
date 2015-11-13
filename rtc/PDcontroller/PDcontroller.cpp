@@ -152,6 +152,11 @@ RTC::ReturnCode_t PDcontroller::onExecute(RTC::UniqueId ec_id)
   }
   if(m_gainPercentageIn.isNew()){
     m_gainPercentageIn.read();
+    for(int i=0; i<dof; i++){
+      Pgain[i] = default_Pgain[i] * m_gainPercentage.data[i]/100.0;
+      Dgain[i] = default_Dgain[i] * m_gainPercentage.data[i]/100.0;
+      std::cerr << "m_gainPercentage.data[" << i << "] : " << m_gainPercentage.data[i] << " Pgain " << Pgain[i] << " Dgain " << Dgain[i] <<std::endl;
+    }
   }
 
   for(int i=0; i<dof; i++){
@@ -159,8 +164,6 @@ RTC::ReturnCode_t PDcontroller::onExecute(RTC::UniqueId ec_id)
     double q_ref = m_angleRef.data[i];
     double dq = (q - qold[i]) / dt;
     double dq_ref = (q_ref - qold_ref[i]) / dt;
-    Pgain[i] = default_Pgain[i] * m_gainPercentage.data[i]/100.0;
-    Dgain[i] = default_Dgain[i] * m_gainPercentage.data[i]/100.0;
     qold[i] = q;
     qold_ref[i] = q_ref;
     m_torque.data[i] = -(q - q_ref) * Pgain[i] - (dq - dq_ref) * Dgain[i];

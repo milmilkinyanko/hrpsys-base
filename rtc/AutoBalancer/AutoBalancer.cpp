@@ -327,6 +327,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     rot_ik_thre = (1e-2)*M_PI/180.0; // [rad]
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
 
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_gainPercentage.data[i] = 100.0;
+    }
+
     return RTC::RTC_OK;
 }
 
@@ -542,10 +546,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_accRefOut.write();
       prev_imu_sensor_pos = imu_sensor_pos;
       prev_imu_sensor_vel = imu_sensor_vel;
-    }
-
-    for ( int i = 0; i < m_robot->numJoints(); i++ ){
-      m_gainPercentage.data[i] = m_qRef.data[i];
     }
 
     // control parameters
@@ -1103,6 +1103,10 @@ void AutoBalancer::stopWalking ()
 
 bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSequence& limbs)
 {
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_gainPercentage.data[i] = 100;
+    }
+
   if (control_mode == MODE_IDLE) {
     has_ik_failed = false;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1119,6 +1123,9 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
 
 bool AutoBalancer::stopAutoBalancer ()
 {
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_gainPercentage.data[i] = 0;
+    }
   if (control_mode == MODE_ABC) {
     stopABCparam();
     waitABCTransition();
