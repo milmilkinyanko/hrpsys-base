@@ -136,7 +136,7 @@ class PDcontroller
   double dt;
   std::ifstream gain;
   std::string gain_fname;
-  hrp::dvector qold, qold_ref, Pgain, default_Pgain, Dgain, default_Dgain,  tlimit_ratio;
+  hrp::dvector qold, qold_ref, Pgain, default_Pgain, Dgain, default_Dgain, tlimit_ratio;
   size_t dof, loop;
   unsigned int m_debugLevel;
 };
