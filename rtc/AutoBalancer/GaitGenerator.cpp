@@ -239,6 +239,7 @@ namespace rats
     int current_swing_len = lcg_count - support_len_before;
     double tmp_current_swing_time;
     int current_swing_count = (one_step_count - lcg_count); // 0->one_step_count
+    double_support_time = (support_len_before + support_len_after) * dt;
     if ( current_swing_count < support_len_before ) { // First double support period
       swing_ratio = swing_rot_ratio = 0.0;
       tmp_current_swing_time = current_swing_len * dt - swing_len * dt;

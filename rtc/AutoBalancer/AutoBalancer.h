@@ -253,6 +253,8 @@ class AutoBalancer
   hrp::Vector3 graspless_manip_p_gain;
   rats::coordinates graspless_manip_reference_trans_coords;
   double pos_ik_thre, rot_ik_thre;
+  std::string prev_swing_leg;
+  int r_gain_counter, l_gain_counter;
 };
 
 

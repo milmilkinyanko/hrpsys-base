@@ -563,6 +563,7 @@ namespace rats
       std::vector<step_node> swing_leg_steps, swing_leg_src_steps, swing_leg_dst_steps;
       double default_step_height, default_top_ratio, current_step_height, swing_ratio, swing_rot_ratio, foot_midcoords_ratio, dt, current_toe_angle, current_heel_angle;
       std::vector<double> current_swing_time;
+      double double_support_time;
       // Index for current footstep. footstep_index should be [0,footstep_node_list.size()]. Current footstep is footstep_node_list[footstep_index].
       size_t footstep_index;
       // one_step_count is total counter num of current steps (= step_time/dt). lcg_count is counter for lcg. During one step, lcg_count decreases from one_step_count to 0.
@@ -751,6 +752,7 @@ namespace rats
       size_t get_footstep_index() const { return footstep_index; };
       size_t get_lcg_count() const { return lcg_count; };
       double get_current_swing_time(const size_t idx) const { return current_swing_time.at(idx); };
+      double get_double_support_time() const { return double_support_time; };
       const std::vector<step_node>& get_swing_leg_steps() const { return swing_leg_steps; };
       const std::vector<step_node>& get_support_leg_steps() const { return support_leg_steps; };
       const std::vector<step_node>& get_swing_leg_src_steps() const { return swing_leg_src_steps; };
@@ -1105,6 +1107,7 @@ namespace rats
     size_t get_footstep_index() const { return lcg.get_footstep_index(); };
     size_t get_lcg_count() const { return lcg.get_lcg_count(); };
     double get_current_swing_time(const size_t idx) const { return lcg.get_current_swing_time(idx); };
+    double get_double_support_time() const { return lcg.get_double_support_time(); };
     std::vector<leg_type> get_current_support_states() const { return lcg.get_current_support_states();};
     double get_default_step_time () const { return default_step_time; };
     double get_default_step_height () const { return lcg.get_default_step_height(); };

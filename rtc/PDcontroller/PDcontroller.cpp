@@ -155,7 +155,13 @@ RTC::ReturnCode_t PDcontroller::onExecute(RTC::UniqueId ec_id)
     for(int i=0; i<dof; i++){
       Pgain[i] = default_Pgain[i] * m_gainPercentage.data[i]/100.0;
       Dgain[i] = default_Dgain[i] * m_gainPercentage.data[i]/100.0;
+      // if (loop % 100 == 0) {
+      //   std::cerr << "m_gainPercentage.data[" << i << "] : " << m_gainPercentage.data[i] << "[%] Pgain " << Pgain[i] << " Dgain " << Dgain[i] <<std::endl;
+      // }
     }
+      if (loop % 10 == 0) {
+        std::cerr << "m_gainPercentage.data[" << 3 << "] : " << m_gainPercentage.data[3] << "[%] Pgain " << Pgain[3] << " Dgain " << Dgain[3] <<std::endl;
+      }
   }
 
   for(int i=0; i<dof; i++){
