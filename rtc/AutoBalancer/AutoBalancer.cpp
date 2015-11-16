@@ -705,30 +705,22 @@ void AutoBalancer::getTargetParameters()
       }
       // set gainPercentage
       {
-        double lower_gain = 10.0;
+        double lower_gain = 20.0;
         double lower_gain2 =30.0;
         if ( m_contactStates.data[contact_states_index_map["rleg"]] && m_contactStates.data[contact_states_index_map["lleg"]] ) { // double support phase
           if( prev_swing_leg == "rleg" ) {
             m_gainPercentage.data[m_robot->link("RLEG_ANKLE_P")->jointId] = (100.0 - lower_gain) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain;
-            if ( m_gainPercentage.data[m_robot->link("RLEG_ANKLE_P")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("RLEG_ANKLE_P")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("RLEG_ANKLE_R")->jointId] = (100.0 - lower_gain) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain;
-            if ( m_gainPercentage.data[m_robot->link("RLEG_ANKLE_R")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("RLEG_ANKLE_R")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("RLEG_KNEE")->jointId] = (100.0 - lower_gain2) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain2;
-            if ( m_gainPercentage.data[m_robot->link("RLEG_KNEE")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("RLEG_KNEE")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("RLEG_HIP_P")->jointId] = (100.0 - lower_gain2) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain2;
-            if ( m_gainPercentage.data[m_robot->link("RLEG_HIP_P")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("RLEG_HIP_P")->jointId] = 100.0;
             // std::cerr <<  gg->get_double_support_time() << " , " << gg->get_double_support_time() / m_dt << " , " << r_gain_counter << std::endl;;
             r_gain_counter++;
           }
           if(prev_swing_leg == "lleg" ) {
             m_gainPercentage.data[m_robot->link("LLEG_ANKLE_P")->jointId] = (100.0 - lower_gain) / (gg->get_double_support_time() / m_dt) * l_gain_counter + lower_gain;
-            if ( m_gainPercentage.data[m_robot->link("LLEG_ANKLE_P")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("LLEG_ANKLE_P")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("LLEG_ANKLE_R")->jointId] = (100.0 - lower_gain) / (gg->get_double_support_time() / m_dt) * l_gain_counter + lower_gain;
-            if ( m_gainPercentage.data[m_robot->link("LLEG_ANKLE_R")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("LLEG_ANKLE_R")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("RLEG_KNEE")->jointId] = (100.0 - lower_gain2) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain2;
-            if ( m_gainPercentage.data[m_robot->link("LLEG_KNEE")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("LLEG_KNEE")->jointId] = 100.0;
             m_gainPercentage.data[m_robot->link("LLEG_HIP_P")->jointId] = (100.0 - lower_gain2) / (gg->get_double_support_time() / m_dt) * r_gain_counter + lower_gain2;
-            if ( m_gainPercentage.data[m_robot->link("LLEG_HIP_P")->jointId] > 100.0 ) m_gainPercentage.data[m_robot->link("LLEG_HIP_P")->jointId] = 100.0;
             l_gain_counter++;
           }
         } else {

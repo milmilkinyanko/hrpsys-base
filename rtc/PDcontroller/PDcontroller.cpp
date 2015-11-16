@@ -153,15 +153,15 @@ RTC::ReturnCode_t PDcontroller::onExecute(RTC::UniqueId ec_id)
   if(m_gainPercentageIn.isNew()){
     m_gainPercentageIn.read();
     for(int i=0; i<dof; i++){
-      Pgain[i] = default_Pgain[i] * m_gainPercentage.data[i]/100.0;
-      Dgain[i] = default_Dgain[i] * m_gainPercentage.data[i]/100.0;
+      Pgain[i] = (m_gainPercentage.data[i] >= 0.0 && m_gainPercentage.data[i] <= 100.0) ? default_Pgain[i] * m_gainPercentage.data[i] / 100.0 : default_Pgain[i];
+      Dgain[i] = (m_gainPercentage.data[i] >= 0.0 && m_gainPercentage.data[i] <= 100.0) ? default_Dgain[i] * m_gainPercentage.data[i] / 100.0 : default_Dgain[i];
       // if (loop % 100 == 0) {
-      //   std::cerr << "m_gainPercentage.data[" << i << "] : " << m_gainPercentage.data[i] << "[%] Pgain " << Pgain[i] << " Dgain " << Dgain[i] <<std::endl;
+      //   std::cerr << "m_gainPercentage.data[" << i << "] : " << Pgain[i]/default_Pgain[i] * 100.0 << "[%] Pgain " << Pgain[i] << " Dgain " << Dgain[i] <<std::endl;
       // }
     }
-      if (loop % 10 == 0) {
-        std::cerr << "m_gainPercentage.data[" << 3 << "] : " << m_gainPercentage.data[3] << "[%] Pgain " << Pgain[3] << " Dgain " << Dgain[3] <<std::endl;
-      }
+    if (loop % 5 == 0) {
+      std::cerr << "m_gainPercentage.data[" << 3 << "] : " << Pgain[4]/default_Pgain[4] * 100.0<< "[%] Pgain " << Pgain[4] << " Dgain " << Dgain[4] <<std::endl;
+    }
   }
 
   for(int i=0; i<dof; i++){
