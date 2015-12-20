@@ -49,6 +49,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
+      m_actCPIn("actCapturePoint", m_actCP),
+      m_refCPIn("refCapturePoint", m_refCP),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -90,6 +92,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("zmpIn", m_zmpIn);
     addInPort("optionalData", m_optionalDataIn);
     addInPort("emergencySignal", m_emergencySignalIn);
+    addInPort("actCapturePoint", m_actCPIn);
+    addInPort("refCapturePoint", m_refCPIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -338,6 +342,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     pos_ik_thre = 0.1*1e-3; // [m]
     rot_ik_thre = (1e-2)*M_PI/180.0; // [rad]
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
+    diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
 
     return RTC::RTC_OK;
 }
@@ -411,6 +416,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       input_zmp(0) = m_zmp.data.x;
       input_zmp(1) = m_zmp.data.y;
       input_zmp(2) = m_zmp.data.z;
+    }
+    if (m_actCPIn.isNew() && m_refCPIn.isNew()) {
+      m_actCPIn.read();
+      m_refCPIn.read();
+      diff_cp(0) = m_actCP.data.x - m_refCP.data.x;
+      diff_cp(1) = m_actCP.data.y - m_refCP.data.y;
+      diff_cp(2) = m_actCP.data.z - m_refCP.data.z;
     }
     for (unsigned int i=0; i<m_ref_forceIn.size(); i++){
         if ( m_ref_forceIn[i]->isNew() ) {
