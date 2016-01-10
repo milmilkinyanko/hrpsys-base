@@ -133,10 +133,10 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
-  TimedPoint3D m_actCP;
-  InPort<TimedPoint3D> m_actCPIn;
-  TimedPoint3D m_refCP;
-  InPort<TimedPoint3D> m_refCPIn;
+  TimedPoint3D m_absActCP;
+  InPort<TimedPoint3D> m_absActCPIn;
+  TimedPoint3D m_absRefCP;
+  InPort<TimedPoint3D> m_absRefCPIn;
   // for debug
   TimedPoint3D m_cog;
   
