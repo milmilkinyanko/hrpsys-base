@@ -579,12 +579,14 @@ namespace rats
       }
     }
     // overwrite based on diff_cp
-    if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.1) - 1) {
-      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-3) {
+    if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-3) {
+      if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
+          && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.3) - 1) {
         std::cerr << diff_cp(0) << " , " << diff_cp(1) << std::endl;
+        double tmp_gain = 1.0/(exp(1.0)-exp(0.3))*exp((double)(lcg.get_lcg_count()+1)/(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt))+(1.0-1.0/(exp(1.0)-exp(0.3))*exp(1.0));
         for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
-          footstep_nodes_list[i].front().worldcoords.pos(0) += 0.02 * diff_cp(0);
-          footstep_nodes_list[i].front().worldcoords.pos(1) += 0.02 * diff_cp(1);
+          footstep_nodes_list[i].front().worldcoords.pos(0) += tmp_gain * (0.05 * diff_cp(0) + 0.5 * (diff_cp(0) - pre_diff_cp(0)));
+          footstep_nodes_list[i].front().worldcoords.pos(1) += tmp_gain * (0.05 * diff_cp(1) + 0.5 * (diff_cp(1) - pre_diff_cp(1)));
         }
         // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(0) += 0.02 * diff_cp(0);
         // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(1) += 0.02 * diff_cp(1);
@@ -593,6 +595,7 @@ namespace rats
         overwrite_footstep_nodes_list.clear();
       }
     }
+    pre_diff_cp = diff_cp;
 
     if ( !solved ) {
       hrp::Vector3 rzmp;
