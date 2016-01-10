@@ -538,7 +538,7 @@ namespace rats
     emergency_flg = IDLING;
   };
 
-  bool gait_generator::proc_one_tick ()
+  bool gait_generator::proc_one_tick (hrp::Vector3 diff_cp)
   {
     solved = false;
     /* update refzmp */
@@ -574,6 +574,21 @@ namespace rats
       } else if ( !overwrite_footstep_nodes_list.empty() && // If overwrite_footstep_node_list exists
                   (lcg.get_footstep_index() < footstep_nodes_list.size()-1) &&  // If overwrite_footstep_node_list is specified and current footstep is not last footstep.
                   get_overwritable_index() == overwrite_footstep_index ) {
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list);
+        overwrite_footstep_nodes_list.clear();
+      }
+    }
+    // overwrite based on diff_cp
+    if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.1) - 1) {
+      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-3) {
+        std::cerr << diff_cp(0) << " , " << diff_cp(1) << std::endl;
+        for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
+          footstep_nodes_list[i].front().worldcoords.pos(0) += 0.02 * diff_cp(0);
+          footstep_nodes_list[i].front().worldcoords.pos(1) += 0.02 * diff_cp(1);
+        }
+        // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(0) += 0.02 * diff_cp(0);
+        // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(1) += 0.02 * diff_cp(1);
+        overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
       }

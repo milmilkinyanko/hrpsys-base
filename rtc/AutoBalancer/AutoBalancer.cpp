@@ -637,7 +637,7 @@ void AutoBalancer::getTargetParameters()
     }
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
-      gg_solved = gg->proc_one_tick();
+      gg_solved = gg->proc_one_tick(diff_cp);
       {
           std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
           coordinates tmpc;
@@ -1096,7 +1096,7 @@ void AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick() );
+  while ( !gg->proc_one_tick(diff_cp) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
