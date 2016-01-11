@@ -579,17 +579,45 @@ namespace rats
       }
     }
     // overwrite based on diff_cp
-    if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-3) {
+    if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
       if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
           && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.3) - 1) {
-        std::cerr << diff_cp(0) << " , " << diff_cp(1) << std::endl;
+        // std::cerr << diff_cp(0) << " , " << diff_cp(1) << std::endl;
         double tmp_gain = 1.0/(exp(1.0)-exp(0.3))*exp((double)(lcg.get_lcg_count()+1)/(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt))+(1.0-1.0/(exp(1.0)-exp(0.3))*exp(1.0));
-        for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
-          footstep_nodes_list[i].front().worldcoords.pos(0) += tmp_gain * (0.05 * diff_cp(0) + 0.5 * (diff_cp(0) - pre_diff_cp(0)));
-          footstep_nodes_list[i].front().worldcoords.pos(1) += tmp_gain * (0.05 * diff_cp(1) + 0.5 * (diff_cp(1) - pre_diff_cp(1)));
+        hrp::Vector3 d_footstep = tmp_gain * (0.05 * diff_cp + 1.6e-3 * (diff_cp - pre_diff_cp)/dt);
+
+        // stride limit check
+        hrp::Vector3 foot_pos(get_dst_foot_midcoords().pos);
+        hrp::Matrix33 foot_rot(get_dst_foot_midcoords().rot);
+        const double stride_limit[4] = {0.35, 0.35, 0.3, 0.15}; // front, rear, outside, inside [m]
+        leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+        hrp::Vector3 current_footstep_pos(foot_rot.transpose()*((footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos+d_footstep)-foot_pos));
+        hrp::Vector3 pre_footstep_pos(foot_rot.transpose()*(footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos-foot_pos));
+        if (current_footstep_pos(0)-pre_footstep_pos(0) >= stride_limit[0]) {
+          std::cerr << "front too error" << std::endl;
+          d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(stride_limit[0],d_footstep(1),0.0) - current_footstep_pos);
         }
-        // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(0) += 0.02 * diff_cp(0);
-        // footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(1) += 0.02 * diff_cp(1);
+        if (current_footstep_pos(0)-pre_footstep_pos(0) <= -1 * stride_limit[1]) {
+          std::cerr << "rear too error" << std::endl;
+          d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(-1*stride_limit[1],d_footstep(1),0.0) - current_footstep_pos);
+        }
+        if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) >= stride_limit[2]) {
+          std::cerr << "outside too error" << std::endl;
+          d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(d_footstep(0),(cur_leg==LLEG?1:-1)*stride_limit[2],0.0) - current_footstep_pos);
+        }
+        if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) <= stride_limit[3]) {
+          std::cerr << "inside too error" << std::endl;
+          d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(d_footstep(0),(cur_leg==LLEG?1:-1)*stride_limit[3],0.0) - current_footstep_pos);
+        }
+        // std::cerr << feedback_value(0) << " , " << feedback_value(0) << std::endl;
+
+        // overwrite footstep
+        for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
+          footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
+          footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
+        }
+
+        // overwrite zmp
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
