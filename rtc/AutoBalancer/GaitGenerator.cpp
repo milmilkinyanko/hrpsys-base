@@ -581,10 +581,12 @@ namespace rats
     // overwrite based on diff_cp
     if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
       if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
-          && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.3) - 1) {
-        // std::cerr << diff_cp(0) << " , " << diff_cp(1) << std::endl;
-        double tmp_gain = 1.0/(exp(1.0)-exp(0.3))*exp((double)(lcg.get_lcg_count()+1)/(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt))+(1.0-1.0/(exp(1.0)-exp(0.3))*exp(1.0));
-        hrp::Vector3 d_footstep = tmp_gain * (0.05 * diff_cp + 1.6e-3 * (diff_cp - pre_diff_cp)/dt);
+          && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1) {
+        double f_min = 50, f_max = 600, k1 = 5, k2 = 1.6e-1;
+        double f_gain = (f_max-f_min)/(exp(0.2)-exp(1.0)) * exp((double)(lcg.get_lcg_count()+1)/(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt)) + (f_min-(f_max-f_min)/(exp(0.2)-exp(1.0))*exp(1.0));
+        // hrp::Vector3 d_footstep = (k1 * diff_cp + k2 * (diff_cp - pre_diff_cp)/dt) / f_gain;
+        double alpha = -2.006, beta = -4e-5, omega = sqrt(9.80665/0.747255);
+        hrp::Vector3 d_footstep = ((alpha*beta)/(omega*dt*dt) * diff_cp + (alpha+beta+2+omega*dt)/(omega*dt) * (diff_cp - pre_diff_cp)/dt) / f_gain;
 
         // stride limit check
         hrp::Vector3 foot_pos(get_dst_foot_midcoords().pos);
@@ -621,6 +623,10 @@ namespace rats
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
+
+        if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1) {
+          std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
+        }
       }
     }
     pre_diff_cp = diff_cp;
