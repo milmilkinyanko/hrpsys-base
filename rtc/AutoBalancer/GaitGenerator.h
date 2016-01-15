@@ -881,6 +881,7 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved;
     hrp::Vector3 pre_diff_cp;
+    double f_gain;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
