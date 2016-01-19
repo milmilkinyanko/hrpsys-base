@@ -2034,7 +2034,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
     nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j);
     denom(j) = mass * gg->get_gravitational_acceleration();
     for (size_t i = 0; i < sensor_names.size(); i++) {
-      if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
+      // if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
           hrp::Link* parentlink;
           hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_names[i]);
           if (sensor) parentlink = sensor->link;
@@ -2046,7 +2046,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                   denom(j) -= tmp_forces[i](2);
               }
           }
-      }
+      // }
     }
     sb_point(j) = nume(j) / denom(j);
   }
