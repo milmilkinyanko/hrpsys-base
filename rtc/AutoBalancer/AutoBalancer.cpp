@@ -58,6 +58,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_accRefOut("accRef", m_accRef),
       m_contactStatesOut("contactStates", m_contactStates),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
+      m_controlSwingSupportTimeRatioOut("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatio),
       m_cogOut("cogOut", m_cog),
       m_AutoBalancerServicePort("AutoBalancerService"),
       m_walkingStatesOut("walkingStates", m_walkingStates),
@@ -101,6 +102,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("accRef", m_accRefOut);
     addOutPort("contactStates", m_contactStatesOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
+    addOutPort("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatioOut);
     addOutPort("cogOut", m_cogOut);
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
@@ -211,6 +213,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
       m_controlSwingSupportTime.data.length(num);
       for (size_t i = 0; i < num; i++) m_controlSwingSupportTime.data[i] = 0.0;
     }
+    m_controlSwingSupportTimeRatio.data = 0.0;
     std::vector<hrp::Vector3> leg_pos;
     if (leg_offset_str.size() > 0) {
       hrp::Vector3 leg_offset;
@@ -562,6 +565,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_contactStatesOut.write();
     m_controlSwingSupportTime.tm = m_qRef.tm;
     m_controlSwingSupportTimeOut.write();
+    m_controlSwingSupportTimeRatio.tm = m_qRef.tm;
+    m_controlSwingSupportTimeRatioOut.write();
     m_walkingStates.data = gg_is_walking;
     m_walkingStates.tm = m_qRef.tm;
     m_walkingStatesOut.write();
@@ -678,6 +683,7 @@ void AutoBalancer::getTargetParameters()
               std::map<leg_type, std::string>::const_iterator dst = std::find_if(leg_type_map.begin(), leg_type_map.end(), (&boost::lambda::_1->* &std::map<leg_type, std::string>::value_type::second == it->first));
               m_controlSwingSupportTime.data[contact_states_index_map[it->first]] = gg->get_current_swing_time(dst->first);
           }
+          m_controlSwingSupportTimeRatio.data = gg->get_current_swing_time_ratio();
       }
       // set ref_forces
       {

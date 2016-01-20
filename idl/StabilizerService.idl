@@ -206,6 +206,10 @@ module OpenHRP
       boolean is_estop_while_walking;
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
+      /// whether set ref_moment base on walking on ground
+      boolean set_ref_moment_on_grond;
+      /// whether set ref_moment base on walking under water
+      boolean set_ref_moment_under_water;
     };
 
     /**

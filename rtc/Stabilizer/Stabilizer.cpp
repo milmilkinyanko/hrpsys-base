@@ -51,6 +51,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_baseRpyIn("baseRpyIn", m_baseRpy),
     m_contactStatesIn("contactStates", m_contactStates),
     m_controlSwingSupportTimeIn("controlSwingSupportTime", m_controlSwingSupportTime),
+    m_controlSwingSupportTimeRatioIn("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatio),
     m_qRefSeqIn("qRefSeq", m_qRefSeq),
     m_walkingStatesIn("walkingStates", m_walkingStates),
     m_sbpCogOffsetIn("sbpCogOffset", m_sbpCogOffset),
@@ -110,6 +111,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addInPort("baseRpyIn", m_baseRpyIn);
   addInPort("contactStates", m_contactStatesIn);
   addInPort("controlSwingSupportTime", m_controlSwingSupportTimeIn);
+  addInPort("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatioIn);
   addInPort("qRefSeq", m_qRefSeqIn);
   addInPort("walkingStates", m_walkingStatesIn);
   addInPort("sbpCogOffset", m_sbpCogOffsetIn);
@@ -332,6 +334,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   initial_cp_too_large_error = true;
   is_walking = false;
   is_estop_while_walking = false;
+  set_ref_moment_on_grond = false;
+  set_ref_moment_under_water = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
 
   // parameters for RUNST
@@ -487,6 +491,9 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
   }
   if (m_controlSwingSupportTimeIn.isNew()){
     m_controlSwingSupportTimeIn.read();
+  }
+  if (m_controlSwingSupportTimeRatioIn.isNew()) {
+    m_controlSwingSupportTimeRatioIn.read();
   }
   for (size_t i = 0; i < m_wrenchesIn.size(); ++i) {
     if ( m_wrenchesIn[i]->isNew() ) {
@@ -869,6 +876,25 @@ void Stabilizer::getActualParameters ()
         // Actual world frame =>
         hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
         hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
+        if (contact_states[i] && (!(contact_states[contact_states_index_map["rleg"]] && contact_states[contact_states_index_map["lleg"]]))) {
+          static hrp::Vector3 sensor_moment_sum, sensor_moment_on_ground;
+          static int time_count;
+          if (m_controlSwingSupportTimeRatio.data < 0.8 && m_controlSwingSupportTimeRatio.data > 0.2) {
+            sensor_moment_sum += sensor_moment;
+            time_count++;
+          } else if (m_controlSwingSupportTimeRatio.data == 0.2) {
+            if (set_ref_moment_on_grond) {
+              sensor_moment_on_ground = sensor_moment_sum/time_count;
+              set_ref_moment_on_grond = false;
+            }
+            if (set_ref_moment_under_water) {
+              std::cerr << sensor_moment_on_ground - sensor_moment_sum/time_count << std::endl;
+              set_ref_moment_under_water = false;
+            }
+            sensor_moment_sum = hrp::Vector3(0.0,0.0,0.0);
+            time_count = 0;
+          }
+        }
         //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
         hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
         // <= Actual world frame
@@ -1693,6 +1719,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   }
   i_stp.contact_decision_threshold = contact_decision_threshold;
   i_stp.is_estop_while_walking = is_estop_while_walking;
+  i_stp.set_ref_moment_on_grond = set_ref_moment_on_grond;
+  i_stp.set_ref_moment_under_water = set_ref_moment_under_water;
   switch(control_mode) {
   case MODE_IDLE: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_IDLE; break;
   case MODE_AIR: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_AIR; break;
@@ -1861,6 +1889,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   }
   contact_decision_threshold = i_stp.contact_decision_threshold;
   is_estop_while_walking = i_stp.is_estop_while_walking;
+  set_ref_moment_on_grond = i_stp.set_ref_moment_on_grond;
+  set_ref_moment_under_water = i_stp.set_ref_moment_under_water;
   if (control_mode == MODE_IDLE) {
       for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
           std::vector<STIKParam>::iterator it = std::find_if(stikp.begin(), stikp.end(), (&boost::lambda::_1->* &std::vector<STIKParam>::value_type::ee_name == std::string(i_stp.end_effector_list[i].leg)));

@@ -372,6 +372,7 @@ class HrpsysConfigurator:
             connectPorts(self.abc.port("accRef"), self.kf.port("accRef"))
             connectPorts(self.abc.port("contactStates"), self.st.port("contactStates"))
             connectPorts(self.abc.port("controlSwingSupportTime"), self.st.port("controlSwingSupportTime"))
+            connectPorts(self.abc.port("controlSwingSupportTimeRatio"), self.st.port("controlSwingSupportTimeRatio"))
             connectPorts(self.rh.port("q"), self.st.port("qCurrent"))
             connectPorts(self.seq.port("qRef"), self.st.port("qRefSeq"))
             connectPorts(self.abc.port("walkingStates"), self.st.port("walkingStates"))

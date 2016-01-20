@@ -154,6 +154,8 @@ class AutoBalancer
   OutPort<TimedBooleanSeq> m_contactStatesOut;
   TimedDoubleSeq m_controlSwingSupportTime;
   OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
+  TimedDouble m_controlSwingSupportTimeRatio;
+  OutPort<TimedDouble> m_controlSwingSupportTimeRatioOut;
   TimedBoolean m_walkingStates;
   OutPort<TimedBoolean> m_walkingStatesOut;
   TimedPoint3D m_sbpCogOffset;
