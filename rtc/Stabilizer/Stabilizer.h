@@ -158,6 +158,7 @@ class Stabilizer
   RTC::TimedOrientation3D m_baseRpy;
   RTC::TimedBooleanSeq m_contactStates;
   RTC::TimedDoubleSeq m_controlSwingSupportTime;
+  RTC::TimedDouble m_controlSwingSupportTimeRatio;
   std::vector<RTC::TimedPoint3D> m_limbCOPOffset;
   RTC::TimedBooleanSeq m_actContactStates;
   RTC::TimedDoubleSeq m_COPInfo;
@@ -185,6 +186,7 @@ class Stabilizer
   RTC::InPort<RTC::TimedOrientation3D> m_baseRpyIn;
   RTC::InPort<RTC::TimedBooleanSeq> m_contactStatesIn;
   RTC::InPort<RTC::TimedDoubleSeq> m_controlSwingSupportTimeIn;
+  RTC::InPort<RTC::TimedDouble> m_controlSwingSupportTimeRatioIn;
   std::vector<RTC::InPort<RTC::TimedPoint3D> *> m_limbCOPOffsetIn;
   RTC::InPort<RTC::TimedDoubleSeq> m_qRefSeqIn;
   RTC::InPort<RTC::TimedBoolean> m_walkingStatesIn;
@@ -269,9 +271,9 @@ class Stabilizer
   double dt;
   int transition_count, loop;
   bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, initial_cp_too_large_error;
-  bool is_walking, is_estop_while_walking;
+  bool is_walking, is_estop_while_walking, set_ref_moment_on_grond, set_ref_moment_under_water;
   hrp::Vector3 current_root_p, target_root_p, ref_foot_origin_pos;
-  hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;;
+  hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;
   std::vector <hrp::Vector3> target_ee_p, target_ee_diff_p, target_ee_diff_r, prev_target_ee_diff_r, rel_ee_pos, d_pos_swing, d_rpy_swing, act_ee_p, projected_normal, act_force;
   std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R;
   std::vector<std::string> rel_ee_name;
