@@ -58,6 +58,7 @@ namespace rats
     Eigen::Matrix<double, 3, 2> x_k;
     Eigen::Matrix<double, 1, 2> u_k;
     hrp::dvector f;
+    hrp::dvector* tmp_f;
     std::deque<Eigen::Matrix<double, 2, 1> > p;
     std::deque<double> pz;
     std::deque< std::vector<hrp::Vector3> > qdata;
@@ -69,6 +70,16 @@ namespace rats
     void init_riccati(const Eigen::Matrix<double, dim, dim>& A,
                       const Eigen::Matrix<double, dim, 1>& b,
                       const Eigen::Matrix<double, 1, dim>& c,
+                      const double q = 1.0, const double r = 1.0e-6)
+    {
+      riccati = riccati_equation<dim>(A, b, c, q, r);
+      riccati.solve();
+      calc_f();
+    };
+    void init_riccati(const Eigen::Matrix<double, dim, dim>& A,
+                      const Eigen::Matrix<double, dim, 1>& b,
+                      const Eigen::Matrix<double, 1, dim>& c,
+                      hrp::dvector& preview_f,
                       const double q = 1.0, const double r = 1.0e-6)
     {
       riccati = riccati_equation<dim>(A, b, c, q, r);
@@ -94,6 +105,22 @@ namespace rats
       tcc << 1.0, 0.0, -zc / _gravitational_acceleration;
       x_k(0,0) = init_xk(0);
       x_k(0,1) = init_xk(1);
+    };
+    preview_control_base(const double dt, const double zc,
+                         const hrp::Vector3& init_xk, hrp::dvector& preview_f, const double _gravitational_acceleration, const double d = 1.6)
+      : riccati(), x_k(Eigen::Matrix<double, 3, 2>::Zero()), u_k(Eigen::Matrix<double, 1, 2>::Zero()), p(), pz(), qdata(),
+        zmp_z(0), cog_z(zc), delay(static_cast<size_t>(round(d / dt))), ending_count(1+delay)
+    {
+      tcA << 1, dt, 0.5 * dt * dt,
+        0, 1,  dt,
+        0, 0,  1;
+      tcb << 1 / 6.0 * dt * dt * dt,
+        0.5 * dt * dt,
+        dt;
+      tcc << 1.0, 0.0, -zc / _gravitational_acceleration;
+      x_k(0,0) = init_xk(0);
+      x_k(0,1) = init_xk(1);
+      tmp_f = &preview_f;
     };
     virtual ~preview_control_base()
     {
@@ -223,6 +250,29 @@ namespace rats
       x_k_e(0,1) = init_xk(1);
       init_riccati(A, b, c, q, r);
     };
+    extended_preview_control(const double dt, const double zc,
+                             const hrp::Vector3& init_xk, hrp::dvector& preview_f, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0,
+                             const double r = 1.0e-6, const double d = 1.6)
+      : preview_control_base<4>(dt, zc, init_xk, preview_f, _gravitational_acceleration, d), x_k_e(Eigen::Matrix<double, 4, 2>::Zero())
+    {
+      Eigen::Matrix<double, 4, 4> A;
+      Eigen::Matrix<double, 4, 1> b;
+      Eigen::Matrix<double, 1, 4> c;
+      Eigen::Matrix<double, 1, 3> tmpca(tcc * tcA);
+      Eigen::Matrix<double, 1, 1> tmpcb(tcc * tcb);
+      A << 1.0, tmpca(0,0), tmpca(0,1), tmpca(0,2),
+        0.0, tcA(0,0), tcA(0,1), tcA(0,2),
+        0.0, tcA(1,0), tcA(1,1), tcA(1,2),
+        0.0, tcA(2,0), tcA(2,1), tcA(2,2);
+      b << tmpcb(0,0),
+        tcb(0,0),
+        tcb(1,0),
+        tcb(2,0);
+      c << 1,0,0,0;
+      x_k_e(0,0) = init_xk(0);
+      x_k_e(0,1) = init_xk(1);
+      init_riccati(A, b, c, preview_f, q, r);
+    };
     virtual ~extended_preview_control() {};
   };
 
@@ -235,6 +285,8 @@ namespace rats
     preview_dynamics_filter() {};
     preview_dynamics_filter(const double dt, const double zc, const hrp::Vector3& init_xk, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0, const double r = 1.0e-6, const double d = 1.6)
         : preview_controller(dt, zc, init_xk, _gravitational_acceleration, q, r, d), finishedp(false) {};
+    preview_dynamics_filter(const double dt, const double zc, const hrp::Vector3& init_xk, hrp::dvector& preview_f, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0, const double r = 1.0e-6, const double d = 1.6)
+      : preview_controller(dt, zc, init_xk, preview_f, _gravitational_acceleration, q, r, d), finishedp(false) {};
     ~preview_dynamics_filter() {};
     bool update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, std::vector<hrp::Vector3>& qdata_ret, const hrp::Vector3& pr, const std::vector<hrp::Vector3>& qdata, const bool updatep)
     {

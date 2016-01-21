@@ -69,6 +69,7 @@ void extended_preview_control::calc_f()
     gsi = riccati.A_minus_bKt * gsi;
     f(i+1) = fa(0,0);
   }
+  *tmp_f= f;
 }
 
 void extended_preview_control::calc_u()
