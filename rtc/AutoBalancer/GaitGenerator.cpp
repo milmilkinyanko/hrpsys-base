@@ -579,7 +579,7 @@ namespace rats
       }
     }
     // overwrite based on diff_cp
-    if (preview_f.size() != 0) {
+    if (overwrite_footstep_based_on_cp && preview_f.size() != 0) {
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
             && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1) {
@@ -593,30 +593,30 @@ namespace rats
             // std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
           }
           preview_f_sum += preview_f(preview_f.size()-lcg.get_lcg_count());
-          double k1 = 5;
-          hrp::Vector3 d_footstep = k1 * diff_cp / preview_f_sum;
+          hrp::Vector3 d_footstep = overwrite_footstep_gain * diff_cp / preview_f_sum;
+          // std::cerr << "preview_f_sum : " << preview_f_sum << std::endl;
           // stride limit check
           hrp::Vector3 foot_pos(get_dst_foot_midcoords().pos);
           hrp::Matrix33 foot_rot(get_dst_foot_midcoords().rot);
-          const double stride_limit[4] = {0.35, 0.35, 0.3, 0.15}; // front, rear, outside, inside [m]
           leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
-          hrp::Vector3 current_footstep_pos(foot_rot.transpose()*((footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos+d_footstep)-foot_pos));
+          hrp::Vector3 current_footstep_pos(foot_rot.transpose()*(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos-foot_pos));
+          hrp::Vector3 new_current_footstep_pos(foot_rot.transpose()*((footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos+d_footstep)-foot_pos));
           hrp::Vector3 pre_footstep_pos(foot_rot.transpose()*(footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos-foot_pos));
-          if (current_footstep_pos(0)-pre_footstep_pos(0) >= stride_limit[0]) {
-            std::cerr << "front too error" << std::endl;
-            d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(stride_limit[0],d_footstep(1),0.0) - current_footstep_pos);
+          if (new_current_footstep_pos(0)-pre_footstep_pos(0) >= overwritable_stride_limit[0]) {
+            // std::cerr << "front too error" << std::endl;
+            d_footstep = foot_rot * hrp::Vector3(pre_footstep_pos(0)+overwritable_stride_limit[0]-current_footstep_pos(0),(foot_rot.transpose()*d_footstep)(1),(foot_rot.transpose()*d_footstep)(2));
           }
-          if (current_footstep_pos(0)-pre_footstep_pos(0) <= -1 * stride_limit[1]) {
-            std::cerr << "rear too error" << std::endl;
-            d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(-1*stride_limit[1],d_footstep(1),0.0) - current_footstep_pos);
+          if (new_current_footstep_pos(0)-pre_footstep_pos(0) <= -1 * overwritable_stride_limit[1]) {
+            // std::cerr << "rear too error" << std::endl;
+            d_footstep = foot_rot * hrp::Vector3(pre_footstep_pos(0)-overwritable_stride_limit[1]-current_footstep_pos(0),(foot_rot.transpose()*d_footstep)(1),(foot_rot.transpose()*d_footstep)(2));
           }
-          if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) >= stride_limit[2]) {
-            std::cerr << "outside too error" << std::endl;
-            d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(d_footstep(0),(cur_leg==LLEG?1:-1)*stride_limit[2],0.0) - current_footstep_pos);
+          if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) >= overwritable_stride_limit[2]) {
+            // std::cerr << "outside too error" << std::endl;
+            d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[2]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
           }
-          if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) <= stride_limit[3]) {
-            std::cerr << "inside too error" << std::endl;
-            d_footstep = foot_rot * (pre_footstep_pos + hrp::Vector3(d_footstep(0),(cur_leg==LLEG?1:-1)*stride_limit[3],0.0) - current_footstep_pos);
+          if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) <= overwritable_stride_limit[3]) {
+            // std::cerr << "inside too error" << std::endl;
+            d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[3]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
           }
           // overwrite footstep
           for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
