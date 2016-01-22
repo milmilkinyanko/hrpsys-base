@@ -139,6 +139,8 @@ class AutoBalancer
   InPort<TimedPoint3D> m_absRefCPIn;
   TimedBooleanSeq m_actContactStates;
   InPort<TimedBooleanSeq> m_actContactStatesIn;
+  TimedPoint3D m_refMomentUnderWater;
+  InPort<TimedPoint3D> m_refMomentUnderWaterIn;
   // for debug
   TimedPoint3D m_cog;
   
@@ -217,7 +219,7 @@ class AutoBalancer
   void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
   // static balance point offsetting
   void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);
-  void calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces);
+  void calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces, hrp::Vector3& tmp_moments);
   hrp::Vector3 calc_vel_from_hand_error (const rats::coordinates& tmp_fix_coords);
   bool isOptionalDataContact (const std::string& ee_name)
   {
@@ -269,6 +271,7 @@ class AutoBalancer
   double pos_ik_thre, rot_ik_thre;
   hrp::Vector3 diff_cp;
   std::vector<bool> act_contact_states;
+  hrp::Vector3 ref_moment_under_water;
 };
 
 

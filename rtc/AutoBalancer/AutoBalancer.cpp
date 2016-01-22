@@ -52,6 +52,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_absActCPIn("absActCapturePoint", m_absActCP),
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
       m_actContactStatesIn("actContactStates", m_actContactStates),
+      m_refMomentUnderWaterIn("refMomentUnderWater", m_refMomentUnderWater),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -97,6 +98,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("absActCapturePoint", m_absActCPIn);
     addInPort("absRefCapturePoint", m_absRefCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
+    addInPort("refMomentUnderWater", m_refMomentUnderWaterIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -349,6 +351,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
+    ref_moment_under_water = hrp::Vector3::Zero();
 
     return RTC::RTC_OK;
 }
@@ -465,6 +468,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         //     is_stop_mode = true;
         //     gg->emergency_stop();
         // }
+    }
+    if (m_refMomentUnderWaterIn.isNew()){
+      m_refMomentUnderWaterIn.read();
+      ref_moment_under_water(0) = m_refMomentUnderWater.data.x;
+      ref_moment_under_water(1) = m_refMomentUnderWater.data.y;
+      ref_moment_under_water(2) = m_refMomentUnderWater.data.z;
     }
 
     Guard guard(m_mutex);
@@ -1940,7 +1949,7 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   hrp::Vector3 tmpcog = m_robot->calcCM();
   switch ( use_force ) {
   case MODE_REF_FORCE:
-    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces);
+    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces, ref_moment_under_water);
     tmp_input_sbp = target_sbp - sbp_offset;
     sbp_cog_offset = tmp_input_sbp - tmpcog;
     break;
@@ -1951,13 +1960,13 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   }
 };
 
-void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces)
+void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces, hrp::Vector3& tmp_moments)
 {
   hrp::Vector3 denom, nume;
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
   double mass = m_robot->totalMass();
   for (size_t j = 0; j < 2; j++) {
-    nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j);
+    nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j) + tmp_moments(j==0 ? 1 : 0);
     denom(j) = mass * gg->get_gravitational_acceleration();
     for (size_t i = 0; i < sensor_names.size(); i++) {
       // if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
