@@ -10,6 +10,7 @@ module OpenHRP
   {
     typedef sequence<double, 3> DblSequence3;
     //typedef sequence<double, 4> DblSequence4;
+    typedef double DblArray2[2];
     typedef double DblArray3[3];
     typedef double DblArray4[4];
 
@@ -221,8 +222,8 @@ module OpenHRP
       long optional_go_pos_finalize_footstep_num;
       /// Offset for overwritable footstep index. Offset from current footstep index. Used in emergency_stop and velocity_mode.
       long overwritable_footstep_index_offset;
-      /// Feedback gain when overwriting footstep based on diff_cp
-      double overwrite_footstep_gain;
+      /// Feedback gain when overwriting footstep based on diff_cp [k1, k2]
+      DblArray2 overwrite_footstep_gain;
       /// Stride limit when overwriting footstep based on diff_cp. [front, rear, outside, inside] [m]
       DblArray4 overwritable_stride_limit;
       /// Whether ovewrite footstep based on diff_cp
