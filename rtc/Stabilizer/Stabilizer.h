@@ -164,6 +164,7 @@ class Stabilizer
   RTC::TimedDoubleSeq m_qRefSeq;
   RTC::TimedBoolean m_walkingStates;
   RTC::TimedPoint3D m_sbpCogOffset;
+  RTC::TimedPoint3D m_refMomentUnderWater;
   // for debug ouput
   RTC::TimedPoint3D m_originRefZmp, m_originRefCog, m_originRefCogVel, m_originNewZmp;
   RTC::TimedPoint3D m_originActZmp, m_originActCog, m_originActCogVel;
@@ -207,6 +208,7 @@ class Stabilizer
   RTC::OutPort<RTC::TimedBooleanSeq> m_actContactStatesOut;
   RTC::OutPort<RTC::TimedDoubleSeq> m_COPInfoOut;
   RTC::OutPort<RTC::TimedLong> m_emergencySignalOut;
+  RTC::OutPort<RTC::TimedPoint3D> m_refMomentUnderWaterOut;
   // for debug output
   RTC::OutPort<RTC::TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   RTC::OutPort<RTC::TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
@@ -267,7 +269,8 @@ class Stabilizer
   double dt;
   int transition_count, loop;
   bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, initial_cp_too_large_error;
-  bool is_walking, is_estop_while_walking, set_ref_moment_on_grond, set_ref_moment_under_water;
+  bool is_walking, is_estop_while_walking, set_ref_moment_on_ground, set_ref_moment_under_water;
+  hrp::Vector3 ref_moment_under_water;
   hrp::Vector3 current_root_p, target_root_p;
   hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot;
   std::vector <hrp::Vector3> target_ee_p, target_ee_diff_p, target_ee_diff_r, prev_target_ee_diff_r, rel_ee_pos, d_pos_swing, d_rpy_swing, act_ee_p, projected_normal, act_force;

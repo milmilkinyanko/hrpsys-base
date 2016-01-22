@@ -207,9 +207,11 @@ module OpenHRP
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
       /// whether set ref_moment base on walking on ground
-      boolean set_ref_moment_on_grond;
+      boolean set_ref_moment_on_ground;
       /// whether set ref_moment base on walking under water
       boolean set_ref_moment_under_water;
+      /// ref_moment base on walking under water
+      DblArray2 ref_moment_under_water;
     };
 
     /**

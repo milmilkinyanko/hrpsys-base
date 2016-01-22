@@ -63,6 +63,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_actContactStatesOut("actContactStates", m_actContactStates),
     m_COPInfoOut("COPInfo", m_COPInfo),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
+    m_refMomentUnderWaterOut("refMomentUnderWater", m_refMomentUnderWater),
     // for debug output
     m_originRefZmpOut("originRefZmp", m_originRefZmp),
     m_originRefCogOut("originRefCog", m_originRefCog),
@@ -125,6 +126,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("actContactStates", m_actContactStatesOut);
   addOutPort("COPInfo", m_COPInfoOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
+  addOutPort("refMomentUnderWater", m_refMomentUnderWaterOut);
   // for debug output
   addOutPort("originRefZmp", m_originRefZmpOut);
   addOutPort("originRefCog", m_originRefCogOut);
@@ -334,9 +336,10 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   initial_cp_too_large_error = true;
   is_walking = false;
   is_estop_while_walking = false;
-  set_ref_moment_on_grond = false;
+  set_ref_moment_on_ground = false;
   set_ref_moment_under_water = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
+  ref_moment_under_water = hrp::Vector3(0.0, 0.0, 0.0);
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -607,6 +610,11 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_originActCogOut.write();
       m_originActCogVel.tm = m_qRef.tm;
       m_originActCogVelOut.write();
+      m_refMomentUnderWater.data.x = ref_moment_under_water(0);
+      m_refMomentUnderWater.data.y = ref_moment_under_water(1);
+      m_refMomentUnderWater.data.z = ref_moment_under_water(2);
+      m_refMomentUnderWater.tm = m_qRef.tm;
+      m_refMomentUnderWaterOut.write();
       for (size_t i = 0; i < stikp.size(); i++) {
           for (size_t j = 0; j < 3; j++) {
               m_allRefWrench.data[6*i+j] = stikp[i].ref_force(j);
@@ -876,27 +884,40 @@ void Stabilizer::getActualParameters ()
         // Actual world frame =>
         hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
         hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
-        if (contact_states[i] && (!(contact_states[contact_states_index_map["rleg"]] && contact_states[contact_states_index_map["lleg"]]))) {
-          static hrp::Vector3 sensor_moment_sum, sensor_moment_on_ground;
-          static int time_count;
-          if (m_controlSwingSupportTimeRatio.data < 0.8 && m_controlSwingSupportTimeRatio.data > 0.2) {
-            sensor_moment_sum += sensor_moment;
-            time_count++;
-          } else if (m_controlSwingSupportTimeRatio.data == 0.2) {
-            if (set_ref_moment_on_grond) {
-              sensor_moment_on_ground = sensor_moment_sum/time_count;
-              set_ref_moment_on_grond = false;
-            }
-            if (set_ref_moment_under_water) {
-              std::cerr << sensor_moment_on_ground - sensor_moment_sum/time_count << std::endl;
-              set_ref_moment_under_water = false;
-            }
-            sensor_moment_sum = hrp::Vector3(0.0,0.0,0.0);
-            time_count = 0;
-          }
-        }
         //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
         hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        {
+          static hrp::Vector3 ee_moment_sum, ee_moment_on_ground, tmp_ref_moment_under_water;
+          static int time_count;
+          static double moment_transition_smooth_gain;
+          if (contact_states[i] && (!(contact_states[contact_states_index_map["rleg"]] && contact_states[contact_states_index_map["lleg"]]))) {
+            if (m_controlSwingSupportTimeRatio.data < 0.8 && m_controlSwingSupportTimeRatio.data > 0.3) {
+              ee_moment_sum += ee_moment;
+              time_count++;
+            } else if (m_controlSwingSupportTimeRatio.data <= 0.3) {
+              if (set_ref_moment_on_ground) {
+                ee_moment_on_ground = ee_moment_sum/time_count;
+                set_ref_moment_on_ground = false;
+              }
+              if (set_ref_moment_under_water) {
+                tmp_ref_moment_under_water = ee_moment_on_ground - ee_moment_sum/time_count;
+                tmp_ref_moment_under_water(0) = 0.0;
+                set_ref_moment_under_water = false;
+                std::cerr << "ref_moment_under_water : " << tmp_ref_moment_under_water(0) << " , " << tmp_ref_moment_under_water(1) << std::endl;
+              }
+            }
+          }
+          if (i==0 && !set_ref_moment_on_ground && !set_ref_moment_under_water) {
+            if (fabs(ref_moment_under_water(1) - tmp_ref_moment_under_water(1)) < 1e-8) {
+              ee_moment_sum = hrp::Vector3(0.0,0.0,0.0);
+              time_count = 0;
+              moment_transition_smooth_gain = 0.0;
+            } else {
+              ref_moment_under_water = moment_transition_smooth_gain * tmp_ref_moment_under_water;
+              moment_transition_smooth_gain += 0.0004;
+            }
+          }
+        }
         // <= Actual world frame
         // Convert force & moment as foot origin coords relative
         ikp.ref_moment = foot_origin_rot.transpose() * ikp.ref_moment;
@@ -1624,6 +1645,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
     i_stp.eefm_body_attitude_control_gain[i] = eefm_body_attitude_control_gain[i];
     i_stp.ref_capture_point[i] = ref_cp(i);
     i_stp.act_capture_point[i] = act_cp(i);
+    i_stp.ref_moment_under_water[i] = ref_moment_under_water(i);
   }
   i_stp.eefm_pos_time_const_support.length(stikp.size());
   i_stp.eefm_pos_damping_gain.length(stikp.size());
@@ -1719,7 +1741,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   }
   i_stp.contact_decision_threshold = contact_decision_threshold;
   i_stp.is_estop_while_walking = is_estop_while_walking;
-  i_stp.set_ref_moment_on_grond = set_ref_moment_on_grond;
+  i_stp.set_ref_moment_on_ground = set_ref_moment_on_ground;
   i_stp.set_ref_moment_under_water = set_ref_moment_under_water;
   switch(control_mode) {
   case MODE_IDLE: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_IDLE; break;
@@ -1806,6 +1828,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
     eefm_body_attitude_control_time_const[i] = i_stp.eefm_body_attitude_control_time_const[i];
     ref_cp(i) = i_stp.ref_capture_point[i];
     act_cp(i) = i_stp.act_capture_point[i];
+    ref_moment_under_water(i) = i_stp.ref_moment_under_water[i];
   }
   bool is_damping_parameter_ok = true;
   if ( i_stp.eefm_pos_damping_gain.length () == stikp.size() &&
@@ -1889,7 +1912,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   }
   contact_decision_threshold = i_stp.contact_decision_threshold;
   is_estop_while_walking = i_stp.is_estop_while_walking;
-  set_ref_moment_on_grond = i_stp.set_ref_moment_on_grond;
+  set_ref_moment_on_ground = i_stp.set_ref_moment_on_ground;
   set_ref_moment_under_water = i_stp.set_ref_moment_under_water;
   if (control_mode == MODE_IDLE) {
       for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
