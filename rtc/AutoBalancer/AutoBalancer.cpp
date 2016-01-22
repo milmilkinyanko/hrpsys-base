@@ -1496,7 +1496,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.zmp_weight_map[3] = tmp_zmp_weight_map[LARM];
   i_param.optional_go_pos_finalize_footstep_num = gg->get_optional_go_pos_finalize_footstep_num();
   i_param.overwritable_footstep_index_offset = gg->get_overwritable_footstep_index_offset();
-  i_param.overwrite_footstep_gain = gg->get_overwrite_footstep_gain();
+  for (size_t i=0; i<2; i++) {
+  i_param.overwrite_footstep_gain[i] = gg->get_overwrite_footstep_gain(i);
+  }
   for (size_t i=0; i<4; i++) {
     i_param.overwritable_stride_limit[i] = gg->get_overwritable_stride_limit(i);
   }

@@ -580,20 +580,22 @@ namespace rats
     }
     // overwrite based on diff_cp
     if (overwrite_footstep_based_on_cp && preview_f.size() != 0) {
+      static hrp::Vector3 prev_diff_cp;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
-            && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1) {
+            && lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.3) - 1) {
           static double preview_f_sum;
           if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
             preview_f_sum = 0.0;
             for (size_t i=preview_f.size()-1; i>=lcg.get_lcg_count()+1; i--) {
               preview_f_sum += preview_f(i);
             }
-          } else if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1) {
+          } else if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.3) - 1) {
             // std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
           }
           preview_f_sum += preview_f(preview_f.size()-lcg.get_lcg_count());
-          hrp::Vector3 d_footstep = overwrite_footstep_gain * diff_cp / preview_f_sum;
+          hrp::Vector3 d_footstep = (overwrite_footstep_gain[0] * diff_cp + overwrite_footstep_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
+          d_footstep(2) = 0.0;
           // std::cerr << "preview_f_sum : " << preview_f_sum << std::endl;
           // stride limit check
           hrp::Vector3 foot_pos(get_dst_foot_midcoords().pos);
@@ -629,6 +631,7 @@ namespace rats
           overwrite_footstep_nodes_list.clear();
         }
       }
+      prev_diff_cp = diff_cp;
     }
 
     if ( !solved ) {
