@@ -579,7 +579,7 @@ namespace rats
       }
     }
     // overwrite based on diff_cp
-    if (overwrite_footstep_based_on_cp && preview_f.size() != 0) {
+    if (overwrite_footstep_based_on_cp && preview_f.size() != 0 && isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       static hrp::Vector3 prev_diff_cp;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1
