@@ -51,6 +51,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
       m_absActCPIn("absActCapturePoint", m_absActCP),
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
+      m_actContactStatesIn("actContactStates", m_actContactStates),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -94,6 +95,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("emergencySignal", m_emergencySignalIn);
     addInPort("absActCapturePoint", m_absActCPIn);
     addInPort("absRefCapturePoint", m_absRefCPIn);
+    addInPort("actContactStates", m_actContactStatesIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -343,6 +345,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     rot_ik_thre = (1e-2)*M_PI/180.0; // [rad]
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
+    act_contact_states.resize(2, false);
 
     return RTC::RTC_OK;
 }
@@ -423,6 +426,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       diff_cp(0) = m_absActCP.data.x - m_absRefCP.data.x;
       diff_cp(1) = m_absActCP.data.y - m_absRefCP.data.y;
       diff_cp(2) = m_absActCP.data.z - m_absRefCP.data.z;
+    }
+    if (m_actContactStatesIn.isNew()) {
+      m_actContactStatesIn.read();
+      for (size_t i=0; i<2; i++) {
+        act_contact_states[i] = m_actContactStates.data[i];
+      }
     }
     for (unsigned int i=0; i<m_ref_forceIn.size(); i++){
         if ( m_ref_forceIn[i]->isNew() ) {
@@ -637,7 +646,7 @@ void AutoBalancer::getTargetParameters()
     }
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
-      gg_solved = gg->proc_one_tick(diff_cp);
+      gg_solved = gg->proc_one_tick(diff_cp, act_contact_states);
       {
           std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
           coordinates tmpc;
@@ -1096,7 +1105,7 @@ void AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(diff_cp) );
+  while ( !gg->proc_one_tick(diff_cp, act_contact_states) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
