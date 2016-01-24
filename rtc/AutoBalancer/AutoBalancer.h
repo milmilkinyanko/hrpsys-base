@@ -137,6 +137,8 @@ class AutoBalancer
   InPort<TimedPoint3D> m_absActCPIn;
   TimedPoint3D m_absRefCP;
   InPort<TimedPoint3D> m_absRefCPIn;
+  TimedBooleanSeq m_actContactStates;
+  InPort<TimedBooleanSeq> m_actContactStatesIn;
   // for debug
   TimedPoint3D m_cog;
   
@@ -264,6 +266,7 @@ class AutoBalancer
   rats::coordinates graspless_manip_reference_trans_coords;
   double pos_ik_thre, rot_ik_thre;
   hrp::Vector3 diff_cp;
+  std::vector<bool> act_contact_states;
 };
 
 

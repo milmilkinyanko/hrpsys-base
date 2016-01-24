@@ -947,7 +947,7 @@ namespace rats
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,
                                     const double delay = 1.6);
-    bool proc_one_tick (const hrp::Vector3& diff_cp = hrp::Vector3(0.0, 0.0, 0.0));
+    bool proc_one_tick (const hrp::Vector3& diff_cp = hrp::Vector3(0.0, 0.0, 0.0), const std::vector<bool>& contact_states = std::vector<bool>());
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
     {
         std::vector<step_node> tmp_sns;
