@@ -217,6 +217,14 @@ module OpenHRP
       sequence<IKLimbParameters> ik_limb_parameters;
       /// checking threthold while walking [s]
       double cp_check_time_thre;
+      /// whether set ref_moment base on walking on ground
+      boolean set_ref_moment_on_ground;
+      /// whether set ref_moment base on walking under water
+      boolean set_ref_moment_under_water;
+      /// ref_moment base on walking on ground
+      DblArray2 ref_moment_on_ground;
+      /// ref_moment base on walking under water
+      DblArray2 ref_moment_under_water;
     };
 
     /**
