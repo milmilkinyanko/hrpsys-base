@@ -352,6 +352,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
     ref_moment_under_water = hrp::Vector3::Zero();
+    diff_moment_between_ground_and_water = hrp::Vector3::Zero();
+    tmp_diff_moment_between_ground_and_water = hrp::Vector3::Zero();
 
     return RTC::RTC_OK;
 }
@@ -468,12 +470,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         //     is_stop_mode = true;
         //     gg->emergency_stop();
         // }
-    }
-    if (m_refMomentUnderWaterIn.isNew()){
-      m_refMomentUnderWaterIn.read();
-      ref_moment_under_water(0) = m_refMomentUnderWater.data.x;
-      ref_moment_under_water(1) = m_refMomentUnderWater.data.y;
-      ref_moment_under_water(2) = m_refMomentUnderWater.data.z;
     }
 
     Guard guard(m_mutex);
@@ -980,6 +976,16 @@ bool AutoBalancer::solveLimbIKforLimb (ABCIKparam& param)
 
 void AutoBalancer::solveLimbIK ()
 {
+  // water
+  {
+    const double moment_transition_smooth_gain = 0.0004;
+    static hrp::Vector3 current_moment;
+    if (fabs(diff_moment_between_ground_and_water(1) - tmp_diff_moment_between_ground_and_water(1)) < 1e-8) {
+      current_moment = diff_moment_between_ground_and_water;
+    } else {
+      diff_moment_between_ground_and_water += moment_transition_smooth_gain * (tmp_diff_moment_between_ground_and_water - current_moment);
+    }
+  }
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     if (it->second.is_active) {
       for ( int j = 0; j < it->second.manip->numJoints(); j++ ){
@@ -1718,6 +1724,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       }
       std::cerr << "]" << std::endl;
   }
+  for (size_t i = 0; i < 3; i++)
+    tmp_diff_moment_between_ground_and_water[i] = i_param.diff_moment_between_ground_and_water[i];
   return true;
 };
 
@@ -1796,6 +1804,8 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       ilp.reference_gain = param.reference_gain;
       ilp.manipulability_limit = param.manip->getManipulabilityLimit();
   }
+  for (size_t i = 0; i < 3; i++)
+      i_param.diff_moment_between_ground_and_water[i] = diff_moment_between_ground_and_water[i];
   return true;
 };
 
@@ -1949,9 +1959,10 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   hrp::Vector3 tmpcog = m_robot->calcCM();
   switch ( use_force ) {
   case MODE_REF_FORCE:
-    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces, ref_moment_under_water);
+    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces, diff_moment_between_ground_and_water);
     tmp_input_sbp = target_sbp - sbp_offset;
     sbp_cog_offset = tmp_input_sbp - tmpcog;
+    // std::cerr << sbp_cog_offset(0) << " , " << sbp_cog_offset(1) << std::endl;
     break;
   case MODE_NO_FORCE:
     tmp_input_sbp = tmpcog + sbp_cog_offset;

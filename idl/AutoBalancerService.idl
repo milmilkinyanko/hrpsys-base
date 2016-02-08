@@ -283,6 +283,8 @@ module OpenHRP
       GaitType default_gait_type;
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
+      /// difference of moment between ground and water
+      DblArray3 diff_moment_between_ground_and_water;
     };
 
     /**

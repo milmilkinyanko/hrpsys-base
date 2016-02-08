@@ -272,6 +272,7 @@ class AutoBalancer
   hrp::Vector3 diff_cp;
   std::vector<bool> act_contact_states;
   hrp::Vector3 ref_moment_under_water;
+  hrp::Vector3 diff_moment_between_ground_and_water, tmp_diff_moment_between_ground_and_water;
 };
 
 
