@@ -133,8 +133,7 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
-  TimedPoint3D m_refMomentUnderWater;
-  InPort<TimedPoint3D> m_refMomentUnderWaterIn;
+
   // for debug
   TimedPoint3D m_cog;
   
@@ -263,7 +262,7 @@ class AutoBalancer
   hrp::Vector3 graspless_manip_p_gain;
   rats::coordinates graspless_manip_reference_trans_coords;
   double pos_ik_thre, rot_ik_thre;
-  hrp::Vector3 ref_moment_under_water;
+  hrp::Vector3 diff_moment_between_ground_and_water, tmp_diff_moment_between_ground_and_water;
 };
 
 
