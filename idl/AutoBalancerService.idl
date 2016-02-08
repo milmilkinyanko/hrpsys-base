@@ -293,6 +293,8 @@ module OpenHRP
       DblArray2 max_ref_force;
       /// Increment of  ref-force [N] (increase, recover)
       DblArray2 inc_ref_force;
+      /// difference of moment between ground and water
+      DblArray3 diff_moment_between_ground_and_water;
     };
 
     /**

@@ -54,6 +54,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_absActCPIn("absActCapturePoint", m_absActCP),
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
       m_actContactStatesIn("actContactStates", m_actContactStates),
+      m_refMomentUnderWaterIn("refMomentUnderWater", m_refMomentUnderWater),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -63,6 +64,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_accRefOut("accRef", m_accRef),
       m_contactStatesOut("contactStates", m_contactStates),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
+      m_controlSwingSupportTimeRatioOut("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatio),
       m_cogOut("cogOut", m_cog),
       m_AutoBalancerServicePort("AutoBalancerService"),
       m_walkingStatesOut("walkingStates", m_walkingStates),
@@ -100,6 +102,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("absActCapturePoint", m_absActCPIn);
     addInPort("absRefCapturePoint", m_absRefCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
+    addInPort("refMomentUnderWater", m_refMomentUnderWaterIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -111,6 +114,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("accRef", m_accRefOut);
     addOutPort("contactStates", m_contactStatesOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
+    addOutPort("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatioOut);
     addOutPort("cogOut", m_cogOut);
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
@@ -221,6 +225,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
       m_controlSwingSupportTime.data.length(num);
       for (size_t i = 0; i < num; i++) m_controlSwingSupportTime.data[i] = 0.0;
     }
+    m_controlSwingSupportTimeRatio.data = 0.0;
     std::vector<hrp::Vector3> leg_pos;
     if (leg_offset_str.size() > 0) {
       hrp::Vector3 leg_offset;
@@ -361,6 +366,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     }
     inc_ref_force[0] = 0.02;
     inc_ref_force[1] = 0.04;
+    ref_moment_under_water = hrp::Vector3::Zero();
+    diff_moment_between_ground_and_water = hrp::Vector3::Zero();
+    tmp_diff_moment_between_ground_and_water = hrp::Vector3::Zero();
+
     return RTC::RTC_OK;
 }
 
@@ -491,6 +500,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         is_emergency_for_ref_force[i] = m_emergencySignalForRefForce.data[i];
       }
     }
+    if (m_refMomentUnderWaterIn.isNew()){
+      m_refMomentUnderWaterIn.read();
+      ref_moment_under_water(0) = m_refMomentUnderWater.data.x;
+      ref_moment_under_water(1) = m_refMomentUnderWater.data.y;
+      ref_moment_under_water(2) = m_refMomentUnderWater.data.z;
+    }
 
     Guard guard(m_mutex);
     hrp::Vector3 ref_basePos;
@@ -611,6 +626,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_contactStatesOut.write();
     m_controlSwingSupportTime.tm = m_qRef.tm;
     m_controlSwingSupportTimeOut.write();
+    m_controlSwingSupportTimeRatio.tm = m_qRef.tm;
+    m_controlSwingSupportTimeRatioOut.write();
     m_walkingStates.data = gg_is_walking;
     m_walkingStates.tm = m_qRef.tm;
     m_walkingStatesOut.write();
@@ -727,6 +744,7 @@ void AutoBalancer::getTargetParameters()
               std::map<leg_type, std::string>::const_iterator dst = std::find_if(leg_type_map.begin(), leg_type_map.end(), (&boost::lambda::_1->* &std::map<leg_type, std::string>::value_type::second == it->first));
               m_controlSwingSupportTime.data[contact_states_index_map[it->first]] = gg->get_current_swing_time(dst->first);
           }
+          m_controlSwingSupportTimeRatio.data = gg->get_current_swing_time_ratio();
       }
       // set ref_forces
       {
@@ -1022,6 +1040,16 @@ bool AutoBalancer::solveLimbIKforLimb (ABCIKparam& param)
 
 void AutoBalancer::solveLimbIK ()
 {
+  // water
+  {
+    const double moment_transition_smooth_gain = 0.0004;
+    static hrp::Vector3 current_moment;
+    if (fabs(diff_moment_between_ground_and_water(1) - tmp_diff_moment_between_ground_and_water(1)) < 1e-8) {
+      current_moment = diff_moment_between_ground_and_water;
+    } else {
+      diff_moment_between_ground_and_water += moment_transition_smooth_gain * (tmp_diff_moment_between_ground_and_water - current_moment);
+    }
+  }
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     if (it->second.is_active) {
       for ( int j = 0; j < it->second.manip->numJoints(); j++ ){
@@ -1775,6 +1803,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i; i<2; i++) {
      inc_ref_force[i] = i_param.inc_ref_force[i];
   }
+  for (size_t i = 0; i < 3; i++)
+    tmp_diff_moment_between_ground_and_water[i] = i_param.diff_moment_between_ground_and_water[i];
   return true;
 };
 
@@ -1861,6 +1891,8 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i; i<2; i++) {
     i_param.inc_ref_force[i] = inc_ref_force[i];
   }
+  for (size_t i = 0; i < 3; i++)
+      i_param.diff_moment_between_ground_and_water[i] = diff_moment_between_ground_and_water[i];
   return true;
 };
 
@@ -2014,9 +2046,10 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   hrp::Vector3 tmpcog = m_robot->calcCM();
   switch ( use_force ) {
   case MODE_REF_FORCE:
-    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces);
+    calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height, ref_forces, diff_moment_between_ground_and_water);
     tmp_input_sbp = target_sbp - sbp_offset;
     sbp_cog_offset = tmp_input_sbp - tmpcog;
+    // std::cerr << sbp_cog_offset(0) << " , " << sbp_cog_offset(1) << std::endl;
     break;
   case MODE_NO_FORCE:
     tmp_input_sbp = tmpcog + sbp_cog_offset;
@@ -2025,13 +2058,13 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   }
 };
 
-void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces)
+void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height, std::vector<hrp::Vector3>& tmp_forces, hrp::Vector3& tmp_moments)
 {
   hrp::Vector3 denom, nume;
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
   double mass = m_robot->totalMass();
   for (size_t j = 0; j < 2; j++) {
-    nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j);
+    nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j) + tmp_moments(j==0 ? 1 : 0);
     denom(j) = mass * gg->get_gravitational_acceleration();
     for (size_t i = 0; i < sensor_names.size(); i++) {
       // if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
