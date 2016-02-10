@@ -340,6 +340,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   is_estop_while_walking = false;
   set_ref_moment_on_ground = false;
   set_ref_moment_under_water = false;
+  get_ref_force_for_water = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
   cp_offset = hrp::Vector3(0.0, 0.0, 0.0);
   ref_moment_on_ground = hrp::Vector3(0.0, 0.0, 0.0);
@@ -917,6 +918,7 @@ void Stabilizer::getActualParameters ()
               ee_moment_sum = hrp::Vector3::Zero();
               time_count = 0;
             }
+            if (get_ref_force_for_water && m_controlSwingSupportTimeRatio.data <= 0.5) get_ref_force_for_water = false;
           }
         }
         // <= Actual world frame
@@ -1748,6 +1750,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   i_stp.is_estop_while_walking = is_estop_while_walking;
   i_stp.set_ref_moment_on_ground = set_ref_moment_on_ground;
   i_stp.set_ref_moment_under_water = set_ref_moment_under_water;
+  i_stp.get_ref_force_for_water = get_ref_force_for_water;
   switch(control_mode) {
   case MODE_IDLE: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_IDLE; break;
   case MODE_AIR: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_AIR; break;
@@ -1921,6 +1924,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   is_estop_while_walking = i_stp.is_estop_while_walking;
   set_ref_moment_on_ground = i_stp.set_ref_moment_on_ground;
   set_ref_moment_under_water = i_stp.set_ref_moment_under_water;
+  get_ref_force_for_water = i_stp.get_ref_force_for_water;
   if (control_mode == MODE_IDLE) {
       for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
           std::vector<STIKParam>::iterator it = std::find_if(stikp.begin(), stikp.end(), (&boost::lambda::_1->* &std::vector<STIKParam>::value_type::ee_name == std::string(i_stp.end_effector_list[i].leg)));

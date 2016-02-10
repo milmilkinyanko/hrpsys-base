@@ -567,7 +567,7 @@ namespace rats
         double max_height = std::max(start(2), goal(2))+height;
         water_path.push_back(start);
         water_path.push_back(hrp::Vector3(start(0), start(1), max_height));
-        for (size_t i; i< 35; i++) {
+        for (size_t i; i< 40; i++) {
           water_path.push_back(hrp::Vector3(goal(0)+1e-3, goal(1), max_height));
           water_path.push_back(hrp::Vector3(goal(0)-1e-3, goal(1), max_height));
         }
