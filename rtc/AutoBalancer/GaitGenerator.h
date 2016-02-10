@@ -18,7 +18,7 @@ namespace rats
                            const double default_top_ratio = 0.5);
     void multi_mid_coords (coordinates& mid_coords, const std::vector<coordinates>& cs);
 
-    enum orbit_type {SHUFFLING, CYCLOID, RECTANGLE, STAIR, CYCLOIDDELAY, CYCLOIDDELAYKICK, CROSS};
+    enum orbit_type {SHUFFLING, CYCLOID, RECTANGLE, STAIR, CYCLOIDDELAY, CYCLOIDDELAYKICK, CROSS, WATER};
     enum leg_type {RLEG, LLEG, RARM, LARM, BOTH, ALL};
 
     struct step_node
@@ -559,6 +559,23 @@ namespace rats
       };
     };
 
+    class water_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
+    {
+      hrp::Vector3 interpolate_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const double tmp_ratio)
+      {
+        std::vector<hrp::Vector3> water_path;
+        double max_height = std::max(start(2), goal(2))+height;
+        water_path.push_back(start);
+        water_path.push_back(hrp::Vector3(start(0), start(1), max_height));
+        for (size_t i; i< 35; i++) {
+          water_path.push_back(hrp::Vector3(goal(0)+1e-3, goal(1), max_height));
+          water_path.push_back(hrp::Vector3(goal(0)-1e-3, goal(1), max_height));
+        }
+        water_path.push_back(goal);
+        return interpolate_antecedent_path_base(tmp_ratio, water_path);
+      };
+    };
+
     /* leg_coords_generator to generate current swing_leg_coords and support_leg_coords from footstep_node_list */
     class leg_coords_generator
     {
@@ -587,6 +604,7 @@ namespace rats
       std::vector<cycloid_delay_hoffarbib_trajectory_generator> cdtg;
       cycloid_delay_kick_hoffarbib_trajectory_generator cdktg;
       cross_delay_hoffarbib_trajectory_generator crdtg;
+      std::vector<water_delay_hoffarbib_trajectory_generator> wdtg;
       toe_heel_phase_counter* thp_ptr;
       interpolator* foot_ratio_interpolator;
       interpolator* swing_foot_rot_ratio_interpolator;
@@ -609,6 +627,8 @@ namespace rats
                                     const coordinates& goal, const double height);
       void cross_delay_midcoords (coordinates& ret, const coordinates& start,
                                   const coordinates& goal, const double height, leg_type lr);
+      void water_midcoords (coordinates& ret, const coordinates& start,
+                                const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx);
       void calc_ratio_from_double_support_ratio (const double default_double_support_ratio_before, const double default_double_support_ratio_after);
 #ifndef HAVE_MAIN
     public:
@@ -619,7 +639,7 @@ namespace rats
           current_toe_angle(0), current_heel_angle(0),
           time_offset(0.35), final_distance_weight(1.0),
           footstep_index(0), lcg_count(0), default_orbit_type(CYCLOID),
-          rdtg(), cdtg(),
+          rdtg(), cdtg(), wdtg(),
           thp_ptr(_thp_ptr),
           foot_ratio_interpolator(NULL), swing_foot_rot_ratio_interpolator(NULL), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), use_toe_joint(false)
@@ -752,6 +772,15 @@ namespace rats
             break;
         case CROSS:
             crdtg.reset(one_step_count, default_double_support_ratio_before, default_double_support_ratio_after);
+            break;
+        case WATER:
+            wdtg.clear();
+            for (size_t i = 0; i < swing_leg_dst_steps.size(); i++) {
+                wdtg.push_back(water_delay_hoffarbib_trajectory_generator());
+                wdtg.back().reset_all(dt, one_step_count,
+                                      default_double_support_ratio_before, default_double_support_ratio_after,
+                                      time_offset, final_distance_weight);
+            }
             break;
         default:
             break;
@@ -1252,6 +1281,8 @@ namespace rats
             std::cerr << "CYCLOIDDELAYKICK" << std::endl;
         } else if (get_default_orbit_type() == CROSS) {
             std::cerr << "CROSS" << std::endl;
+        } else if (get_default_orbit_type() == WATER) {
+            std::cerr << "WATER" << std::endl;
         }
         std::cerr << "[" << print_str << "]   swing_trajectory_delay_time_offset = " << get_swing_trajectory_delay_time_offset() << "[s], swing_trajectory_final_distance_weight = " << get_swing_trajectory_final_distance_weight() << std::endl;
         hrp::Vector3 tmpv;

@@ -96,7 +96,8 @@ module OpenHRP
       STAIR,
       CYCLOIDDELAY,
       CYCLOIDDELAYKICK,
-      CROSS
+      CROSS,
+      WATER
     };
 
     /**
