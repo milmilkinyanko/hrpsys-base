@@ -383,7 +383,6 @@ class HrpsysConfigurator:
             connectPorts(self.st.port("absRefCapturePoint"), self.abc.port("absRefCapturePoint"))
             connectPorts(self.st.port("absActCapturePoint"), self.abc.port("absActCapturePoint"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
-            connectPorts(self.st.port("refMomentUnderWater"), self.abc.port("refMomentUnderWater"))
 
         # ref force moment connection
         for sen in self.getForceSensorNames():

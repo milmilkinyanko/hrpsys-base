@@ -52,7 +52,6 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_absActCPIn("absActCapturePoint", m_absActCP),
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
       m_actContactStatesIn("actContactStates", m_actContactStates),
-      m_refMomentUnderWaterIn("refMomentUnderWater", m_refMomentUnderWater),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -98,7 +97,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("absActCapturePoint", m_absActCPIn);
     addInPort("absRefCapturePoint", m_absRefCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
-    addInPort("refMomentUnderWater", m_refMomentUnderWaterIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -351,7 +349,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
-    ref_moment_under_water = hrp::Vector3::Zero();
     diff_moment_between_ground_and_water = hrp::Vector3::Zero();
     tmp_diff_moment_between_ground_and_water = hrp::Vector3::Zero();
 
