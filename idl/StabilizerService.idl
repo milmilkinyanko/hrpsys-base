@@ -211,6 +211,10 @@ module OpenHRP
       boolean is_estop_while_walking;
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
+      /// checking threthold while walking [s]
+      double cp_check_time_thre;
+      /// outside margin while walking [m]
+      double outside_margin_while_walking;
     };
 
     /**

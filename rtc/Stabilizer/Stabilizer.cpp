@@ -358,6 +358,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   is_estop_while_walking = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
   cp_offset = hrp::Vector3(0.0, 0.0, 0.0);
+  cp_check_time_thre = 0.02;
+  outside_margin_while_walking = 0.05;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -1215,6 +1217,7 @@ void Stabilizer::calcStateForEmergencySignal()
   }
   // CP Check
   bool is_cp_outside = false;
+  static int cp_check_count;
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     SimpleZMPDistributor::leg_type support_leg;
     size_t l_idx, r_idx;
@@ -1229,12 +1232,24 @@ void Stabilizer::calcStateForEmergencySignal()
     if (isContact(contact_states_index_map["rleg"]) && isContact(contact_states_index_map["lleg"])) support_leg = SimpleZMPDistributor::BOTH;
     else if (isContact(contact_states_index_map["rleg"])) support_leg = SimpleZMPDistributor::RLEG;
     else if (isContact(contact_states_index_map["lleg"])) support_leg = SimpleZMPDistributor::LLEG;
-    if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, rel_ee_pos, rel_ee_rot, rel_ee_name, support_leg, cp_check_margin, - sbp_cog_offset);
+    if (!is_walking) {
+      is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, rel_ee_pos, rel_ee_rot, rel_ee_name, support_leg, cp_check_margin, - sbp_cog_offset);
+    } else if (is_estop_while_walking) {
+      std::vector<double> tmp_cp_check_margin = cp_check_margin;
+      tmp_cp_check_margin[3] -= outside_margin_while_walking;
+      is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, rel_ee_pos, rel_ee_rot, rel_ee_name, support_leg = SimpleZMPDistributor::BOTH, tmp_cp_check_margin, - sbp_cog_offset);
+    }
     if (DEBUGP) {
       std::cerr << "[" << m_profile.instance_name << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "
                 << "sbp cog offset [" << sbp_cog_offset(0) << " " << sbp_cog_offset(1) << "], outside ? "
                 << (is_cp_outside?"Outside":"Inside")
                 << std::endl;
+    }
+    if (!is_walking || !is_cp_outside) {
+      cp_check_count = 0;
+    } else {
+      cp_check_count++;
+      if (cp_check_count < (cp_check_time_thre / dt)) is_cp_outside = false;
     }
     if (is_cp_outside) {
       if (initial_cp_too_large_error || loop % static_cast <int>(0.2/dt) == 0 ) { // once per 0.2[s]
@@ -1766,6 +1781,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   }
   i_stp.contact_decision_threshold = contact_decision_threshold;
   i_stp.is_estop_while_walking = is_estop_while_walking;
+  i_stp.cp_check_time_thre = cp_check_time_thre;
+  i_stp.outside_margin_while_walking = outside_margin_while_walking;
   switch(control_mode) {
   case MODE_IDLE: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_IDLE; break;
   case MODE_AIR: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_AIR; break;
@@ -1938,6 +1955,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   }
   contact_decision_threshold = i_stp.contact_decision_threshold;
   is_estop_while_walking = i_stp.is_estop_while_walking;
+  cp_check_time_thre = i_stp.cp_check_time_thre;
+  outside_margin_while_walking = i_stp.outside_margin_while_walking;
   if (control_mode == MODE_IDLE) {
       for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
           std::vector<STIKParam>::iterator it = std::find_if(stikp.begin(), stikp.end(), (&boost::lambda::_1->* &std::vector<STIKParam>::value_type::ee_name == std::string(i_stp.end_effector_list[i].leg)));
