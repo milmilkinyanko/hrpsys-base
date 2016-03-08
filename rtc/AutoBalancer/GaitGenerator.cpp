@@ -624,9 +624,11 @@ namespace rats
           d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[3]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
         }
         // overwrite footstep
-        for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
-          footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
-          footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
+        if (is_emergency_overwrite) {
+          for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
+            footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
+            footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
+          }
         }
         // overwrite zmp
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
@@ -634,6 +636,7 @@ namespace rats
         overwrite_footstep_nodes_list.clear();
       }
       prev_diff_cp = diff_cp;
+      is_emergency_overwrite = false;
     }
 
     if ( !solved ) {
