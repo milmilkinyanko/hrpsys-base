@@ -303,7 +303,7 @@ class Stabilizer
   hrp::Vector3 new_refzmp, rel_cog, ref_zmp_aux;
   hrp::Vector3 pos_ctrl;
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
-  std::vector<double> cp_check_margin, cp_check_margin_while_walking, tilt_margin;
+  std::vector<double> cp_check_margin, cp_check_thre_while_walking, tilt_margin;
   OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
   double cp_check_time_thre;
 };
