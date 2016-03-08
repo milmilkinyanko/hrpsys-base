@@ -587,14 +587,16 @@ namespace rats
           !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1])) {
         static double preview_f_sum;
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
-          preview_f_sum = 0.0;
-          for (size_t i=preview_f.size()-1; i>=lcg.get_lcg_count()+1; i--) {
+          preview_f_sum = preview_f(preview_f.size()-1);
+          for (size_t i=preview_f.size()-2; i>=lcg.get_lcg_count()+1; i--) {
             preview_f_sum += preview_f(i);
           }
         } else if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after+0.1)) - 1) {
           // std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
         }
-        preview_f_sum += preview_f(preview_f.size()-lcg.get_lcg_count());
+        if (lcg.get_lcg_count() < preview_f.size()) {
+          preview_f_sum += preview_f(lcg.get_lcg_count());
+        }
         hrp::Vector3 d_footstep = (overwrite_footstep_gain[0] * diff_cp + overwrite_footstep_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
         d_footstep(2) = 0.0;
         // std::cerr << "preview_f_sum : " << preview_f_sum << std::endl;
