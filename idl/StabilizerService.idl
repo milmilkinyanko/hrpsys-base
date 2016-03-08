@@ -189,6 +189,8 @@ module OpenHRP
       double cop_check_margin;
       /// CP margin [m] (front, rear, inside, outside)
       DblArray4 cp_check_margin;
+      /// CP margin while walking [m] (front, rear, inside, outside)
+      DblArray4 cp_check_margin_while_walking;
       /// tilt margin [rad] (single support phase, double support phase) from reference floor
       DblArray2 tilt_margin;
       /// ref_CP [m] (x,y) (foot_origin relative coordinate)
@@ -210,8 +212,6 @@ module OpenHRP
       sequence<IKLimbParameters> ik_limb_parameters;
       /// checking threthold while walking [s]
       double cp_check_time_thre;
-      /// outside margin while walking [m]
-      double outside_margin_while_walking;
     };
 
     /**
