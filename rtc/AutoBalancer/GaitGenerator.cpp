@@ -581,10 +581,7 @@ namespace rats
     // overwrite based on diff_cp
     if (overwrite_footstep_based_on_cp && preview_f.size() != 0 && isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       static hrp::Vector3 prev_diff_cp;
-      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2 &&
-          lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
-          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after+0.1)) - 1 &&
-          !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1])) {
+      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static double preview_f_sum;
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
           preview_f_sum = preview_f(preview_f.size()-1);
@@ -624,7 +621,10 @@ namespace rats
           d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[3]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
         }
         // overwrite footstep
-        if (is_emergency_overwrite) {
+        if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
+            lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * default_double_support_ratio_after) - 1 &&
+            !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1]) &&
+            is_emergency_overwrite) {
           for (size_t i = lcg.get_footstep_index(); i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
             footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
