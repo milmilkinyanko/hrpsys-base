@@ -228,6 +228,8 @@ module OpenHRP
       DblArray4 overwritable_stride_limit;
       /// Whether ovewrite footstep based on diff_cp
       boolean overwrite_footstep_based_on_cp;
+      /// Step time when emergency stepping. [s]
+      DblArray3 emergency_step_time;
     };
 
     /**

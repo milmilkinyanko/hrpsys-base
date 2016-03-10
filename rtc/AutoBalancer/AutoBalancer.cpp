@@ -461,7 +461,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_emergencySignalIn.read();
         if (!gg->get_is_emergency_step()) {
           gg->set_is_emergency_step(true);
-          goVelocity(0,0,0);
+          goVelocity(fabs(diff_cp(0))>0.015?(diff_cp(0)>0?0.1:-0.1):0, fabs(diff_cp(1))>0.015?(diff_cp(1)>0?0.1:-0.1):0, 0);
         }
         // if (!is_stop_mode) {
         //     std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
@@ -1206,7 +1206,10 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
     std::vector<leg_type> current_legs;
     switch(gait_type) {
     case BIPED:
-        current_legs = (vy > 0 ? boost::assign::list_of(RLEG) : boost::assign::list_of(LLEG));
+        if (!gg->get_is_emergency_step())
+          current_legs = (vy > 0 ? boost::assign::list_of(RLEG) : boost::assign::list_of(LLEG));
+        else
+          current_legs = (vy > 0 ? boost::assign::list_of(LLEG) : boost::assign::list_of(RLEG));
         break;
     case TROT:
         current_legs = (vy > 0 ? boost::assign::list_of(RLEG)(LARM) : boost::assign::list_of(LLEG)(RARM));
@@ -1446,6 +1449,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_overwrite_footstep_gain(i_param.overwrite_footstep_gain);
   gg->set_overwritable_stride_limit(i_param.overwritable_stride_limit);
   gg->set_overwrite_footstep_based_on_cp(i_param.overwrite_footstep_based_on_cp);
+  gg->set_emergency_step_time(i_param.emergency_step_time);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -1520,6 +1524,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   }
   for (size_t i=0; i<4; i++) {
     i_param.overwritable_stride_limit[i] = gg->get_overwritable_stride_limit(i);
+  }
+  for (size_t i=0; i<3; i++) {
+    i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
   }
   i_param.overwrite_footstep_based_on_cp= gg->get_overwrite_footstep_based_on_cp();
   return true;
