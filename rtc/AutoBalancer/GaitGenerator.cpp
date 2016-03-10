@@ -583,10 +583,19 @@ namespace rats
       static hrp::Vector3 prev_diff_cp;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static double preview_f_sum;
+        static int not_emergency_count;
+        bool is_recover_emergency = false;
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
           preview_f_sum = preview_f(preview_f.size()-1);
           for (size_t i=preview_f.size()-2; i>=lcg.get_lcg_count()+1; i--) {
             preview_f_sum += preview_f(i);
+          }
+          // emergency when standing
+          if (is_emergency_step) {
+            leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
           }
         } else if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after+0.1)) - 1) {
           // std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
@@ -630,8 +639,29 @@ namespace rats
             footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
           }
         }
+        if (!is_emergency_overwrite && is_emergency_step) {
+          not_emergency_count++;
+          if (not_emergency_count > 150) {
+            not_emergency_count = 0;
+            default_step_time = tmp_default_step_time;
+            is_emergency_step = false;
+            is_recover_emergency = true;
+          }
+        } else {
+          not_emergency_count = 0;
+        }
         // overwrite zmp
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+
+        if (is_recover_emergency) {
+          overwrite_footstep_nodes_list.clear();
+          leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+          overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+          overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+          overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+          emergency_flg = STOPPING;
+        }
+
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
       }
@@ -807,11 +837,15 @@ namespace rats
 						 const double vel_x, const double vel_y, const double vel_theta,
                                                  const std::vector<leg_type>& current_legs)
   {
-    velocity_mode_flg = VEL_DOING;
+    if (!is_emergency_step)
+      velocity_mode_flg = VEL_DOING;
     /* initialize */
     clear_footstep_nodes_list();
     set_velocity_param (vel_x, vel_y, vel_theta);
+    tmp_default_step_time = default_step_time;
+    default_step_time = 0.0;
     append_go_pos_step_nodes(_ref_coords, current_legs);
+    default_step_time = 0.5;
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
