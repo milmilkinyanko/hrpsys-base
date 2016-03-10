@@ -863,7 +863,7 @@ namespace rats
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
     double default_step_time, tmp_default_step_time;
-    double default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after;
+    double default_double_support_ratio_before, default_double_support_ratio_after, tmp_default_double_support_ratio_before, tmp_default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after;
     double default_double_support_ratio_swing_before; /*first double support time for leg coords generator */
     double default_double_support_ratio_swing_after; /*last double support time for leg coords generator */
     double gravitational_acceleration;
@@ -881,7 +881,7 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved;
     hrp::dvector preview_f;
-    double overwrite_footstep_gain[2], overwritable_stride_limit[4];
+    double overwrite_footstep_gain[2], overwritable_stride_limit[4], emergency_step_time[3];
     bool overwrite_footstep_based_on_cp, is_emergency_overwrite, is_emergency_step;
 
     /* preview controller parameters */
@@ -936,6 +936,7 @@ namespace rats
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm");
         for (size_t i=0; i<2; i++) overwrite_footstep_gain[i] = 0.0;
         for (size_t i=0; i<4; i++) overwritable_stride_limit[i] = 0.2;
+        for (size_t i=0; i<3; i++) emergency_step_time[i] = 1.0;
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
@@ -1085,6 +1086,11 @@ namespace rats
     void set_overwritable_stride_limit (const double _overwritable_stride_limit[4]) {
       for (size_t i=0; i<4; i++) {
         overwritable_stride_limit[i] = _overwritable_stride_limit[i];
+      }
+    };
+    void set_emergency_step_time (const double _emergency_step_time[3]) {
+      for (size_t i=0; i<3; i++) {
+        emergency_step_time[i] = _emergency_step_time[i];
       }
     };
     void set_overwrite_footstep_based_on_cp (const bool _overwrite_footstep_based_on_cp) { overwrite_footstep_based_on_cp = _overwrite_footstep_based_on_cp; };
@@ -1243,6 +1249,7 @@ namespace rats
     size_t get_overwrite_check_timing () const { return static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1;}; // Almost middle of step time
     double get_overwrite_footstep_gain (const size_t idx) const { return overwrite_footstep_gain[idx]; };
     double get_overwritable_stride_limit (const size_t idx) const { return overwritable_stride_limit[idx]; };
+    double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
     bool get_overwrite_footstep_based_on_cp () const { return overwrite_footstep_based_on_cp; };
     bool get_is_emergency_step () const { return is_emergency_step; };
     void print_param (const std::string& print_str = "") const

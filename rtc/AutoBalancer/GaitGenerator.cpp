@@ -644,6 +644,8 @@ namespace rats
           if (not_emergency_count > 150) {
             not_emergency_count = 0;
             default_step_time = tmp_default_step_time;
+            default_double_support_ratio_before = tmp_default_double_support_ratio_before;
+            default_double_support_ratio_after = tmp_default_double_support_ratio_after;
             is_emergency_step = false;
             is_recover_emergency = true;
           }
@@ -656,6 +658,7 @@ namespace rats
         if (is_recover_emergency) {
           overwrite_footstep_nodes_list.clear();
           leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+          coordinates tmp_footstep_coords = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords;
           overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
           overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
           overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
@@ -837,16 +840,24 @@ namespace rats
 						 const double vel_x, const double vel_y, const double vel_theta,
                                                  const std::vector<leg_type>& current_legs)
   {
-    if (!is_emergency_step)
-      velocity_mode_flg = VEL_DOING;
+    if (!is_emergency_step) velocity_mode_flg = VEL_DOING;
+    else {
+      tmp_default_step_time = default_step_time;
+      tmp_default_double_support_ratio_before = default_double_support_ratio_before;
+      tmp_default_double_support_ratio_after = default_double_support_ratio_after;
+    }
     /* initialize */
     clear_footstep_nodes_list();
     set_velocity_param (vel_x, vel_y, vel_theta);
-    tmp_default_step_time = default_step_time;
-    default_step_time = 0.0;
+    if (is_emergency_step) {
+      default_step_time = emergency_step_time[0];
+      default_double_support_ratio_before = 0.1;
+      default_double_support_ratio_after = 0.1;
+    }
     append_go_pos_step_nodes(_ref_coords, current_legs);
-    default_step_time = 0.5;
+    if (is_emergency_step) default_step_time = emergency_step_time[1];
     append_footstep_list_velocity_mode();
+    if (is_emergency_step) default_step_time = emergency_step_time[2];
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
   };
