@@ -862,7 +862,7 @@ namespace rats
     std::vector<hrp::Vector3> swing_foot_zmp_offsets, prev_que_sfzos;
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
-    double default_step_time;
+    double default_step_time, tmp_default_step_time;
     double default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after;
     double default_double_support_ratio_swing_before; /*first double support time for leg coords generator */
     double default_double_support_ratio_swing_after; /*last double support time for leg coords generator */
@@ -882,7 +882,7 @@ namespace rats
     bool solved;
     hrp::dvector preview_f;
     double overwrite_footstep_gain[2], overwritable_stride_limit[4];
-    bool overwrite_footstep_based_on_cp, is_emergency_overwrite;
+    bool overwrite_footstep_based_on_cp, is_emergency_overwrite, is_emergency_step;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -927,9 +927,9 @@ namespace rats
         footstep_param(_leg_pos, _stride_fwd_x, _stride_y, _stride_theta, _stride_bwd_x),
         vel_param(), offset_vel_param(), cog(hrp::Vector3::Zero()), refzmp(hrp::Vector3::Zero()), prev_que_rzmp(hrp::Vector3::Zero()),
         dt(_dt), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
-        finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(0),
+        finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING),
-        use_inside_step_limitation(true), overwrite_footstep_based_on_cp(false), is_emergency_overwrite(false),
+        use_inside_step_limitation(true), overwrite_footstep_based_on_cp(false), is_emergency_overwrite(false), is_emergency_step(false),
         preview_controller_ptr(NULL) {
         swing_foot_zmp_offsets = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
         prev_que_sfzos = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
@@ -1089,6 +1089,7 @@ namespace rats
     };
     void set_overwrite_footstep_based_on_cp (const bool _overwrite_footstep_based_on_cp) { overwrite_footstep_based_on_cp = _overwrite_footstep_based_on_cp; };
     void set_is_emergency_overwrite (const bool _is_emergency_overwrite) { is_emergency_overwrite = _is_emergency_overwrite; };
+    void set_is_emergency_step (const bool _is_emergency_step) { is_emergency_step = _is_emergency_step; };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {
@@ -1243,6 +1244,7 @@ namespace rats
     double get_overwrite_footstep_gain (const size_t idx) const { return overwrite_footstep_gain[idx]; };
     double get_overwritable_stride_limit (const size_t idx) const { return overwritable_stride_limit[idx]; };
     bool get_overwrite_footstep_based_on_cp () const { return overwrite_footstep_based_on_cp; };
+    bool get_is_emergency_step () const { return is_emergency_step; };
     void print_param (const std::string& print_str = "") const
     {
         double stride_fwd_x, stride_y, stride_th, stride_bwd_x;
