@@ -348,6 +348,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     ik_error_debug_print_freq = static_cast<int>(0.2/m_dt); // once per 0.2 [s]
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
+    is_emergency_step_mode = false;
 
     return RTC::RTC_OK;
 }
@@ -459,7 +460,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
-        if (!gg->get_is_emergency_step()) {
+        if (is_emergency_step_mode && !gg->get_is_emergency_step()) {
           gg->set_is_emergency_step(true);
           goVelocity(fabs(diff_cp(0))>0.015?(diff_cp(0)>0?0.1:-0.1):0, fabs(diff_cp(1))>0.015?(diff_cp(1)>0?0.1:-0.1):0, 0);
         }
@@ -1720,6 +1721,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       }
       std::cerr << "]" << std::endl;
   }
+  is_emergency_step_mode = i_param.is_emergency_step_mode;
   return true;
 };
 
@@ -1798,6 +1800,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       ilp.reference_gain = param.reference_gain;
       ilp.manipulability_limit = param.manip->getManipulabilityLimit();
   }
+  i_param.is_emergency_step_mode = is_emergency_step_mode;
   return true;
 };
 
