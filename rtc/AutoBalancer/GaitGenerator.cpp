@@ -641,7 +641,7 @@ namespace rats
         }
         if (!is_emergency_overwrite && is_emergency_step) {
           not_emergency_count++;
-          if (not_emergency_count > 150) {
+          if (not_emergency_count > 150 && lcg.get_footstep_index() > 1) {
             not_emergency_count = 0;
             default_step_time = tmp_default_step_time;
             default_double_support_ratio_before = tmp_default_double_support_ratio_before;
@@ -652,9 +652,8 @@ namespace rats
         } else {
           not_emergency_count = 0;
         }
-        // overwrite zmp
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
-
+        // end emergency step
         if (is_recover_emergency) {
           overwrite_footstep_nodes_list.clear();
           leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
@@ -664,7 +663,7 @@ namespace rats
           overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
           emergency_flg = STOPPING;
         }
-
+        // overwrite zmp
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
       }

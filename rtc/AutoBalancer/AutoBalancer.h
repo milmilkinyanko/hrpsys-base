@@ -269,6 +269,7 @@ class AutoBalancer
   double pos_ik_thre, rot_ik_thre;
   hrp::Vector3 diff_cp;
   std::vector<bool> act_contact_states;
+  bool is_emergency_step_mode;
 };
 
 

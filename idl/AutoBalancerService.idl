@@ -285,6 +285,8 @@ module OpenHRP
       GaitType default_gait_type;
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**
