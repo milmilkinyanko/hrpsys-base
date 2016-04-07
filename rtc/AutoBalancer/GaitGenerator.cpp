@@ -582,14 +582,9 @@ namespace rats
     if (overwrite_footstep_based_on_cp && preview_f.size() != 0 && isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       static hrp::Vector3 prev_diff_cp;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
-        static double preview_f_sum;
         static int not_emergency_count;
         bool is_recover_emergency = false;
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
-          preview_f_sum = preview_f(preview_f.size()-1);
-          for (size_t i=preview_f.size()-2; i>=lcg.get_lcg_count()+1; i--) {
-            preview_f_sum += preview_f(i);
-          }
           // emergency when standing
           if (is_emergency_step) {
             leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
@@ -600,12 +595,8 @@ namespace rats
         } else if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after+0.1)) - 1) {
           // std::cerr << "diff_cp : " << diff_cp(0) << " , " << diff_cp(1) << std::endl;
         }
-        if (lcg.get_lcg_count() < preview_f.size()) {
-          preview_f_sum += preview_f(lcg.get_lcg_count());
-        }
-        hrp::Vector3 d_footstep = (overwrite_footstep_gain[0] * diff_cp + overwrite_footstep_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
+        hrp::Vector3 d_footstep = (overwrite_footstep_gain[0] * diff_cp + overwrite_footstep_gain[1] * (diff_cp - prev_diff_cp)/dt) / (lcg.get_lcg_count()<preview_f.size()?preview_f(lcg.get_lcg_count()):preview_f(preview_f.size()-1));
         d_footstep(2) = 0.0;
-        // std::cerr << "preview_f_sum : " << preview_f_sum << std::endl;
         // stride limit check
         hrp::Vector3 foot_pos(get_dst_foot_midcoords().pos);
         hrp::Matrix33 foot_rot(get_dst_foot_midcoords().rot);
