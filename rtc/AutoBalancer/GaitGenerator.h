@@ -881,8 +881,8 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved;
     hrp::dvector preview_f;
-    double overwrite_footstep_gain[2], overwritable_stride_limit[4], emergency_step_time[3];
-    bool overwrite_footstep_based_on_cp, is_emergency_overwrite, is_emergency_step;
+    double overwrite_footstep_gain[2], overwritable_stride_limit[4], emergency_step_time[3], refforce_stride_limit[4];
+    bool overwrite_footstep_based_on_cp, is_emergency_overwrite, is_emergency_step, is_outside_stride_limit[4];
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -936,7 +936,9 @@ namespace rats
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm");
         for (size_t i=0; i<2; i++) overwrite_footstep_gain[i] = 0.0;
         for (size_t i=0; i<4; i++) overwritable_stride_limit[i] = 0.2;
+        for (size_t i=0; i<4; i++) refforce_stride_limit[i] = 0.01;
         for (size_t i=0; i<3; i++) emergency_step_time[i] = 1.0;
+        for (size_t i=0; i<4; i++) is_outside_stride_limit[i] = false;
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
@@ -1088,6 +1090,11 @@ namespace rats
         overwritable_stride_limit[i] = _overwritable_stride_limit[i];
       }
     };
+    void set_refforce_stride_limit (const double _refforce_stride_limit[4]) {
+      for (size_t i=0; i<4; i++) {
+        refforce_stride_limit[i] = _refforce_stride_limit[i];
+      }
+    };
     void set_emergency_step_time (const double _emergency_step_time[3]) {
       for (size_t i=0; i<3; i++) {
         emergency_step_time[i] = _emergency_step_time[i];
@@ -1096,6 +1103,11 @@ namespace rats
     void set_overwrite_footstep_based_on_cp (const bool _overwrite_footstep_based_on_cp) { overwrite_footstep_based_on_cp = _overwrite_footstep_based_on_cp; };
     void set_is_emergency_overwrite (const bool _is_emergency_overwrite) { is_emergency_overwrite = _is_emergency_overwrite; };
     void set_is_emergency_step (const bool _is_emergency_step) { is_emergency_step = _is_emergency_step; };
+    void clear_is_outside_stride_limit () {
+      for (size_t i=0; i<4; i++) {
+        is_outside_stride_limit[i] = false;
+      }
+    };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {
@@ -1249,9 +1261,11 @@ namespace rats
     size_t get_overwrite_check_timing () const { return static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1;}; // Almost middle of step time
     double get_overwrite_footstep_gain (const size_t idx) const { return overwrite_footstep_gain[idx]; };
     double get_overwritable_stride_limit (const size_t idx) const { return overwritable_stride_limit[idx]; };
+    double get_refforce_stride_limit (const size_t idx) const { return refforce_stride_limit[idx]; };
     double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
     bool get_overwrite_footstep_based_on_cp () const { return overwrite_footstep_based_on_cp; };
     bool get_is_emergency_step () const { return is_emergency_step; };
+    bool get_is_outside_stride_limit (const size_t idx) { return is_outside_stride_limit[idx]; };
     void print_param (const std::string& print_str = "") const
     {
         double stride_fwd_x, stride_y, stride_th, stride_bwd_x;

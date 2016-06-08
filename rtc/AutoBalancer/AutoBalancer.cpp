@@ -302,6 +302,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
+        tmp_ref_forces.push_back(hrp::Vector3(0,0,0));
     }
     // set force port
     for (unsigned int i=0; i<nforce; i++){
@@ -349,6 +350,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
     is_emergency_step_mode = false;
+    set_ref_force_when_overwriting = false;
 
     return RTC::RTC_OK;
 }
@@ -812,7 +814,39 @@ void AutoBalancer::getTargetParameters()
       //ref_forces[i] = eeR * hrp::Vector3(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);
       // world frame
       ref_forces[i] = tmp_fix_coords.rot * hrp::Vector3(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);
+      if (set_ref_force_when_overwriting) {
+        if (sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos) {
+          bool is_outside_stride_limit[4];
+          for (size_t i=0; i<4; i++) is_outside_stride_limit[i] = gg->get_is_outside_stride_limit(i);
+          if (is_outside_stride_limit[0] && tmp_ref_forces[i](0) < 70) {
+            // std::cerr << "+x" << std::endl;
+            tmp_ref_forces[i](0) += 0.02;
+          } else if (is_outside_stride_limit[1] && tmp_ref_forces[i](0) > -70) {
+            // std::cerr << "-x" << std::endl;
+            tmp_ref_forces[i](0) -= 0.02;
+          } else if (!(is_outside_stride_limit[0] || is_outside_stride_limit[0])) {
+            // std::cerr << "x : recover" << std::endl;
+            if (fabs(tmp_ref_forces[i](0)) < 0.04) tmp_ref_forces[i](0) = 0.0;
+            else if (tmp_ref_forces[i](0) > 0) tmp_ref_forces[i](0) -= 0.04;
+            else if (tmp_ref_forces[i](0) < 0) tmp_ref_forces[i](0) += 0.04;
+          }
+          if (is_outside_stride_limit[2] && tmp_ref_forces[i](1) < 70) {
+            // std::cerr << "+y" << std::endl;
+            tmp_ref_forces[i](1) += 0.02;
+          } else if (is_outside_stride_limit[3] && tmp_ref_forces[i](1) > -70) {
+            // std::cerr << "-y" << std::endl;
+            tmp_ref_forces[i](1) -= 0.02;
+          } else if (!(is_outside_stride_limit[2] || is_outside_stride_limit[3])) {
+            // std::cerr << "y : recover" << std::endl;
+            if (fabs(tmp_ref_forces[i](1)) < 0.04) tmp_ref_forces[i](1) = 0.0;
+            else if (tmp_ref_forces[i](1) > 0) tmp_ref_forces[i](1) -= 0.04;
+            else if (tmp_ref_forces[i](1) < 0) tmp_ref_forces[i](1) += 0.04;
+          }
+        }
+        ref_forces[i] = tmp_fix_coords.rot * tmp_ref_forces[i];
+      }
     }
+    gg->clear_is_outside_stride_limit();
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 
     target_root_p = m_robot->rootLink()->p;
@@ -1449,6 +1483,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_overwritable_footstep_index_offset(i_param.overwritable_footstep_index_offset);
   gg->set_overwrite_footstep_gain(i_param.overwrite_footstep_gain);
   gg->set_overwritable_stride_limit(i_param.overwritable_stride_limit);
+  gg->set_refforce_stride_limit(i_param.refforce_stride_limit);
   gg->set_overwrite_footstep_based_on_cp(i_param.overwrite_footstep_based_on_cp);
   gg->set_emergency_step_time(i_param.emergency_step_time);
 
@@ -1525,6 +1560,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   }
   for (size_t i=0; i<4; i++) {
     i_param.overwritable_stride_limit[i] = gg->get_overwritable_stride_limit(i);
+  }
+  for (size_t i=0; i<4; i++) {
+    i_param.refforce_stride_limit[i] = gg->get_refforce_stride_limit(i);
   }
   for (size_t i=0; i<3; i++) {
     i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
@@ -1722,6 +1760,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       std::cerr << "]" << std::endl;
   }
   is_emergency_step_mode = i_param.is_emergency_step_mode;
+  set_ref_force_when_overwriting = i_param.set_ref_force_when_overwriting;
   return true;
 };
 
@@ -1801,6 +1840,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       ilp.manipulability_limit = param.manip->getManipulabilityLimit();
   }
   i_param.is_emergency_step_mode = is_emergency_step_mode;
+  i_param.set_ref_force_when_overwriting = set_ref_force_when_overwriting;
   return true;
 };
 

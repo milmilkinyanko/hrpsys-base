@@ -226,6 +226,8 @@ module OpenHRP
       DblArray2 overwrite_footstep_gain;
       /// Stride limit when overwriting footstep based on diff_cp. [front, rear, outside, inside] [m]
       DblArray4 overwritable_stride_limit;
+      /// Stride limit if set-ref-force. [+x, -x, +y, -y] [m]
+      DblArray4 refforce_stride_limit;
       /// Whether ovewrite footstep based on diff_cp
       boolean overwrite_footstep_based_on_cp;
       /// Step time when emergency stepping. [s]
@@ -287,6 +289,8 @@ module OpenHRP
       sequence<IKLimbParameters> ik_limb_parameters;
       /// whether step when emergency
       boolean is_emergency_step_mode;
+      /// Whether set ref-force
+      boolean set_ref_force_when_overwriting;
     };
 
     /**
