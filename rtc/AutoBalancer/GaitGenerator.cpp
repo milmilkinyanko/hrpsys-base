@@ -621,11 +621,11 @@ namespace rats
           // std::cerr << "rear too error" << std::endl;
           d_footstep = foot_rot * hrp::Vector3(pre_footstep_pos(0)-overwritable_stride_limit[1]-current_footstep_pos(0),(foot_rot.transpose()*d_footstep)(1),(foot_rot.transpose()*d_footstep)(2));
         }
-        if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) >= overwritable_stride_limit[2]) {
+        if ((cur_leg==LLEG?1:-1) * (new_current_footstep_pos(1)-pre_footstep_pos(1)) >= overwritable_stride_limit[2]) {
           // std::cerr << "outside too error" << std::endl;
           d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[2]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
         }
-        if ((cur_leg==LLEG?1:-1) * (current_footstep_pos(1)-pre_footstep_pos(1)) <= overwritable_stride_limit[3]) {
+        if ((cur_leg==LLEG?1:-1) * (new_current_footstep_pos(1)-pre_footstep_pos(1)) <= overwritable_stride_limit[3]) {
           // std::cerr << "inside too error" << std::endl;
           d_footstep = foot_rot * hrp::Vector3((foot_rot.transpose()*d_footstep)(0),pre_footstep_pos(1)+(cur_leg==LLEG?1:-1)*overwritable_stride_limit[3]-current_footstep_pos(1),(foot_rot.transpose()*d_footstep)(2));
         }
