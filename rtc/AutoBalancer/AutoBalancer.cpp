@@ -50,6 +50,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
       m_emergencySignalWalkingIn("emergencySignalWalking", m_emergencySignalWalking),
+      m_emergencySignalForRefForceIn("emergencySignalForRefForce", m_emergencySignalForRefForce),
       m_absActCPIn("absActCapturePoint", m_absActCP),
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
       m_actContactStatesIn("actContactStates", m_actContactStates),
@@ -95,6 +96,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("optionalData", m_optionalDataIn);
     addInPort("emergencySignal", m_emergencySignalIn);
     addInPort("emergencySignalWalking", m_emergencySignalWalkingIn);
+    addInPort("emergencySignalForRefForce", m_emergencySignalForRefForceIn);
     addInPort("absActCapturePoint", m_absActCPIn);
     addInPort("absRefCapturePoint", m_absRefCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
@@ -302,6 +304,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
+        tmp_ref_forces.push_back(hrp::Vector3(0,0,0));
     }
     // set force port
     for (unsigned int i=0; i<nforce; i++){
@@ -349,7 +352,15 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     diff_cp = hrp::Vector3(0.0, 0.0, 0.0);
     act_contact_states.resize(2, false);
     is_emergency_step_mode = false;
-
+    for (size_t i; i<4; i++) {
+      is_emergency_for_ref_force[i] = false;
+    }
+    set_ref_force_when_overwriting = false;
+    for (size_t i; i<2; i++) {
+      max_ref_force[i] = 70;
+    }
+    inc_ref_force[0] = 0.02;
+    inc_ref_force[1] = 0.04;
     return RTC::RTC_OK;
 }
 
@@ -473,6 +484,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_emergencySignalWalkingIn.isNew()){
         m_emergencySignalWalkingIn.read();
         gg->set_is_emergency_overwrite(m_emergencySignalWalking.data);
+    }
+    if (m_emergencySignalForRefForceIn.isNew()){
+      m_emergencySignalForRefForceIn.read();
+      for (size_t i; i<4; i++) {
+        is_emergency_for_ref_force[i] = m_emergencySignalForRefForce.data[i];
+      }
     }
 
     Guard guard(m_mutex);
@@ -812,6 +829,35 @@ void AutoBalancer::getTargetParameters()
       //ref_forces[i] = eeR * hrp::Vector3(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);
       // world frame
       ref_forces[i] = tmp_fix_coords.rot * hrp::Vector3(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);
+      if (set_ref_force_when_overwriting) {
+        if (sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos) {
+          if (is_emergency_for_ref_force[0] && tmp_ref_forces[i](0) < max_ref_force[0]) {
+            // std::cerr << "+x" << std::endl;
+            tmp_ref_forces[i](0) += inc_ref_force[0];
+          } else if (is_emergency_for_ref_force[1] && tmp_ref_forces[i](0) > - max_ref_force[0]) {
+            // std::cerr << "-x" << std::endl;
+            tmp_ref_forces[i](0) -= inc_ref_force[0];
+          } else if (!(is_emergency_for_ref_force[0] || is_emergency_for_ref_force[1])) {
+            // std::cerr << "x : recover" << std::endl;
+            if (fabs(tmp_ref_forces[i](0)) < inc_ref_force[1]) tmp_ref_forces[i](0) = 0.0;
+            else if (tmp_ref_forces[i](0) > 0) tmp_ref_forces[i](0) -= inc_ref_force[1];
+            else if (tmp_ref_forces[i](0) < 0) tmp_ref_forces[i](0) += inc_ref_force[1];
+          }
+          if (is_emergency_for_ref_force[2] && tmp_ref_forces[i](1) < max_ref_force[1]) {
+            // std::cerr << "+y" << std::endl;
+            tmp_ref_forces[i](1) += inc_ref_force[0];
+          } else if (is_emergency_for_ref_force[3] && tmp_ref_forces[i](1) > - max_ref_force[1]) {
+            // std::cerr << "-y" << std::endl;
+            tmp_ref_forces[i](1) -= inc_ref_force[0];
+          } else if (!(is_emergency_for_ref_force[2] || is_emergency_for_ref_force[3])) {
+            // std::cerr << "y : recover" << std::endl;
+            if (fabs(tmp_ref_forces[i](1)) < inc_ref_force[1]) tmp_ref_forces[i](1) = 0.0;
+            else if (tmp_ref_forces[i](1) > 0) tmp_ref_forces[i](1) -= inc_ref_force[1];
+            else if (tmp_ref_forces[i](1) < 0) tmp_ref_forces[i](1) += inc_ref_force[1];
+          }
+        }
+        ref_forces[i] = tmp_fix_coords.rot * tmp_ref_forces[i];
+      }
     }
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 
@@ -1722,6 +1768,13 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       std::cerr << "]" << std::endl;
   }
   is_emergency_step_mode = i_param.is_emergency_step_mode;
+  set_ref_force_when_overwriting = i_param.set_ref_force_when_overwriting;
+  for (size_t i; i<2; i++) {
+     max_ref_force[i] = i_param.max_ref_force[i];
+  }
+  for (size_t i; i<2; i++) {
+     inc_ref_force[i] = i_param.inc_ref_force[i];
+  }
   return true;
 };
 
@@ -1801,6 +1854,13 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       ilp.manipulability_limit = param.manip->getManipulabilityLimit();
   }
   i_param.is_emergency_step_mode = is_emergency_step_mode;
+  i_param.set_ref_force_when_overwriting = set_ref_force_when_overwriting;
+  for (size_t i; i<2; i++) {
+    i_param.max_ref_force[i] = max_ref_force[i];
+  }
+  for (size_t i; i<2; i++) {
+    i_param.inc_ref_force[i] = inc_ref_force[i];
+  }
   return true;
 };
 

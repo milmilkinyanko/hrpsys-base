@@ -287,6 +287,12 @@ module OpenHRP
       sequence<IKLimbParameters> ik_limb_parameters;
       /// whether step when emergency
       boolean is_emergency_step_mode;
+      /// Whether set ref-force
+      boolean set_ref_force_when_overwriting;
+      /// Max ref-force [N] (x, y)
+      DblArray2 max_ref_force;
+      /// Increment of  ref-force [N] (increase, recover)
+      DblArray2 inc_ref_force;
     };
 
     /**
