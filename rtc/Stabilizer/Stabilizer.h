@@ -163,6 +163,7 @@ class Stabilizer
   RTC::TimedDoubleSeq m_COPInfo;
   RTC::TimedLong m_emergencySignal;
   RTC::TimedBoolean m_emergencySignalWalking;
+  RTC::TimedBooleanSeq m_emergencySignalForRefForce;
   RTC::TimedDoubleSeq m_qRefSeq;
   RTC::TimedBoolean m_walkingStates;
   RTC::TimedPoint3D m_sbpCogOffset;
@@ -211,6 +212,7 @@ class Stabilizer
   RTC::OutPort<RTC::TimedDoubleSeq> m_COPInfoOut;
   RTC::OutPort<RTC::TimedLong> m_emergencySignalOut;
   RTC::OutPort<RTC::TimedBoolean> m_emergencySignalWalkingOut;
+  RTC::OutPort<RTC::TimedBooleanSeq> m_emergencySignalForRefForceOut;
   // for debug output
   RTC::OutPort<RTC::TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   RTC::OutPort<RTC::TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
@@ -303,7 +305,7 @@ class Stabilizer
   hrp::Vector3 new_refzmp, rel_cog, ref_zmp_aux;
   hrp::Vector3 pos_ctrl;
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
-  std::vector<double> cp_check_margin, cp_check_thre_while_walking, tilt_margin;
+  std::vector<double> cp_check_margin, cp_check_thre_while_walking, cp_check_thre_for_ref_force, tilt_margin;
   OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
   double cp_check_time_thre;
 };

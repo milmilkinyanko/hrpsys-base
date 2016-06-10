@@ -135,6 +135,8 @@ class AutoBalancer
   InPort<TimedLong> m_emergencySignalIn;
   TimedBoolean m_emergencySignalWalking;
   InPort<TimedBoolean> m_emergencySignalWalkingIn;
+  TimedBooleanSeq m_emergencySignalForRefForce;
+  InPort<TimedBooleanSeq> m_emergencySignalForRefForceIn;
   TimedPoint3D m_absActCP;
   InPort<TimedPoint3D> m_absActCPIn;
   TimedPoint3D m_absRefCP;
@@ -257,7 +259,7 @@ class AutoBalancer
   // static balance point offsetting
   hrp::Vector3 sbp_offset, sbp_cog_offset;
   enum {MODE_NO_FORCE, MODE_REF_FORCE} use_force;
-  std::vector<hrp::Vector3> ref_forces;
+  std::vector<hrp::Vector3> ref_forces, tmp_ref_forces;
 
   unsigned int m_debugLevel;
   bool is_legged_robot, is_stop_mode, has_ik_failed, is_hand_fix_mode, is_hand_fix_initial;
@@ -269,7 +271,9 @@ class AutoBalancer
   double pos_ik_thre, rot_ik_thre;
   hrp::Vector3 diff_cp;
   std::vector<bool> act_contact_states;
-  bool is_emergency_step_mode;
+  bool is_emergency_step_mode, is_emergency_for_ref_force[4];
+  bool set_ref_force_when_overwriting;
+  double max_ref_force[2], inc_ref_force[2];
 };
 
 
