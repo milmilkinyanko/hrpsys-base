@@ -369,6 +369,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     ref_moment_under_water = hrp::Vector3::Zero();
     diff_moment_between_ground_and_water = hrp::Vector3::Zero();
     tmp_diff_moment_between_ground_and_water = hrp::Vector3::Zero();
+    is_walk_with_force = false;
 
     return RTC::RTC_OK;
 }
@@ -1050,6 +1051,25 @@ void AutoBalancer::solveLimbIK ()
       diff_moment_between_ground_and_water += moment_transition_smooth_gain * (tmp_diff_moment_between_ground_and_water - current_moment);
     }
   }
+  if (!gg_is_walking) {
+    is_walk_with_force = false;
+    for (size_t i = 0; i < sensor_names.size(); i++) {
+      if (sensor_names[i] == "rfsensor") {
+        gg->set_default_rleg_force(ref_forces[i](2));
+      } else if (sensor_names[i] == "lfsensor") {
+        gg->set_default_lleg_force(ref_forces[i](2));
+      }
+    }
+  } else if (is_walk_with_force) {
+    for (size_t i = 0; i < sensor_names.size(); i++) {
+      if (sensor_names[i] == "rfsensor") {
+        ref_forces[i](2) = gg->get_current_rleg_force();
+      } else if (sensor_names[i] == "lfsensor") {
+        ref_forces[i](2) = gg->get_current_lleg_force();
+      }
+    }
+  }
+
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     if (it->second.is_active) {
       for ( int j = 0; j < it->second.manip->numJoints(); j++ ){
@@ -1156,7 +1176,7 @@ void AutoBalancer::stopABCparam()
   control_mode = MODE_SYNC_TO_IDLE;
 }
 
-void AutoBalancer::startWalking ()
+void AutoBalancer::startWalking (bool is_set_foot_steps_force = false)
 {
   if ( control_mode != MODE_ABC ) {
     return_control_mode = control_mode;
@@ -1194,6 +1214,7 @@ void AutoBalancer::startWalking ()
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
+    if (is_set_foot_steps_force) is_walk_with_force = true;
   }
 }
 
@@ -1529,7 +1550,7 @@ bool AutoBalancer::setFootStepsForceWithParam(const OpenHRP::AutoBalancerService
         } else {
             std::cerr << "[" << m_profile.instance_name << "]  Set normal footsteps" << std::endl;
             gg->set_foot_steps_list(fnsl);
-            startWalking();
+            startWalking(true);
         }
         return true;
     } else {
@@ -1605,8 +1626,6 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_gravitational_acceleration(i_param.gravitational_acceleration);
   gg->set_toe_angle(i_param.toe_angle);
   gg->set_heel_angle(i_param.heel_angle);
-  gg->set_rleg_force(i_param.rleg_force);
-  gg->set_lleg_force(i_param.lleg_force);
   gg->set_toe_pos_offset_x(i_param.toe_pos_offset_x);
   gg->set_heel_pos_offset_x(i_param.heel_pos_offset_x);
   gg->set_toe_zmp_offset_x(i_param.toe_zmp_offset_x);

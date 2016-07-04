@@ -220,7 +220,7 @@ class AutoBalancer
   void waitABCTransition();
   hrp::Matrix33 OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2);
   void fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot);
-  void startWalking ();
+  void startWalking (bool set_foot_steps_force);
   void stopWalking ();
   void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
   // static balance point offsetting
@@ -282,6 +282,7 @@ class AutoBalancer
   double max_ref_force[2], inc_ref_force[2];
   hrp::Vector3 ref_moment_under_water;
   hrp::Vector3 diff_moment_between_ground_and_water, tmp_diff_moment_between_ground_and_water;
+  bool is_walk_with_force;
 };
 
 

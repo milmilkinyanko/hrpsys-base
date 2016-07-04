@@ -718,8 +718,6 @@ namespace rats
       void set_heel_pos_offset_x (const double _offx) { heel_pos_offset_x = _offx; };
       void set_toe_angle (const double _angle) { toe_angle = _angle; };
       void set_heel_angle (const double _angle) { heel_angle = _angle; };
-      void set_rleg_force (const double _force) { rleg_force = _force; };
-      void set_lleg_force (const double _force) { lleg_force = _force; };
       void set_use_toe_joint (const bool ut) { use_toe_joint = ut; };
       void set_swing_support_steps_list (const std::vector< std::vector<step_node> >& fnsl)
       {
@@ -935,7 +933,7 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved;
     hrp::dvector preview_f;
-    double overwrite_footstep_gain[2], overwritable_stride_limit[4], emergency_step_time[3];
+    double overwrite_footstep_gain[2], overwritable_stride_limit[4], emergency_step_time[3], current_rleg_force, default_rleg_force, current_lleg_force, default_lleg_force;
     bool overwrite_footstep_based_on_cp, is_emergency_overwrite, is_emergency_step;
 
     /* preview controller parameters */
@@ -985,6 +983,7 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING),
         use_inside_step_limitation(true), overwrite_footstep_based_on_cp(false), is_emergency_overwrite(false), is_emergency_step(false),
+        current_rleg_force(0.0), default_rleg_force(0.0), current_lleg_force(0.0), default_lleg_force(0.0),
         preview_controller_ptr(NULL) {
         swing_foot_zmp_offsets = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
         prev_que_sfzos = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
@@ -1113,8 +1112,8 @@ namespace rats
     void set_heel_pos_offset_x (const double _offx) { lcg.set_heel_pos_offset_x(_offx); };
     void set_toe_angle (const double _angle) { lcg.set_toe_angle(_angle); };
     void set_heel_angle (const double _angle) { lcg.set_heel_angle(_angle); };
-    void set_rleg_force (const double _force) { lcg.set_rleg_force(_force); };
-    void set_lleg_force (const double _force) { lcg.set_lleg_force(_force); };
+    void set_default_rleg_force (const double _force) { default_rleg_force = _force; };
+    void set_default_lleg_force (const double _force) { default_lleg_force = _force; };
     bool set_toe_heel_phase_ratio (const std::vector<double>& ratio) { return thp.set_toe_heel_phase_ratio(ratio); };
     void set_use_toe_joint (const bool ut) { lcg.set_use_toe_joint(ut); };
     void set_leg_default_translate_pos (const std::vector<hrp::Vector3>& off) { footstep_param.leg_default_translate_pos = off;};
@@ -1296,6 +1295,8 @@ namespace rats
     double get_heel_angle () const { return lcg.get_heel_angle(); };
     double get_rleg_force () const { return lcg.get_rleg_force(); };
     double get_lleg_force () const { return lcg.get_lleg_force(); };
+    double get_current_rleg_force () const { return current_rleg_force; };
+    double get_current_lleg_force () const { return current_lleg_force; };
     double get_foot_dif_rot_angle () const { return lcg.get_foot_dif_rot_angle(); };
     void get_toe_heel_phase_ratio (std::vector<double>& ratio) const { thp.get_toe_heel_phase_ratio(ratio); };
     int get_NUM_TH_PHASES () const { return thp.get_NUM_TH_PHASES(); };

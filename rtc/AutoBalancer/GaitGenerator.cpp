@@ -685,6 +685,35 @@ namespace rats
       is_emergency_overwrite = false;
     }
 
+    // update ref force
+    {
+      double tmp_prev_rleg_force, tmp_prev_lleg_force, tmp_diff_rleg_force, tmp_diff_lleg_force;
+      if (lcg.get_footstep_index() == 0) {
+        tmp_prev_rleg_force = default_rleg_force;
+        tmp_prev_lleg_force = default_lleg_force;
+        tmp_diff_rleg_force = footstep_nodes_list[lcg.get_footstep_index()].front().rleg_force - tmp_prev_rleg_force;
+        tmp_diff_lleg_force = footstep_nodes_list[lcg.get_footstep_index()].front().lleg_force - tmp_prev_lleg_force;
+      } else if (lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
+        tmp_prev_rleg_force = footstep_nodes_list[lcg.get_footstep_index()-1].front().rleg_force;
+        tmp_prev_lleg_force = footstep_nodes_list[lcg.get_footstep_index()-1].front().lleg_force;
+        tmp_diff_rleg_force =  default_rleg_force - tmp_prev_rleg_force;
+        tmp_diff_lleg_force =  default_lleg_force - tmp_prev_lleg_force;
+      } else if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-1) {
+        tmp_prev_rleg_force = footstep_nodes_list[lcg.get_footstep_index()-1].front().rleg_force;
+        tmp_prev_lleg_force = footstep_nodes_list[lcg.get_footstep_index()-1].front().lleg_force;
+        tmp_diff_rleg_force =  footstep_nodes_list[lcg.get_footstep_index()].front().rleg_force - tmp_prev_rleg_force;
+        tmp_diff_lleg_force =  footstep_nodes_list[lcg.get_footstep_index()].front().lleg_force - tmp_prev_lleg_force;
+      }
+      if (lcg.get_footstep_index() >= 0 && lcg.get_footstep_index() <= footstep_nodes_list.size()-1) {
+        if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before)) - 1 &&
+            lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * default_double_support_ratio_after) - 1) {
+          double tmp_count = (static_cast<double>(lcg.get_lcg_count()) + 1.0) / (footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt);
+          current_rleg_force = tmp_prev_rleg_force + (tmp_count + default_double_support_ratio_before - 1.0) / (default_double_support_ratio_after + default_double_support_ratio_before - 1.0) * tmp_diff_rleg_force;
+          current_lleg_force = tmp_prev_lleg_force + (tmp_count + default_double_support_ratio_before - 1.0) / (default_double_support_ratio_after + default_double_support_ratio_before - 1.0) * tmp_diff_lleg_force;
+        }
+      }
+    }
+
     if ( !solved ) {
       hrp::Vector3 rzmp;
       std::vector<hrp::Vector3> sfzos;
