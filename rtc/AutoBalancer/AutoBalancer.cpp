@@ -1444,6 +1444,100 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
     }
 }
 
+bool AutoBalancer::setFootStepsForceWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepForceParamsSequence& sfpss, CORBA::Long overwrite_fs_idx)
+{
+    if (!is_stop_mode) {
+        std::cerr << "[" << m_profile.instance_name << "] setFootStepsList" << std::endl;
+
+        // Initial footstep Snapping
+        coordinates tmpfs, fstrans;
+        step_node initial_support_step, initial_input_step;
+        {
+            std::vector<step_node> initial_support_steps;
+            if (gg_is_walking) {
+                if (overwrite_fs_idx <= 0) {
+                    std::cerr << "[" << m_profile.instance_name << "]   Invalid overwrite index = " << overwrite_fs_idx << std::endl;
+                    return false;
+                }
+                if (!gg->get_footstep_nodes_by_index(initial_support_steps, overwrite_fs_idx-1)) {
+                    std::cerr << "[" << m_profile.instance_name << "]   Invalid overwrite index = " << overwrite_fs_idx << std::endl;
+                    return false;
+                }
+            } else {
+                // If walking, snap initial leg to current ABC foot coords.
+                for (size_t i = 0; i < fss[0].fs.length(); i++) {
+                    initial_support_steps.push_back(step_node(std::string(fss[0].fs[i].leg), ikp[std::string(fss[0].fs[i].leg)].target_end_coords, 0, 0, 0, 0));
+                }
+            }
+            initial_support_step = initial_support_steps.front(); /* use only one leg for representation */
+        }
+        {
+            std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
+            for (size_t i = 0; i < fss[0].fs.length(); i++) {
+                if (std::string(fss[0].fs[i].leg) == leg_type_map[initial_support_step.l_r]) {
+                    coordinates tmp;
+                    memcpy(tmp.pos.data(), fss[0].fs[i].pos, sizeof(double)*3);
+                    tmp.rot = (Eigen::Quaternion<double>(fss[0].fs[i].rot[0], fss[0].fs[i].rot[1], fss[0].fs[i].rot[2], fss[0].fs[i].rot[3])).normalized().toRotationMatrix(); // rtc: (x, y, z, w) but eigen: (w, x, y, z)
+                    initial_input_step = step_node(std::string(fss[0].fs[i].leg), tmp, 0, 0, 0, 0);
+                }
+            }
+        }
+
+        // Get footsteps
+        std::vector< std::vector<coordinates> > fs_vec_list;
+        std::vector< std::vector<std::string> > leg_name_vec_list;
+        for (size_t i = 0; i < fss.length(); i++) {
+            std::vector<coordinates> fs_vec;
+            std::vector<std::string> leg_name_vec;
+            for (size_t j = 0; j < fss[i].fs.length(); j++) {
+                std::string leg(fss[i].fs[j].leg);
+                if (std::find(leg_names.begin(), leg_names.end(), leg) != leg_names.end()) {
+                    memcpy(tmpfs.pos.data(), fss[i].fs[j].pos, sizeof(double)*3);
+                    tmpfs.rot = (Eigen::Quaternion<double>(fss[i].fs[j].rot[0], fss[i].fs[j].rot[1], fss[i].fs[j].rot[2], fss[i].fs[j].rot[3])).normalized().toRotationMatrix(); // rtc: (x, y, z, w) but eigen: (w, x, y, z)
+                    initial_input_step.worldcoords.transformation(fstrans, tmpfs);
+                    tmpfs = initial_support_step.worldcoords;
+                    tmpfs.transform(fstrans);
+                } else {
+                    std::cerr << "[" << m_profile.instance_name << "]   No such target : " << leg << std::endl;
+                    return false;
+                }
+                leg_name_vec.push_back(leg);
+                fs_vec.push_back(tmpfs);
+            }
+            leg_name_vec_list.push_back(leg_name_vec);
+            fs_vec_list.push_back(fs_vec);
+        }
+        if (sfpss.length() != fs_vec_list.size()) {
+            std::cerr << "[" << m_profile.instance_name << "]   StepParam length " << sfpss.length () << " != Footstep length " << fs_vec_list.size() << std::endl;
+            return false;
+        }
+        std::cerr << "[" << m_profile.instance_name << "] print footsteps " << std::endl;
+        std::vector< std::vector<step_node> > fnsl;
+        for (size_t i = 0; i < fs_vec_list.size(); i++) {
+            if (!(gg_is_walking && i == 0)) { // If initial footstep, e.g., not walking, pass user-defined footstep list. If walking, pass cdr footsteps in order to neglect initial double support leg.
+                std::vector<step_node> tmp_fns;
+                for (size_t j = 0; j < fs_vec_list.at(i).size(); j++) {
+                    tmp_fns.push_back(step_node(leg_name_vec_list[i][j], fs_vec_list[i][j], sfpss[i].sfps[j].step_height, sfpss[i].sfps[j].step_time, sfpss[i].sfps[j].toe_angle, sfpss[i].sfps[j].heel_angle, sfpss[i].sfps[j].rleg_force, sfpss[i].sfps[j].lleg_force));
+                }
+                fnsl.push_back(tmp_fns);
+            }
+        }
+        if (gg_is_walking) {
+            std::cerr << "[" << m_profile.instance_name << "]  Set overwrite footsteps" << std::endl;
+            gg->set_overwrite_foot_steps_list(fnsl);
+            gg->set_overwrite_foot_step_index(overwrite_fs_idx);
+        } else {
+            std::cerr << "[" << m_profile.instance_name << "]  Set normal footsteps" << std::endl;
+            gg->set_foot_steps_list(fnsl);
+            startWalking();
+        }
+        return true;
+    } else {
+        std::cerr << "[" << m_profile.instance_name << "] Cannot setFootSteps while walking." << std::endl;
+        return false;
+    }
+}
+
 void AutoBalancer::waitFootSteps()
 {
   //while (gg_is_walking) usleep(10);
@@ -1511,6 +1605,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_gravitational_acceleration(i_param.gravitational_acceleration);
   gg->set_toe_angle(i_param.toe_angle);
   gg->set_heel_angle(i_param.heel_angle);
+  gg->set_rleg_force(i_param.rleg_force);
+  gg->set_lleg_force(i_param.lleg_force);
   gg->set_toe_pos_offset_x(i_param.toe_pos_offset_x);
   gg->set_heel_pos_offset_x(i_param.heel_pos_offset_x);
   gg->set_toe_zmp_offset_x(i_param.toe_zmp_offset_x);
@@ -1582,6 +1678,8 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.gravitational_acceleration = gg->get_gravitational_acceleration();
   i_param.toe_angle = gg->get_toe_angle();
   i_param.heel_angle = gg->get_heel_angle();
+  i_param.rleg_force = gg->get_rleg_force();
+  i_param.lleg_force = gg->get_lleg_force();
   i_param.toe_pos_offset_x = gg->get_toe_pos_offset_x();
   i_param.heel_pos_offset_x = gg->get_heel_pos_offset_x();
   i_param.toe_zmp_offset_x = gg->get_toe_zmp_offset_x();

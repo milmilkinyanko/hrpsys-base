@@ -25,10 +25,11 @@ namespace rats
     {
         leg_type l_r;
         coordinates worldcoords;
-        double step_height, step_time, toe_angle, heel_angle;
+        double step_height, step_time, toe_angle, heel_angle, rleg_force, lleg_force;
         step_node () : l_r(RLEG), worldcoords(coordinates()),
                        step_height(), step_time(),
-                       toe_angle(), heel_angle(){};
+                       toe_angle(), heel_angle(),
+                       rleg_force(), lleg_force(){};
         step_node (const leg_type _l_r, const coordinates& _worldcoords,
                    const double _step_height, const double _step_time,
                    const double _toe_angle, const double _heel_angle)
@@ -44,6 +45,25 @@ namespace rats
                   LLEG), worldcoords(_worldcoords),
               step_height(_step_height), step_time(_step_time),
               toe_angle(_toe_angle), heel_angle(_heel_angle) {};
+        step_node (const leg_type _l_r, const coordinates& _worldcoords,
+                   const double _step_height, const double _step_time,
+                   const double _toe_angle, const double _heel_angle,
+                   const double _rleg_force, const double _lleg_force)
+            : l_r(_l_r), worldcoords(_worldcoords),
+              step_height(_step_height), step_time(_step_time),
+              toe_angle(_toe_angle), heel_angle(_heel_angle),
+              rleg_force(_rleg_force), lleg_force(_lleg_force) {};
+        step_node (const std::string& _l_r, const coordinates& _worldcoords,
+                   const double _step_height, const double _step_time,
+                   const double _toe_angle, const double _heel_angle,
+                   const double _rleg_force, const double _lleg_force)
+            : l_r((_l_r == "rleg") ? RLEG :
+                  (_l_r == "rarm") ? RARM :
+                  (_l_r == "larm") ? LARM :
+                  LLEG), worldcoords(_worldcoords),
+              step_height(_step_height), step_time(_step_time),
+              toe_angle(_toe_angle), heel_angle(_heel_angle),
+              rleg_force(_rleg_force), lleg_force(_lleg_force) {};
         friend std::ostream &operator<<(std::ostream &os, const step_node &sn)
         {
             os << "footstep" << std::endl;
@@ -56,7 +76,8 @@ namespace rats
             os << "  rot =";
             os << (sn.worldcoords.rot).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "", " [", "]")) << std::endl;
             os << "  step_height = " << sn.step_height << "[m], step_time = " << sn.step_time << "[s], "
-               << "toe_angle = " << sn.toe_angle << "[deg], heel_angle = " << sn.heel_angle << "[deg]";
+               << "toe_angle = " << sn.toe_angle << "[deg], heel_angle = " << sn.heel_angle << "[deg], "
+               << "rleg_force = " << sn.rleg_force << "[N], lleg_force = " << sn.lleg_force << "[N]";
             return os;
         };
     };
@@ -610,7 +631,7 @@ namespace rats
       interpolator* swing_foot_rot_ratio_interpolator;
       // Parameters for toe-heel contact
       interpolator* toe_heel_interpolator;
-      double toe_pos_offset_x, heel_pos_offset_x, toe_angle, heel_angle, foot_dif_rot_angle;
+      double toe_pos_offset_x, heel_pos_offset_x, toe_angle, heel_angle, rleg_force, lleg_force, foot_dif_rot_angle;
       bool use_toe_joint;
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle);
       double calc_interpolated_toe_heel_angle (const toe_heel_phase start_phase, const toe_heel_phase goal_phase, const double start, const double goal);
@@ -642,7 +663,7 @@ namespace rats
           rdtg(), cdtg(), wdtg(),
           thp_ptr(_thp_ptr),
           foot_ratio_interpolator(NULL), swing_foot_rot_ratio_interpolator(NULL), toe_heel_interpolator(NULL),
-          toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), use_toe_joint(false)
+          toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0),rleg_force(0.0), lleg_force(0.0), foot_dif_rot_angle(0.0), use_toe_joint(false)
       {
         support_leg_types = boost::assign::list_of<leg_type>(RLEG);
         swing_leg_types = boost::assign::list_of<leg_type>(LLEG);
@@ -697,6 +718,8 @@ namespace rats
       void set_heel_pos_offset_x (const double _offx) { heel_pos_offset_x = _offx; };
       void set_toe_angle (const double _angle) { toe_angle = _angle; };
       void set_heel_angle (const double _angle) { heel_angle = _angle; };
+      void set_rleg_force (const double _force) { rleg_force = _force; };
+      void set_lleg_force (const double _force) { lleg_force = _force; };
       void set_use_toe_joint (const bool ut) { use_toe_joint = ut; };
       void set_swing_support_steps_list (const std::vector< std::vector<step_node> >& fnsl)
       {
@@ -861,6 +884,8 @@ namespace rats
       double get_heel_pos_offset_x () const { return heel_pos_offset_x; };
       double get_toe_angle () const { return toe_angle; };
       double get_heel_angle () const { return heel_angle; };
+      double get_rleg_force () const { return rleg_force; };
+      double get_lleg_force () const { return lleg_force; };
       double get_foot_dif_rot_angle () const { return foot_dif_rot_angle; };
       bool get_use_toe_joint () const { return use_toe_joint; };
     };
@@ -931,7 +956,8 @@ namespace rats
       for (size_t i = 0; i < lts.size(); i++) {
           sns.push_back(step_node(lts.at(i), _ref_coords,
                                   lcg.get_default_step_height(), default_step_time,
-                                  lcg.get_toe_angle(), lcg.get_heel_angle()));
+                                  lcg.get_toe_angle(), lcg.get_heel_angle(),
+                                  lcg.get_rleg_force(), lcg.get_lleg_force()));
           sns.at(i).worldcoords.pos += sns.at(i).worldcoords.rot * footstep_param.leg_default_translate_pos[lts.at(i)];
       }
       _footstep_nodes_list.push_back(sns);
@@ -1035,7 +1061,7 @@ namespace rats
     {
       std::vector<step_node> sns = _footstep_nodes_list[_footstep_nodes_list.size()-2];
       for (size_t i = 0; i < sns.size(); i++) {
-          sns.at(i).step_height = sns.at(i).toe_angle = sns.at(i).heel_angle = 0.0;
+        sns.at(i).step_height = sns.at(i).toe_angle = sns.at(i).heel_angle = sns.at(i).rleg_force = sns.at(i).lleg_force = 0.0;
       }
       _footstep_nodes_list.push_back(sns);
     };
@@ -1087,6 +1113,8 @@ namespace rats
     void set_heel_pos_offset_x (const double _offx) { lcg.set_heel_pos_offset_x(_offx); };
     void set_toe_angle (const double _angle) { lcg.set_toe_angle(_angle); };
     void set_heel_angle (const double _angle) { lcg.set_heel_angle(_angle); };
+    void set_rleg_force (const double _force) { lcg.set_rleg_force(_force); };
+    void set_lleg_force (const double _force) { lcg.set_lleg_force(_force); };
     bool set_toe_heel_phase_ratio (const std::vector<double>& ratio) { return thp.set_toe_heel_phase_ratio(ratio); };
     void set_use_toe_joint (const bool ut) { lcg.set_use_toe_joint(ut); };
     void set_leg_default_translate_pos (const std::vector<hrp::Vector3>& off) { footstep_param.leg_default_translate_pos = off;};
@@ -1266,6 +1294,8 @@ namespace rats
     double get_heel_pos_offset_x () const { return lcg.get_heel_pos_offset_x(); };
     double get_toe_angle () const { return lcg.get_toe_angle(); };
     double get_heel_angle () const { return lcg.get_heel_angle(); };
+    double get_rleg_force () const { return lcg.get_rleg_force(); };
+    double get_lleg_force () const { return lcg.get_lleg_force(); };
     double get_foot_dif_rot_angle () const { return lcg.get_foot_dif_rot_angle(); };
     void get_toe_heel_phase_ratio (std::vector<double>& ratio) const { thp.get_toe_heel_phase_ratio(ratio); };
     int get_NUM_TH_PHASES () const { return thp.get_NUM_TH_PHASES(); };
