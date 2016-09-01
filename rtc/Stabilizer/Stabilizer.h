@@ -168,6 +168,7 @@ class Stabilizer
   RTC::TimedBooleanSeq m_actContactStates;
   RTC::TimedDoubleSeq m_COPInfo;
   RTC::TimedLong m_emergencySignal;
+  RTC::TimedBoolean m_emergencySignalWalking;
   RTC::TimedDoubleSeq m_qRefSeq;
   RTC::TimedBoolean m_walkingStates;
   RTC::TimedPoint3D m_sbpCogOffset;
@@ -214,6 +215,7 @@ class Stabilizer
   RTC::OutPort<RTC::TimedBooleanSeq> m_actContactStatesOut;
   RTC::OutPort<RTC::TimedDoubleSeq> m_COPInfoOut;
   RTC::OutPort<RTC::TimedLong> m_emergencySignalOut;
+  RTC::OutPort<RTC::TimedBoolean> m_emergencySignalWalkingOut;
   // for debug output
   RTC::OutPort<RTC::TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   RTC::OutPort<RTC::TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
@@ -284,7 +286,7 @@ class Stabilizer
   int m_is_falling_counter;
   std::vector<int> m_will_fall_counter;
   int sync_to_air_counter, sync_to_air_max_counter;
-  bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance;
+  bool is_legged_robot, on_ground, is_emergency, is_emergency_while_walking, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance;
   bool is_walking, is_estop_while_walking;
   hrp::Vector3 current_root_p, target_root_p;
   hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot;
@@ -317,7 +319,7 @@ class Stabilizer
   hrp::Vector3 ref_total_force, ref_total_moment;
   hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
-  std::vector<double> cp_check_margin, tilt_margin;
+  std::vector<double> cp_check_margin, cp_check_margin_while_walking, tilt_margin;
   OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
 };
 
