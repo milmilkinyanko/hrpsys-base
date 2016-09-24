@@ -174,6 +174,13 @@ namespace rats
       }
       std::cerr << ")" << std::endl;
     }
+    void modify_refzmp(const hrp::dmatrix& p_comp)
+    {
+      for (size_t i = 0; i < p.size()-1; i++) {
+        p[i+1](0) += p_comp(i,0);
+        p[i+1](1) += p_comp(i,1);
+      }
+    };
   };
 
   class preview_control : public preview_control_base<3>
@@ -268,6 +275,10 @@ namespace rats
     {
       preview_controller.print_all_queue();
     }
+    void modify_refzmp(const hrp::dmatrix& p_comp)
+    {
+      preview_controller.modify_refzmp(p_comp);
+    };
 
     void get_cart_zmp (double* ret) { preview_controller.get_cart_zmp(ret);}
     void get_refcog_vel (double* ret) { preview_controller.get_refcog_vel(ret);}

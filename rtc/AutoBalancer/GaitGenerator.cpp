@@ -581,6 +581,7 @@ namespace rats
     // modify footsteps based on diff_cp
     if (modify_footsteps && isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       static hrp::Vector3 prev_diff_cp;
+      double time_margin = 0.1; // tmp
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static double preview_f_sum;
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
@@ -596,7 +597,7 @@ namespace rats
         d_footstep(2) = 0.0;
         // overwrite footsteps
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
-            lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * default_double_support_ratio_after) - 1 &&
+            lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + time_margin)) - 1 &&
             !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1]) &&
             is_emergency_walking) {
           // stride limitation check
@@ -608,11 +609,11 @@ namespace rats
             footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
             footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
           }
+          overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+          // overwrite zmp
+          overwrite_refzmp_queue(overwrite_footstep_nodes_list);
+          overwrite_footstep_nodes_list.clear();
         }
-        overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
-        // overwrite zmp
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list);
-        overwrite_footstep_nodes_list.clear();
       }
       prev_diff_cp = diff_cp;
     }
@@ -644,6 +645,50 @@ namespace rats
       } else {
         prev_que_rzmp = rzmp;
         prev_que_sfzos = sfzos;
+      }
+      // modify refzmp based on diff_cp
+      if (modify_refzmp && lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
+        static hrp::Vector3 prev_diff_cp;
+        static hrp::Vector2 d_refzmp_maxlimit, d_refzmp_minlimit;
+        double time_margin = 0.05, start_cnt = 0.05/dt, zmp_margin = 0.02; // tmp
+        if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
+            lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + time_margin)) - 1 + start_cnt) {
+          hrp::dmatrix refzmp_comp_list = hrp::dmatrix::Zero(preview_controller_ptr->get_delay(), 2);
+          double preview_f_sum = 0.0;
+          leg_type support_leg = footstep_nodes_list[lcg.get_footstep_index()-1].front().l_r;
+          hrp::Vector3 d_refzmp, zmp_offsets = rg.get_default_zmp_offset(support_leg);
+          if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
+            d_refzmp_maxlimit = hrp::Vector2(leg_margin[0]- zmp_offsets(0)-zmp_margin, leg_margin[support_leg == LLEG ? 2 : 3] - zmp_offsets(1)-zmp_margin);
+            d_refzmp_minlimit = hrp::Vector2(-1*leg_margin[1] - zmp_offsets(0)+zmp_margin, -1*leg_margin[support_leg == LLEG ? 3 : 2] - zmp_offsets(1) + zmp_margin);
+          }
+          for (size_t i = start_cnt; i <= lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + time_margin)) - 1); i++) {
+            preview_f_sum += preview_controller_ptr->get_preview_f(i);
+          }
+          d_refzmp = (footstep_modification_gain[0] * diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
+          hrp::Vector3 rel_d_refzmp = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot.transpose() * d_refzmp;
+          for (size_t i = 0; i < 2; i++) {
+            if (rel_d_refzmp(i) > d_refzmp_maxlimit(i)) {
+              rel_d_refzmp(i) = d_refzmp_maxlimit(i);
+            } else if (rel_d_refzmp(i) < d_refzmp_minlimit(i)) {
+              rel_d_refzmp(i) = d_refzmp_minlimit(i);
+            }
+            d_refzmp_maxlimit(i) -= rel_d_refzmp(i);
+            d_refzmp_minlimit(i) -= rel_d_refzmp(i);
+          }
+          d_refzmp = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot * rel_d_refzmp;
+          for (size_t i = start_cnt; i < lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + time_margin)) - 1); i++){
+            if (modify_refzmp)
+            refzmp_comp_list(i,0) = d_refzmp(0);
+            refzmp_comp_list(i,1) = d_refzmp(1);
+          }
+          for (size_t i = lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + time_margin)) - 1);
+               i < lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) - 1); i++) {
+            refzmp_comp_list(i,0) = d_refzmp(0) * ((lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) - 1)) - i) / (footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * time_margin);
+            refzmp_comp_list(i,1) = d_refzmp(1) * ((lcg.get_lcg_count() - (static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) - 1)) - i) / (footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * time_margin);
+          }
+          preview_controller_ptr->modify_refzmp(refzmp_comp_list);
+        }
+        prev_diff_cp = diff_cp;
       }
       solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
     }

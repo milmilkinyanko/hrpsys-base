@@ -245,6 +245,8 @@ module OpenHRP
       DblArray2 footstep_modification_gain;
       /// Whether modify footsteps based on Capture Point
       boolean modify_footsteps;
+      /// Whether modify refzmp based on Capture Point
+      boolean modify_refzmp;
     };
 
     /**
