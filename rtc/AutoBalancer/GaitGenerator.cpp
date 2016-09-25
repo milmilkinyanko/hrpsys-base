@@ -593,7 +593,7 @@ namespace rats
         if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
           preview_f_sum += preview_controller_ptr->get_preview_f(lcg.get_lcg_count());
         }
-        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
+        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * (diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp) / dt)) / preview_f_sum;
         d_footstep(2) = 0.0;
         // overwrite footsteps
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&

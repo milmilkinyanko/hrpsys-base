@@ -974,26 +974,26 @@ void Stabilizer::getActualParameters ()
           // foot force difference control version
           //   Basically Equation (18) in the paper [1]
           hrp::Vector3 ref_f_diff = (stikp[1].ref_force-stikp[0].ref_force);
-          if ( (contact_states[contact_states_index_map["rleg"]] && contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
-               || (isContact(0) && isContact(1)) ) { // Actual : double support phase
+          // if ( (contact_states[contact_states_index_map["rleg"]] && contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
+          //      || (isContact(0) && isContact(1)) ) { // Actual : double support phase
               // Temporarily use first pos damping gain (stikp[0])
               hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
               pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                              tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
-          } else {
-              double remain_swing_time;
-              if ( !contact_states[contact_states_index_map["rleg"]] ) { // rleg swing
-                  remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["rleg"]];
-              } else { // lleg swing
-                  remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["lleg"]];
-              }
-              // std::cerr << "st " << remain_swing_time << " rleg " << contact_states[contact_states_index_map["rleg"]] << " lleg " << contact_states[contact_states_index_map["lleg"]] << std::endl;
-              double tmp_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time-eefm_pos_margin_time)/eefm_pos_transition_time)); // 0=>1
-              // Temporarily use first pos damping gain (stikp[0])
-              hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
-              hrp::Vector3 tmp_time_const = (1-tmp_ratio)*eefm_pos_time_const_swing*hrp::Vector3::Ones()+tmp_ratio*stikp[0].eefm_pos_time_const_support;
-              pos_ctrl = calcDampingControl (tmp_ratio * ref_f_diff, tmp_ratio * f_diff, pos_ctrl, tmp_damping_gain, tmp_time_const);
-          }
+          // } else {
+          //     double remain_swing_time;
+          //     if ( !contact_states[contact_states_index_map["rleg"]] ) { // rleg swing
+          //         remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["rleg"]];
+          //     } else { // lleg swing
+          //         remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["lleg"]];
+          //     }
+          //     // std::cerr << "st " << remain_swing_time << " rleg " << contact_states[contact_states_index_map["rleg"]] << " lleg " << contact_states[contact_states_index_map["lleg"]] << std::endl;
+          //     double tmp_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time-eefm_pos_margin_time)/eefm_pos_transition_time)); // 0=>1
+          //     // Temporarily use first pos damping gain (stikp[0])
+          //     hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
+          //     hrp::Vector3 tmp_time_const = (1-tmp_ratio)*eefm_pos_time_const_swing*hrp::Vector3::Ones()+tmp_ratio*stikp[0].eefm_pos_time_const_support;
+          //     pos_ctrl = calcDampingControl (tmp_ratio * ref_f_diff, tmp_ratio * f_diff, pos_ctrl, tmp_damping_gain, tmp_time_const);
+          // }
           // zctrl = vlimit(zctrl, -0.02, 0.02);
           // Temporarily use first pos compensation limit (stikp[0])
           pos_ctrl = vlimit(pos_ctrl, -1 * stikp[0].eefm_pos_compensation_limit * 2, stikp[0].eefm_pos_compensation_limit * 2);
