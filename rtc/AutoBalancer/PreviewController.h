@@ -272,7 +272,7 @@ namespace rats
       }
       return flg;
     };
-    void reupdate(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const bool updatep)
+    bool reupdate(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const bool updatep)
     {
       bool flg;
       if (updatep) {
@@ -287,6 +287,7 @@ namespace rats
         preview_controller.get_current_refzmp(p_ret.data());
         preview_controller.get_refcog(x_ret.data());
       }
+      return flg;
     };
     void remove_preview_queue(const size_t remain_length)
     {
