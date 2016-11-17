@@ -555,6 +555,30 @@ namespace rats
   bool gait_generator::proc_one_tick (const hrp::Vector3& diff_cp, const std::vector<bool>& contact_states)
   {
     solved = false;
+
+    if ( lcg.get_footstep_index() > 0  && lcg.get_footstep_index() < footstep_nodes_list.size()-overwritable_footstep_index_offset-2) {
+      hrp::Vector3 rzmp;
+      std::vector<hrp::Vector3> sfzos;
+      bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
+      if (!refzmp_exist_p) {
+        finalize_count++;
+        rzmp = prev_que_rzmp;
+        sfzos = prev_que_sfzos;
+      } else {
+        prev_que_rzmp = rzmp;
+        prev_que_sfzos = sfzos;
+      }
+      Eigen::Matrix<double, 3,2> current_x; // x_k(k)
+      Eigen::Matrix<double, 4,2> current_x_e; //  x_k_e(k)
+      preview_controller_ptr->get_x_k(current_x); // x_k(k)
+      preview_controller_ptr->get_x_k_e(current_x_e); // x_k_e(k)
+      solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+      //resolve
+      preview_controller_ptr->set_x_k(current_x);
+      preview_controller_ptr->set_x_k_e(current_x_e);
+      preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+    }
+
     /* update refzmp */
     if (emergency_flg == EMERGENCY_STOP && lcg.get_footstep_index() > 0) {
         leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
