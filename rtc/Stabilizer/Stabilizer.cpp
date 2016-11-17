@@ -62,6 +62,8 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_actCPOut("actCapturePoint", m_actCP),
     m_absRefCPOut("absRefCapturePoint", m_absRefCP),
     m_absActCPOut("absActCapturePoint", m_absActCP),
+    m_absActCOGOut("absActCOG", m_absActCOG),
+    m_absActCOGVelOut("absActCOGVelocity", m_absActCOGVel),
     m_actContactStatesOut("actContactStates", m_actContactStates),
     m_COPInfoOut("COPInfo", m_COPInfo),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
@@ -127,6 +129,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("actCapturePoint", m_actCPOut);
   addOutPort("absRefCapturePoint", m_absRefCPOut);
   addOutPort("absActCapturePoint", m_absActCPOut);
+  addOutPort("absActCOG", m_absActCOGOut);
+  addOutPort("absActCOGVelocity", m_absActCOGVelOut);
   addOutPort("actContactStates", m_actContactStatesOut);
   addOutPort("COPInfo", m_COPInfoOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
@@ -655,6 +659,16 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_absRefCP.data.z = abs_ref_cp(2);
       m_absRefCP.tm = m_qRef.tm;
       m_absRefCPOut.write();
+      m_absActCOG.data.x = abs_act_cog(0);
+      m_absActCOG.data.y = abs_act_cog(1);
+      m_absActCOG.data.z = abs_act_cog(2);
+      m_absActCOG.tm = m_qRef.tm;
+      m_absActCOGOut.write();
+      m_absActCOGVel.data.x = abs_act_cogvel(0);
+      m_absActCOGVel.data.y = abs_act_cogvel(1);
+      m_absActCOGVel.data.z = abs_act_cogvel(2);
+      m_absActCOGVel.tm = m_qRef.tm;
+      m_absActCOGVelOut.write();
       m_actContactStates.tm = m_qRef.tm;
       m_actContactStatesOut.write();
       m_COPInfo.tm = m_qRef.tm;
@@ -845,6 +859,8 @@ void Stabilizer::getActualParameters ()
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
     abs_act_cp = ref_foot_origin_pos + ref_foot_origin_rot * act_cp;
+    abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
+    abs_act_cogvel = ref_foot_origin_pos + ref_foot_origin_rot * act_cogvel;
     // <= Actual foot_origin frame
 
     // Actual world frame =>

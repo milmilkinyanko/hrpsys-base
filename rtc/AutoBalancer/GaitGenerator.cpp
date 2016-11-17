@@ -555,6 +555,55 @@ namespace rats
   bool gait_generator::proc_one_tick (const hrp::Vector3& diff_cp, const std::vector<bool>& contact_states)
   {
     solved = false;
+
+    if (lcg.get_footstep_index() > 0) {
+      // solve
+      Eigen::Matrix<double, 4,2> current_x_k_e;
+      Eigen::Matrix<double, 3,2> current_x_k;
+      hrp::Vector3 rzmp;
+      std::vector<hrp::Vector3> sfzos;
+      bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
+      if (!refzmp_exist_p) {
+        finalize_count++;
+        rzmp = prev_que_rzmp;
+        sfzos = prev_que_sfzos;
+      } else {
+        prev_que_rzmp = rzmp;
+        prev_que_sfzos = sfzos;
+      }
+      solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+
+      // set act state to cuurent state
+      // if (lcg.get_lcg_count() % static_cast<size_t>(0.2/dt) == 0) {
+      //   Eigen::Matrix<double, 4,2> current_x_k_e;
+      //   Eigen::Matrix<double, 3,2> current_x_k;
+      //   preview_controller_ptr->get_x_k_e(current_x_k_e);
+      //   preview_controller_ptr->get_x_k(current_x_k);
+      //   // std::cerr << "diff1 : " << current_x_k_e(1,0) << std::endl;
+      //   // for (size_t i = 0; i < 2; i++) {
+      //   //   current_x_k_e(1,i) = act_cog(i) - prev_cog(i);
+      //   // }
+      //   // for (size_t i = 0; i < 2; i++) {
+      //   //   current_x_k_e(2,i) = act_cogvel(i) - prev_cogvel(i);
+      //   // }
+      //   // std::cerr << "diff2 : " << act_cogvel(0) * dt << std::endl;
+      //   // std::cerr << "cog1 : " << current_x_k(0,0) << std::endl;
+      //   // for (size_t i = 0; i < 2; i++) {
+      //   //   current_x_k(0,i) = act_cog(i);
+      //   // }
+      //   // std::cerr << "cog2 : " << current_x_k(1,0) << std::endl;
+      //   preview_controller_ptr->set_x_k_e(current_x_k_e);
+      //   preview_controller_ptr->set_x_k(current_x_k);
+      // }
+      // prev_cog = act_cog;
+      // prev_cogvel = act_cogvel;
+
+      // resolve
+      preview_controller_ptr->set_x_k_e(current_x_k_e);
+      preview_controller_ptr->set_x_k(current_x_k);
+      preview_controller_ptr->reupdate(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+    }
+
     /* update refzmp */
     if (emergency_flg == EMERGENCY_STOP && lcg.get_footstep_index() > 0) {
         leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
