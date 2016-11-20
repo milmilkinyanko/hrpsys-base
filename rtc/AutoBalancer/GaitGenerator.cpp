@@ -598,7 +598,11 @@ namespace rats
     // modify footsteps based on diff_cp
     if (modify_footsteps && isfinite(act_cog(0)) && isfinite(act_cogvel(0))) {
       double margin_time_ratio = 0.1;
-      static hrp::Vector3 prev_ref_cog, prev_ref_cogvel, prev_act_cog, prev_act_cogvel;
+      static hrp::Vector3 prev_ref_cog, prev_ref_cogvel, prev_act_cog, prev_act_cogvel, diff_cog, diff_cogvel;
+      diff_cog = diff_cog_filter->passFilter(act_cog - ref_cog);
+      diff_cogvel = diff_cog_filter->passFilter(act_cogvel - ref_cogvel);
+      act_cog = ref_cog + diff_cog;
+      act_cogvel = ref_cogvel + diff_cogvel;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         hrp::Vector3 rzmp;
         std::vector<hrp::Vector3> sfzos;
@@ -641,8 +645,8 @@ namespace rats
         double omega = std::sqrt(gravitational_acceleration / cog(2) - refzmp(2));
         hrp::Vector3 next_diff_cog, next_diff_cogvel, next_diff_cp;
         for (size_t i = 0; i < 2; i++) {
-          next_diff_cog(i) = (next_act_x_k(0,i) - next_ref_x_k(0,i)) - ((act_cog(i) - prev_act_cog(i)) - (ref_cog(i) - prev_ref_cog(i)));
-          next_diff_cogvel(i) = (next_act_x_k(1,i) - next_ref_x_k(1,i)) - ((act_cogvel(i) - prev_act_cogvel(i)) - (ref_cogvel(i) - prev_ref_cogvel(i)));
+          next_diff_cog(i) = (next_ref_x_k(0,i) - next_act_x_k(0,i)) - ((ref_cog(i) - prev_ref_cog(i)) - (act_cog(i) - prev_act_cog(i)));
+          next_diff_cogvel(i) = (next_ref_x_k(1,i) - next_act_x_k(1,i)) - ((ref_cogvel(i) - prev_ref_cogvel(i)) - (act_cogvel(i) - prev_act_cogvel(i)));
           next_diff_cp(i) = next_diff_cog(i) + next_diff_cogvel(i) / omega;
         }
         std::cerr << "diff cog    : " << next_diff_cog(0) << " , " << next_diff_cog(1) << std::endl;

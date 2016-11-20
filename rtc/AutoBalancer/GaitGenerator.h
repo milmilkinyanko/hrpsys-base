@@ -9,6 +9,7 @@
 #include <boost/assign.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/shared_ptr.hpp>
+#include "../TorqueFilter/IIRFilter.h"
 
 namespace rats
 {
@@ -1031,6 +1032,8 @@ namespace rats
     toe_heel_type_checker thtc;
     hrp::Vector3 cog, refzmp, prev_que_rzmp; /* cog by calculating proc_one_tick */
     hrp::Vector3 ref_cog, act_cog, ref_cogvel, act_cogvel;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > diff_cog_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > diff_cogvel_filter;
     std::vector<hrp::Vector3> swing_foot_zmp_offsets, prev_que_sfzos;
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
@@ -1110,6 +1113,8 @@ namespace rats
         for (size_t i = 0; i < 4; i++) stride_limitation_for_circle_type[i] = 0.2;
         for (size_t i = 0; i < 4; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) footstep_modification_gain[i] = 0.0;
+        diff_cog_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, dt, hrp::Vector3::Zero())); // [Hz]
+        diff_cogvel_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.001, dt, hrp::Vector3::Zero())); // [Hz]
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
