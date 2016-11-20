@@ -53,6 +53,24 @@ int main(int argc, char* argv[])
   while (r) {
     hrp::Vector3 p, x;
     std::vector<hrp::Vector3> qdata;
+      Eigen::Matrix<double, 3,2> current_x_k;
+      Eigen::Matrix<double, 4,2> current_x_k_e;
+      df.get_x_k(current_x_k);
+      df.get_x_k_e(current_x_k_e);
+      static int count;
+      count++;
+        for (size_t i = 0; i < 2; i++) {
+          // current_x_k_e(1,i) += act_cog(i) - current_x_k(0,i);
+            if (count % 20 == 0) current_x_k_e(1,i) += 0.001;
+            // else if (count % 30 == 0)current_x_k_e(1,i) -= 0.001;
+        }
+        for (size_t i = 0; i < 2; i++) {
+          // current_x_k_e(1,i) += act_cog(i) - current_x_k(0,i);
+            if (count % 20 == 0) current_x_k(0,i) += 0.001;
+           // else current_x_k(1,i) -= 0.01;
+        }
+      df.set_x_k(current_x_k);
+      df.set_x_k_e(current_x_k_e);
     r = df.update(p, x, qdata, ref_zmp_list.front(), qdata, !ref_zmp_list.empty());
     if (r) {
       index++;

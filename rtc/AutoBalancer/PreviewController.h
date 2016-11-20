@@ -114,6 +114,14 @@ namespace rats
     // void update_zc(double zc);
     size_t get_delay () { return delay; };
     double get_preview_f (const size_t idx) { return f(idx); };
+    void get_x_k (Eigen::Matrix<double, 3, 2>& _x_k)
+    {
+      _x_k = x_k;
+    };
+    void set_x_k (const Eigen::Matrix<double, 3, 2>& _x_k)
+    {
+      x_k = _x_k;
+    };
     void get_refcog (double* ret)
     {
       ret[0] = x_k(0,0);
@@ -224,14 +232,6 @@ namespace rats
       init_riccati(A, b, c, q, r);
     };
     void calc_x_k();
-    void get_x_k (Eigen::Matrix<double, 3, 2>& _x_k)
-    {
-      _x_k = x_k;
-    };
-    void set_x_k (const Eigen::Matrix<double, 3, 2>& _x_k)
-    {
-      x_k = _x_k;
-    };
     void get_x_k_e(Eigen::Matrix<double, 4,2>& _x_k_e)
     {
       _x_k_e = x_k_e;

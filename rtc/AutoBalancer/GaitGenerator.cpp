@@ -559,94 +559,140 @@ namespace rats
     double omega = std::sqrt(gravitational_acceleration / cog(2) - refzmp(2));
     hrp::Vector3 next_cp = hrp::Vector3::Zero(), new_next_cp = hrp::Vector3::Zero();
     hrp::Vector3 next_cpvel = hrp::Vector3::Zero(), new_next_cpvel = hrp::Vector3::Zero();
-    if (lcg.get_footstep_index() > 0  && lcg.get_footstep_index() < footstep_nodes_list.size()-overwritable_footstep_index_offset-2 &&
-        // lcg.get_lcg_count() % static_cast<size_t>(0.01/dt) == 0) {
-        true) {
-      double margin_time_ratio = 0.0;
-      if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
-          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after * margin_time_ratio)) - 1 &&
-          // !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1])) {
-          true) {
-        hrp::Vector3 rzmp;
-        std::vector<hrp::Vector3> sfzos;
-        bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
-        if (!refzmp_exist_p) {
-          finalize_count++;
-          rzmp = prev_que_rzmp;
-          sfzos = prev_que_sfzos;
-        } else {
-          prev_que_rzmp = rzmp;
-          prev_que_sfzos = sfzos;
-        }
-        Eigen::Matrix<double, 3,2> current_x_k;
-        Eigen::Matrix<double, 3,2> next_x_k;
-        Eigen::Matrix<double, 3,2> new_next_x_k;
-        Eigen::Matrix<double, 4,2> current_x_k_e;
-        preview_controller_ptr->get_x_k(current_x_k);
-        preview_controller_ptr->get_x_k_e(current_x_k_e);
-        // solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
-        preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
-        preview_controller_ptr->get_x_k(next_x_k);
-        // set current state
-        for (size_t i = 0; i < 2; i++) {
-          current_x_k_e(1,i) = act_cog(i) - prev_cog(i);
-        }
-        // for (size_t i = 0; i < 2; i++) {
-        //   current_x_k_e(2,i) = act_cogvel(i) - prev_cogvel(i);
-        // }
-        // for (size_t i = 0; i < 2; i++) {
-        //   current_x_k(0,i) = prev_cog(i);
-        // }
-        // resolve
-        preview_controller_ptr->set_x_k(current_x_k);
-        preview_controller_ptr->set_x_k_e(current_x_k_e);
-        preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
-        preview_controller_ptr->get_x_k(new_next_x_k);
-        // calc cp
-        for (size_t i = 0; i < 2; i++) {
-          next_cp(i) = next_x_k(0,i) + next_x_k(1,i) / omega;
-          new_next_cp(i) = new_next_x_k(0,i) + new_next_x_k(1,i) / omega;
-          next_cpvel(i) = next_x_k(1,i) + next_x_k(2,i) / omega;
-          new_next_cpvel(i) = new_next_x_k(1,i) + new_next_x_k(2,i) / omega;
-        }
-        std::cerr << "\x1b[31m";
-        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        std::cerr << new_next_cp(0) - next_cp(0) << " , " << new_next_cp(1) - next_cp(1) << std::endl;
-        std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
-        std::cerr << "\x1b[0";
-        // resolve
-        preview_controller_ptr->set_x_k(current_x_k);
-        preview_controller_ptr->set_x_k_e(current_x_k_e);
-        // preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
-        // overwrite
-        static double preview_f_sum;
-        if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
-          preview_f_sum = preview_controller_ptr->get_preview_f(preview_controller_ptr->get_delay());
-          for (size_t i = preview_controller_ptr->get_delay()-1; i >= lcg.get_lcg_count()+1; i--) {
-            preview_f_sum += preview_controller_ptr->get_preview_f(i);
-          }
-        }
-        if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
-          preview_f_sum += preview_controller_ptr->get_preview_f(lcg.get_lcg_count());
-        }
-        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * (next_cp - new_next_cp)) / preview_f_sum;
-        d_footstep(2) = 0.0;
-        // stride limitation check
-        hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-        footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
-        limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
-        d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
-        for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
-          footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
-          footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
-        }
-        overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list);
-        overwrite_footstep_nodes_list.clear();
+    double margin_time_ratio = 0.1;
+    if (lcg.get_footstep_index() > 0  && lcg.get_footstep_index() < footstep_nodes_list.size()-overwritable_footstep_index_offset-2// &&
+        // lcg.get_lcg_count() % static_cast<size_t>(0.2/dt) == 0 &&
+        // lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
+        // lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) - 1 &&
+        // !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1]) &&
+        // lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1
+        ) {
+      hrp::Vector3 rzmp;
+      std::vector<hrp::Vector3> sfzos;
+      bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
+      if (!refzmp_exist_p) {
+        finalize_count++;
+        rzmp = prev_que_rzmp;
+        sfzos = prev_que_sfzos;
+      } else {
+        prev_que_rzmp = rzmp;
+        prev_que_sfzos = sfzos;
       }
+      Eigen::Matrix<double, 3,2> current_x_k;
+      Eigen::Matrix<double, 3,2> next_x_k;
+      Eigen::Matrix<double, 3,2> new_next_x_k;
+      Eigen::Matrix<double, 4,2> current_x_k_e;
+      preview_controller_ptr->get_x_k(current_x_k);
+      preview_controller_ptr->get_x_k_e(current_x_k_e);
+      // solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+      preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+      preview_controller_ptr->get_x_k(next_x_k);
+      // set current state
+      // for (size_t i = 0; i < 2; i++) {
+      //   current_x_k_e(1,i) = act_cog(i) - prev_cog(i);
+      // }
+      // for (size_t i = 0; i < 2; i++) {
+      //   current_x_k_e(2,i) = act_cogvel(i) - prev_cogvel(i);
+      // }
+      // for (size_t i = 0; i < 2; i++) {
+      //   current_x_k(0,i) = prev_cog(i);
+      // }
+      // get prev
+      // for (size_t i = 0; i < 2; i++) {
+      //   prev_cog(i) = current_x_k(1,i);
+      // }
+      // for (size_t i = 0; i < 2; i++) {
+      //   prev_cogvel(i) = current_x_k(2,i);
+      // }
+      // resolve
+      // preview_controller_ptr->set_x_k(current_x_k);
+      // preview_controller_ptr->set_x_k_e(current_x_k_e);
+      // preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+      // resolve
+      preview_controller_ptr->set_x_k(current_x_k);
+      preview_controller_ptr->set_x_k_e(current_x_k_e);
+      preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+      preview_controller_ptr->get_x_k(new_next_x_k);
+      // calc cp
+      for (size_t i = 0; i < 2; i++) {
+        next_cp(i) = next_x_k(0,i) + next_x_k(1,i) / omega;
+        new_next_cp(i) = new_next_x_k(0,i) + new_next_x_k(1,i) / omega;
+        next_cpvel(i) = next_x_k(1,i) + next_x_k(2,i) / omega;
+        new_next_cpvel(i) = new_next_x_k(1,i) + new_next_x_k(2,i) / omega;
+      }
+      // std::cerr << "\x1b[31m";
+      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      // std::cerr << new_next_x_k(0,0) - next_x_k(0,0) << " , " << new_next_x_k(0,1) - next_x_k(0,1) << std::endl;
+      // std::cerr << new_next_x_k(1,0) - next_x_k(1,0) << " , " << new_next_x_k(1,1) - next_x_k(1,1) << std::endl;
+      // std::cerr << new_next_cp(0) - next_cp(0) << " , " << new_next_cp(1) - next_cp(1) << std::endl;
+      // std::cerr << new_next_cpvel(0) - next_cpvel(0) << " , " << new_next_cpvel(1) - next_cpvel(1) << std::endl;
+      // std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+      // std::cerr << "\x1b[0";
+      preview_controller_ptr->set_x_k(current_x_k);
+      preview_controller_ptr->set_x_k_e(current_x_k_e);
+      // overwrite
+      static double preview_f_sum;
+      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        preview_f_sum = preview_controller_ptr->get_preview_f(preview_controller_ptr->get_delay());
+        for (size_t i = preview_controller_ptr->get_delay()-1; i >= lcg.get_lcg_count()+1; i--) {
+          preview_f_sum += preview_controller_ptr->get_preview_f(i);
+        }
+      }
+      if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
+        preview_f_sum += preview_controller_ptr->get_preview_f(lcg.get_lcg_count());
+      }
+      hrp::Vector3 d_footstep = (footstep_modification_gain[0] * (next_cp - new_next_cp) + footstep_modification_gain[0] * (next_cpvel - new_next_cpvel)) / preview_f_sum;
+      d_footstep(2) = 0.0;
+      // if (std::fabs(d_footstep(0)) > 0.01) {
+      //   std::cerr << "\x1b[31m";
+      //   std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      //   std::cerr << d_footstep(0) << " , " << d_footstep(1) << std::endl;
+      //   std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+      //   std::cerr << "\x1b[0";
+      // }
+      // stride limitation check
+      hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+      footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+      limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
+      d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
+      // for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+      //   footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
+      //   footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
+      // }
+    if (lcg.get_footstep_index() > 0  && lcg.get_footstep_index() < footstep_nodes_list.size()-overwritable_footstep_index_offset-2 &&
+        // lcg.get_lcg_count() % static_cast<size_t>(0.2/dt) == 0 &&
+        lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
+        // lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) - 1 &&
+        // !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1]) &&
+        lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.2) - 1
+        ) {
+      for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+        footstep_nodes_list[i].front().worldcoords.pos(0) += 1;
+        footstep_nodes_list[i].front().worldcoords.pos(1) += 1;
+      }
+      overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+      overwrite_refzmp_queue(overwrite_footstep_nodes_list);
+      overwrite_footstep_nodes_list.clear();
+      preview_controller_ptr->get_x_k(new_next_x_k);
+      // calc cp
+      for (size_t i = 0; i < 2; i++) {
+        next_cp(i) = next_x_k(0,i) + next_x_k(1,i) / omega;
+        new_next_cp(i) = new_next_x_k(0,i) + new_next_x_k(1,i) / omega;
+        next_cpvel(i) = next_x_k(1,i) + next_x_k(2,i) / omega;
+        new_next_cpvel(i) = new_next_x_k(1,i) + new_next_x_k(2,i) / omega;
+      }
+      std::cerr << "\x1b[31m";
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      std::cerr << preview_f_sum << std::endl;
+      std::cerr << new_next_x_k(0,0) - next_x_k(0,0) << " , " << new_next_x_k(0,1) - next_x_k(0,1) << std::endl;
+      std::cerr << new_next_x_k(1,0) - next_x_k(1,0) << " , " << new_next_x_k(1,1) - next_x_k(1,1) << std::endl;
+      std::cerr << new_next_cp(0) - next_cp(0) << " , " << new_next_cp(1) - next_cp(1) << std::endl;
+      std::cerr << new_next_cpvel(0) - next_cpvel(0) << " , " << new_next_cpvel(1) - next_cpvel(1) << std::endl;
+      std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+      std::cerr << "\x1b[0";
     }
-    prev_cog = act_cog;
-    prev_cogvel = act_cogvel;
+    }
 
     /* update refzmp */
     if (emergency_flg == EMERGENCY_STOP && lcg.get_footstep_index() > 0) {
@@ -747,6 +793,8 @@ namespace rats
     if ( !solved ) {
       hrp::Vector3 rzmp;
       std::vector<hrp::Vector3> sfzos;
+      Eigen::Matrix<double, 3,2> current_x_k;
+      Eigen::Matrix<double, 4,2> current_x_k_e;
       bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
       if (!refzmp_exist_p) {
         finalize_count++;

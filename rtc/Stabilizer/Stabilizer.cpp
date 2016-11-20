@@ -64,6 +64,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_absActCPOut("absActCapturePoint", m_absActCP),
     m_absActCOGOut("absActCOG", m_absActCOG),
     m_absActCOGVelOut("absActCOGVelocity", m_absActCOGVel),
+    m_absZmpOut("absZmp", m_absZmp),
     m_actContactStatesOut("actContactStates", m_actContactStates),
     m_COPInfoOut("COPInfo", m_COPInfo),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
@@ -131,6 +132,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("absActCapturePoint", m_absActCPOut);
   addOutPort("absActCOG", m_absActCOGOut);
   addOutPort("absActCOGVelocity", m_absActCOGVelOut);
+  addOutPort("absZmp", m_absZmpOut);
   addOutPort("actContactStates", m_actContactStatesOut);
   addOutPort("COPInfo", m_COPInfoOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
@@ -669,6 +671,11 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_absActCOGVel.data.z = abs_act_cogvel(2);
       m_absActCOGVel.tm = m_qRef.tm;
       m_absActCOGVelOut.write();
+      m_absZmp.data.x = abs_act_zmp(0);
+      m_absZmp.data.y = abs_act_zmp(1);
+      m_absZmp.data.z = abs_act_zmp(2);
+      m_absZmp.tm = m_qRef.tm;
+      m_absZmpOut.write();
       m_actContactStates.tm = m_qRef.tm;
       m_actContactStatesOut.write();
       m_COPInfo.tm = m_qRef.tm;
@@ -861,6 +868,7 @@ void Stabilizer::getActualParameters ()
     abs_act_cp = ref_foot_origin_pos + ref_foot_origin_rot * act_cp;
     abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
     abs_act_cogvel = ref_foot_origin_pos + ref_foot_origin_rot * act_cogvel;
+    abs_act_zmp = ref_foot_origin_pos + ref_foot_origin_rot * act_zmp;
     // <= Actual foot_origin frame
 
     // Actual world frame =>

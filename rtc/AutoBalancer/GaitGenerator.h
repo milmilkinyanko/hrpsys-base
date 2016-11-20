@@ -1029,7 +1029,7 @@ namespace rats
     footstep_parameter footstep_param;
     velocity_mode_parameter vel_param, offset_vel_param;
     toe_heel_type_checker thtc;
-    hrp::Vector3 cog, prev_cog, act_cog, prev_cogvel, act_cogvel, refzmp, prev_que_rzmp; /* cog by calculating proc_one_tick */
+    hrp::Vector3 cog, prev_cog, act_cog, prev_cogvel, act_cogvel, act_zmp, refzmp, prev_que_rzmp; /* cog by calculating proc_one_tick */
     std::vector<hrp::Vector3> swing_foot_zmp_offsets, prev_que_sfzos;
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
@@ -1096,7 +1096,7 @@ namespace rats
                     const double _stride_fwd_x, const double _stride_y, const double _stride_theta, const double _stride_bwd_x)
         : footstep_nodes_list(), overwrite_footstep_nodes_list(), rg(_dt), lcg(_dt),
         footstep_param(_leg_pos, _stride_fwd_x, _stride_y, _stride_theta, _stride_bwd_x),
-          vel_param(), offset_vel_param(), thtc(), cog(hrp::Vector3::Zero()), prev_cog(hrp::Vector3::Zero()), act_cog(hrp::Vector3::Zero()), prev_cogvel(hrp::Vector3::Zero()), act_cogvel(hrp::Vector3::Zero()), refzmp(hrp::Vector3::Zero()), prev_que_rzmp(hrp::Vector3::Zero()),
+          vel_param(), offset_vel_param(), thtc(), cog(hrp::Vector3::Zero()), prev_cog(hrp::Vector3::Zero()), act_cog(hrp::Vector3::Zero()), prev_cogvel(hrp::Vector3::Zero()), act_cogvel(hrp::Vector3::Zero()), act_zmp(hrp::Vector3::Zero()), refzmp(hrp::Vector3::Zero()), prev_que_rzmp(hrp::Vector3::Zero()),
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING),
@@ -1193,6 +1193,7 @@ namespace rats
     /* parameter setting */
     void set_act_cog (const hrp::Vector3 _cog) { act_cog = _cog; };
     void set_act_cogvel (const hrp::Vector3 _cogvel) { act_cogvel = _cogvel; };
+    void set_act_zmp (const hrp::Vector3 _zmp) { act_zmp = _zmp; };
     void set_default_step_time (const double _default_step_time) { default_step_time = _default_step_time; };
     void set_default_double_support_ratio_before (const double _default_double_support_ratio_before) { default_double_support_ratio_before = _default_double_support_ratio_before; };
     void set_default_double_support_ratio_after (const double _default_double_support_ratio_after) { default_double_support_ratio_after = _default_double_support_ratio_after; };

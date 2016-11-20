@@ -401,6 +401,7 @@ class HrpsysConfigurator(object):
             connectPorts(self.st.port("absActCapturePoint"), self.abc.port("absActCapturePoint"))
             connectPorts(self.st.port("absActCOG"), self.abc.port("absActCOG"))
             connectPorts(self.st.port("absActCOGVelocity"), self.abc.port("absActCOGVelocity"))
+            connectPorts(self.st.port("absZmp"), self.abc.port("absZmp"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
 
         # ref force moment connection

@@ -54,6 +54,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_absRefCPIn("absRefCapturePoint", m_absRefCP),
       m_absActCOGIn("absActCOG", m_absActCOG),
       m_absActCOGVelIn("absActCOGVelocity", m_absActCOGVel),
+      m_absZmpIn("absZmp", m_absZmp),
       m_actContactStatesIn("actContactStates", m_actContactStates),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
@@ -102,6 +103,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("absRefCapturePoint", m_absRefCPIn);
     addInPort("absActCOG", m_absActCOGIn);
     addInPort("absActCOGVelocity", m_absActCOGVelIn);
+    addInPort("absZmp", m_absZmpIn);
     addInPort("actContactStates", m_actContactStatesIn);
 
     // Set OutPort buffer
@@ -489,6 +491,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_absActCOGVelIn.isNew()) {
       m_absActCOGVelIn.read();
       gg->set_act_cogvel(hrp::Vector3(m_absActCOGVel.data.x, m_absActCOGVel.data.y, m_absActCOGVel.data.z));
+    }
+    if (m_absZmpIn.isNew()) {
+      m_absZmpIn.read();
+      gg->set_act_zmp(hrp::Vector3(m_absZmp.data.x, m_absZmp.data.y, m_absZmp.data.z));
     }
     if (m_actContactStatesIn.isNew()) {
       m_actContactStatesIn.read();

@@ -145,6 +145,8 @@ class AutoBalancer
   InPort<TimedPoint3D> m_absActCOGIn;
   TimedPoint3D m_absActCOGVel;
   InPort<TimedPoint3D> m_absActCOGVelIn;
+  TimedPoint3D m_absZmp;
+  InPort<TimedPoint3D> m_absZmpIn;
   TimedBooleanSeq m_actContactStates;
   InPort<TimedBooleanSeq> m_actContactStatesIn;
   // for debug
