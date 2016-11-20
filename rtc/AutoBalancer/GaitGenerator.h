@@ -1055,7 +1055,6 @@ namespace rats
     double leg_margin[4], stride_limitation_for_circle_type[4], overwritable_stride_limitation[4], footstep_modification_gain[2];
     bool use_stride_limitation, is_emergency_walking, modify_footsteps;
     stride_limitation_type default_stride_limitation_type;
-    hrp::Vector2 cp_check_thre;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1111,7 +1110,6 @@ namespace rats
         for (size_t i = 0; i < 4; i++) stride_limitation_for_circle_type[i] = 0.2;
         for (size_t i = 0; i < 4; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) footstep_modification_gain[i] = 0.0;
-        for (size_t i = 0; i < 2; i++) cp_check_thre(i) = 0.03;
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
