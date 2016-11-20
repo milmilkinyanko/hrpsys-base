@@ -137,10 +137,14 @@ class AutoBalancer
   InPort<TimedLong> m_emergencySignalIn;
   TimedBoolean m_emergencySignalWalking;
   InPort<TimedBoolean> m_emergencySignalWalkingIn;
-  TimedPoint3D m_absActCP;
-  InPort<TimedPoint3D> m_absActCPIn;
-  TimedPoint3D m_absRefCP;
-  InPort<TimedPoint3D> m_absRefCPIn;
+  TimedPoint3D m_absActCOG;
+  InPort<TimedPoint3D> m_absActCOGIn;
+  TimedPoint3D m_absActCOGVel;
+  InPort<TimedPoint3D> m_absActCOGVelIn;
+  TimedPoint3D m_absRefCOG;
+  InPort<TimedPoint3D> m_absRefCOGIn;
+  TimedPoint3D m_absRefCOGVel;
+  InPort<TimedPoint3D> m_absRefCOGVelIn;
   TimedBooleanSeq m_actContactStates;
   InPort<TimedBooleanSeq> m_actContactStatesIn;
   // for debug
