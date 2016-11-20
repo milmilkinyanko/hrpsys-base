@@ -598,13 +598,18 @@ namespace rats
     // modify footsteps based on diff_cp
     if (modify_footsteps && isfinite(act_cog(0)) && isfinite(act_cogvel(0))) {
       double margin_time_ratio = 0.1;
+      static hrp::Vector3 prev_ref_cog, prev_ref_cogvel, prev_act_cog, prev_act_cogvel;
+      hrp::Vector3 current_ref_cp, current_act_cp, next_ref_cp, next_act_cp;
       // calculate diff_cp
-      hrp::Vector3 ref_cp, act_cp;
+      hrp::Vector3 ref_cp, act_cp, diff_cp, diff_cp_raw;
       double omega = std::sqrt(gravitational_acceleration / cog(2) - refzmp(2));
       ref_cp = ref_cog + ref_cogvel / omega;
       act_cp = act_cog + act_cogvel / omega;
+      diff_cp_raw = ref_cp - act_cp;
+      for (size_t i = 0; i < 2; i++) {
+        diff_cp(i) = diff_cp_raw(i) - cp_check_thre(i) * diff_cp_raw(i) / std::fabs(diff_cp_raw(i));
+      }
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
-        // firstly solve preview control
         hrp::Vector3 rzmp;
         std::vector<hrp::Vector3> sfzos;
         bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
@@ -618,10 +623,32 @@ namespace rats
         }
         Eigen::Matrix<double, 3,2> current_x_k;
         Eigen::Matrix<double, 4,2> current_x_k_e;
+        Eigen::Matrix<double, 4,2> tmp_current_x_k_e;
+        Eigen::Matrix<double, 3,2> next_ref_x_k;
+        Eigen::Matrix<double, 3,2> next_act_x_k;
         preview_controller_ptr->get_x_k(current_x_k);
         preview_controller_ptr->get_x_k_e(current_x_k_e);
+        // solve next ref state
+        tmp_current_x_k_e = current_x_k_e;
+        for (size_t i = 0; i < 2; i++) {
+          tmp_current_x_k_e(1,i) = ref_cog(i) - prev_ref_cog(i);
+          tmp_current_x_k_e(2,i) = ref_cogvel(i) - prev_ref_cogvel(i);
+        }
+        preview_controller_ptr->set_x_k(current_x_k);
+        preview_controller_ptr->set_x_k_e(tmp_current_x_k_e);
         preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
-        // reset current state
+        preview_controller_ptr->get_x_k(next_ref_x_k);
+        // solve next act state
+        tmp_current_x_k_e = current_x_k_e;
+        for (size_t i = 0; i < 2; i++) {
+          tmp_current_x_k_e(1,i) = act_cog(i) - prev_act_cog(i);
+          tmp_current_x_k_e(2,i) = act_cogvel(i) - prev_act_cogvel(i);
+        }
+        preview_controller_ptr->set_x_k(current_x_k);
+        preview_controller_ptr->set_x_k_e(tmp_current_x_k_e);
+        preview_controller_ptr->reupdate(refzmp, cog, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
+        preview_controller_ptr->get_x_k(next_act_x_k);
+        //reset current state
         preview_controller_ptr->set_x_k(current_x_k);
         preview_controller_ptr->set_x_k_e(current_x_k_e);
         // calculate sum of preview_f
@@ -637,21 +664,35 @@ namespace rats
         }
         // calculate modified footstep position
         // hrp::Vector3 d_footstep = (footstep_modification_gain[0] * diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
-        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * (ref_cp - act_cp)) / preview_f_sum;
+        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * diff_cp) / preview_f_sum;
         d_footstep(2) = 0.0;
         // overwrite footsteps
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
             lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) - 1 &&
-            !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1]) &&
-            is_emergency_walking) {
+            !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && contact_states[0] && contact_states[1])) {
           // stride limitation check
           hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+          for (size_t i = 0; i < 2; i++) {
+            if (std::fabs(diff_cp_raw(i)) > cp_check_thre(i)) {
+        std::cerr << "next ref: " << next_ref_x_k(0,0) << std::endl;
+        std::cerr << "next act: " << next_act_x_k(0,0) << std::endl;
+        std::cerr << "dif1    : " << next_act_x_k(0,0) - next_ref_x_k(0,0) << std::endl;
+        std::cerr << "dif2    : " << (act_cog(0) - prev_act_cog(0)) - (ref_cog(0) - prev_ref_cog(0)) << std::endl;
+        std::cerr << "dif3    : " << (act_cog(0) - ref_cog(0)) << std::endl;
+        std::cerr << "dif3    : " << next_act_x_k(0,0) - next_ref_x_k(0,0) - ((act_cog(0) - prev_act_cog(0)) - (ref_cog(0) - prev_ref_cog(0))) << std::endl;
+              footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(i) += d_footstep(i);
+            }else{
+                      std::cerr << "dif3    : " << next_act_x_k(0,0) - next_ref_x_k(0,0) - ((act_cog(0) - prev_act_cog(0)) - (ref_cog(0) - prev_ref_cog(0))) << std::endl;
+            }
+          }
           limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
-          for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
-            footstep_nodes_list[i].front().worldcoords.pos(0) += d_footstep(0);
-            footstep_nodes_list[i].front().worldcoords.pos(1) += d_footstep(1);
+          for (size_t j = 0; j < 2; j++) {
+            if (std::fabs(diff_cp_raw(j)) > cp_check_thre(j)) {
+              for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+                footstep_nodes_list[i].front().worldcoords.pos(j) += d_footstep(j);
+              }
+            }
           }
         }
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
@@ -659,6 +700,10 @@ namespace rats
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
       }
+      prev_ref_cog = ref_cog;
+      prev_ref_cogvel = ref_cogvel;
+      prev_act_cog = act_cog;
+      prev_act_cogvel = act_cogvel;
     }
     // limit stride
     if (use_stride_limitation && lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-overwritable_footstep_index_offset-2 &&
