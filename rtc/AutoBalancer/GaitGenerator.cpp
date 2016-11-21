@@ -598,6 +598,10 @@ namespace rats
     // modify footsteps based on diff_cp
     if (modify_footsteps && isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       static hrp::Vector3 prev_diff_cp;
+      hrp::Vector3  tmp_diff_cp;
+      for (size_t i = 0; i < 2; i++) {
+        tmp_diff_cp(i) = diff_cp(i) - 0.025 * diff_cp(i)/std::fabs(diff_cp(i));
+      }
       double margin_time_ratio = 0.1;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static double preview_f_sum;
@@ -610,7 +614,7 @@ namespace rats
         if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
           preview_f_sum += preview_controller_ptr->get_preview_f(lcg.get_lcg_count());
         }
-        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
+        hrp::Vector3 d_footstep = (footstep_modification_gain[0] * tmp_diff_cp + footstep_modification_gain[1] * (diff_cp - prev_diff_cp)/dt) / preview_f_sum;
         d_footstep(2) = 0.0;
         // overwrite footsteps
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&
