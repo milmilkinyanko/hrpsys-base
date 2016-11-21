@@ -600,7 +600,7 @@ namespace rats
       double margin_time_ratio = 0.1;
       static hrp::Vector3 prev_ref_cog, prev_ref_cogvel, prev_act_cog, prev_act_cogvel, diff_cog, diff_cogvel;
       diff_cog = diff_cog_filter->passFilter(act_cog - ref_cog);
-      diff_cogvel = diff_cog_filter->passFilter(act_cogvel - ref_cogvel);
+      diff_cogvel = diff_cogvel_filter->passFilter(act_cogvel - ref_cogvel);
       act_cog = ref_cog + diff_cog;
       act_cogvel = ref_cogvel + diff_cogvel;
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
@@ -645,10 +645,11 @@ namespace rats
         double omega = std::sqrt(gravitational_acceleration / cog(2) - refzmp(2));
         hrp::Vector3 next_diff_cog, next_diff_cogvel, next_diff_cp;
         for (size_t i = 0; i < 2; i++) {
-          next_diff_cog(i) = (next_ref_x_k(0,i) - next_act_x_k(0,i)) - ((ref_cog(i) - prev_ref_cog(i)) - (act_cog(i) - prev_act_cog(i)));
-          next_diff_cogvel(i) = (next_ref_x_k(1,i) - next_act_x_k(1,i)) - ((ref_cogvel(i) - prev_ref_cogvel(i)) - (act_cogvel(i) - prev_act_cogvel(i)));
+          next_diff_cog(i) = (next_ref_x_k(0,i) - next_act_x_k(0,i));
+          next_diff_cogvel(i) = (next_ref_x_k(1,i) - next_act_x_k(1,i));
           next_diff_cp(i) = next_diff_cog(i) + next_diff_cogvel(i) / omega;
         }
+        next_diff_cp = diff_cp_filter->passFilter(next_diff_cp);
         std::cerr << "diff cog    : " << next_diff_cog(0) << " , " << next_diff_cog(1) << std::endl;
         std::cerr << "diff cogvel : " << next_diff_cogvel(0) << " , " << next_diff_cogvel(1) << std::endl;
         std::cerr << "diff cp     : " << next_diff_cp(0) << " , " << next_diff_cp(1) << std::endl;
@@ -669,7 +670,7 @@ namespace rats
         // calculate modified footstep position
         double preview_db = 1/6.0 * dt * dt * dt + 1/2.0 * dt * dt * 1/omega;
         std::cerr << "1/preview_f_sum: " << 1/preview_f_sum << " , 1/preview_db: " << 1/preview_db << std::endl;
-        hrp::Vector3 d_footstep = 1/preview_f_sum * 1/preview_db * next_diff_cp;
+        hrp::Vector3 d_footstep = -1/preview_f_sum * 1/preview_db * next_diff_cp;
         d_footstep(2) = 0.0;
         // overwrite footsteps
         if (lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 &&

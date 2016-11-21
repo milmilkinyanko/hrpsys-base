@@ -1034,6 +1034,7 @@ namespace rats
     hrp::Vector3 ref_cog, act_cog, ref_cogvel, act_cogvel;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > diff_cog_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > diff_cogvel_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > diff_cp_filter;
     std::vector<hrp::Vector3> swing_foot_zmp_offsets, prev_que_sfzos;
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
@@ -1114,7 +1115,8 @@ namespace rats
         for (size_t i = 0; i < 4; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) footstep_modification_gain[i] = 0.0;
         diff_cog_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, dt, hrp::Vector3::Zero())); // [Hz]
-        diff_cogvel_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.001, dt, hrp::Vector3::Zero())); // [Hz]
+        diff_cogvel_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.01, dt, hrp::Vector3::Zero())); // [Hz]
+        diff_cp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, dt, hrp::Vector3::Zero())); // [Hz]
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
