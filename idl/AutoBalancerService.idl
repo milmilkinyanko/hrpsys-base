@@ -255,6 +255,10 @@ module OpenHRP
       boolean modify_footsteps;
       /// CP check margin when modifying footsteps (x, y) [m]
       DblArray2 cp_check_margin;
+      /// CP check margin when emergency step (x, y) [m]
+      DblArray2 cp_check_margin_step;
+      /// Step time when emergency stepping [s]
+      DblArray3 emergency_step_time;
     };
 
     /**
@@ -318,6 +322,8 @@ module OpenHRP
       DblArray2 limb_stretch_avoidance_vlimit;
       /// Sequence of limb length margin from max limb length [m]
       sequence<double> limb_length_margin;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**

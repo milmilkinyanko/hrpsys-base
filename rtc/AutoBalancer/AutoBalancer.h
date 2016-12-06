@@ -135,8 +135,8 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
-  TimedBoolean m_emergencySignalWalking;
-  InPort<TimedBoolean> m_emergencySignalWalkingIn;
+  TimedBooleanSeq m_emergencySignalStep;
+  InPort<TimedBooleanSeq> m_emergencySignalStepIn;
   TimedPoint3D m_absActCOG;
   InPort<TimedPoint3D> m_absActCOGIn;
   TimedPoint3D m_absActCOGVel;
@@ -283,6 +283,7 @@ class AutoBalancer
   bool use_limb_stretch_avoidance;
   hrp::Vector3 diff_cp;
   std::vector<bool> act_contact_states;
+  bool is_emergency_step_mode;
 };
 
 
