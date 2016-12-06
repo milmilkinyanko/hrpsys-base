@@ -597,7 +597,6 @@ namespace rats
     }
     // modify footsteps based on diff_cp
     if (modify_footsteps && isfinite(act_cog(0)) && isfinite(act_cogvel(0))) {
-      double margin_time_ratio = 0.1;
       int emergency_step_cnt_thre = static_cast<int>(0.3/dt);
       bool is_emergency_walking_step = false;
       // calculate diff_cp

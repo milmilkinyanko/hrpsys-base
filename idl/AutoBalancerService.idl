@@ -259,6 +259,8 @@ module OpenHRP
       DblArray2 cp_check_margin_step;
       /// Step time when emergency stepping [s]
       DblArray3 emergency_step_time;
+      /// Margin time ratio for footstep modification before landing [s]
+      double margin_time_ratio;
     };
 
     /**

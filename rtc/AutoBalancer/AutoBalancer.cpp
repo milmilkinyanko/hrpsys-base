@@ -1601,6 +1601,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
     gg->set_stride_limitation_type(CIRCLE);
   }
   gg->set_emergency_step_time(i_param.emergency_step_time);
+  gg->set_margin_time_ratio(i_param.margin_time_ratio);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -1702,6 +1703,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   for (size_t i=0; i<3; i++) {
     i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
   }
+  i_param.margin_time_ratio = gg->get_margin_time_ratio();
   return true;
 };
 
