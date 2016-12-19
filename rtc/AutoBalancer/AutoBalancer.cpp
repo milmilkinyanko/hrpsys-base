@@ -503,6 +503,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
       if (is_emergency_step_mode && tmp_emergecy && !gg->get_is_emergency_step()) {
         gg->set_is_emergency_step(true);
+        is_emergency_step_mode = false;
         goVelocity(m_emergencySignalStep.data[0]?0.1:(m_emergencySignalStep.data[1]?-0.1:0), m_emergencySignalStep.data[2]?0.1:(m_emergencySignalStep.data[3]?-0.1:0), 0);
       }
     }
