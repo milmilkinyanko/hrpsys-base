@@ -878,11 +878,12 @@ void Stabilizer::getActualParameters ()
       act_ee_R[i] = foot_origin_rot.transpose() * (target->R * stikp[i].localR);
     }
     // capture point
+    hrp::Vector3 tmp_act_cog = act_cog;
+    tmp_act_cog = hrp::Vector3(tmp_act_cog(0) + cp_offset(0), tmp_act_cog(1) + cp_offset(1), tmp_act_cog(2));
     act_cp = act_cog + act_cogvel * std::sqrt(std::max(0.0, (act_cog - act_zmp)(2)) / eefm_gravitational_acceleration);
-    act_cp = hrp::Vector3(act_cp(0) + cp_offset(0), act_cp(1) + cp_offset(1), act_cp(2));
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
-    abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
+    abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * tmp_act_cog;
     abs_act_cogvel = ref_foot_origin_pos + ref_foot_origin_rot * act_cogvel;
     // <= Actual foot_origin frame
 
