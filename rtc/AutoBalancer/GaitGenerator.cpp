@@ -614,7 +614,7 @@ namespace rats
           is_emergency_walking_step = true;
         }
       }
-      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-3) {
+      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static int not_emergency_cnt;
         // calculate sum of preview_f
         static double preview_f_sum;
