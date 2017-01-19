@@ -655,13 +655,13 @@ namespace rats
     double stride_r = std::pow(cur_fs.worldcoords.pos(0), 2.0) + std::pow(cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1), 2.0);
     // front, rear, outside limitation
     double stride_r_limit = std::pow(std::max(overwritable_stride_limitation[cur_fs.worldcoords.pos(0) >= 0 ? 0 : 1], overwritable_stride_limitation[2] - overwritable_stride_limitation[3]), 2.0);
-    if (stride_r > stride_r_limit) {
-      if ((cur_leg == LLEG ? 1 : -1) * cur_fs.worldcoords.pos(1) < footstep_param.leg_default_translate_pos[LLEG](1) - footstep_param.leg_default_translate_pos[RLEG](1)) cur_fs.worldcoords.pos(0) *= sqrt(stride_r_limit / stride_r);
+    if (stride_r > stride_r_limit && (cur_leg == LLEG ? 1 : -1) * cur_fs.worldcoords.pos(1) > footstep_param.leg_default_translate_pos[LLEG](1) - footstep_param.leg_default_translate_pos[RLEG](1)) {
+      cur_fs.worldcoords.pos(0) *= sqrt(stride_r_limit / stride_r);
       cur_fs.worldcoords.pos(1) = footstep_param.leg_default_translate_pos[cur_leg](1) - footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) +
                                   sqrt(stride_r_limit / stride_r) * (cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1));
     }
     if (cur_fs.worldcoords.pos(0) > overwritable_stride_limitation[0]) cur_fs.worldcoords.pos(0) = overwritable_stride_limitation[0];
-    if (cur_fs.worldcoords.pos(0) < -1 * overwritable_stride_limitation[0]) cur_fs.worldcoords.pos(0) = -1 * overwritable_stride_limitation[1];
+    if (cur_fs.worldcoords.pos(0) < -1 * overwritable_stride_limitation[1]) cur_fs.worldcoords.pos(0) = -1 * overwritable_stride_limitation[1];
     if ((cur_leg == LLEG ? 1 : -1) * cur_fs.worldcoords.pos(1) > overwritable_stride_limitation[2]) cur_fs.worldcoords.pos(1) = (cur_leg == LLEG ? 1 : -1) * overwritable_stride_limitation[2];
     // inside limitation
     std::vector<double> cur_leg_vertices_y;
