@@ -351,6 +351,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       ikp.eefm_pos_compensation_limit = 0.025;
       ikp.eefm_swing_pos_spring_gain = hrp::Vector3(0.0, 0.0, 0.0);
       ikp.eefm_swing_pos_time_const = hrp::Vector3(1.5, 1.5, 1.5);
+      ikp.eefm_swing_pos_modification_limit = 30 * 1e-3;
+      ikp.eefm_swing_rot_modification_limit = deg2rad(10.0);
       ikp.eefm_ee_moment_limit = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
       if (ikp.ee_name.find("leg") == std::string::npos) { // Arm default
           ikp.eefm_ee_forcemoment_distribution_weight = Eigen::Matrix<double, 6,1>::Zero();
@@ -1569,8 +1571,6 @@ void Stabilizer::calcSwingEEModification ()
 {
     for (size_t i = 0; i < stikp.size(); i++) {
         // Calc compensation values
-        double limit_pos = 30 * 1e-3; // 30[mm] limit
-        double limit_rot = deg2rad(10); // 10[deg] limit
         if (contact_states[contact_states_index_map[stikp[i].ee_name]] || isContact(contact_states_index_map[stikp[i].ee_name])) {
             // If actual contact or target contact is ON, do not use swing ee compensation. Exponential zero retrieving.
             stikp[i].d_rpy_swing = calcDampingControl(stikp[i].d_rpy_swing, stikp[i].eefm_swing_rot_time_const);
@@ -1584,7 +1584,7 @@ void Stabilizer::calcSwingEEModification ()
                 double lvlimit = -50 * 1e-3 * dt, uvlimit = 50 * 1e-3 * dt; // 50 [mm/s]
                 hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
                 hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
-                stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+                stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * stikp[i].eefm_swing_pos_modification_limit, stikp[i].eefm_swing_pos_modification_limit), limit_by_lvlimit, limit_by_uvlimit);
             }
             /* rotation */
             {
@@ -1592,7 +1592,7 @@ void Stabilizer::calcSwingEEModification ()
                 double lvlimit = deg2rad(-20.0*dt), uvlimit = deg2rad(20.0*dt); // 20 [deg/s]
                 hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
                 hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
-                stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
+                stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * stikp[i].eefm_swing_rot_modification_limit, stikp[i].eefm_swing_pos_modification_limit), limit_by_lvlimit, limit_by_uvlimit);
             }
         }
         stikp[i].prev_d_pos_swing = stikp[i].d_pos_swing;
@@ -1789,6 +1789,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   i_stp.eefm_rot_compensation_limit.length(stikp.size());
   i_stp.eefm_swing_rot_spring_gain.length(stikp.size());
   i_stp.eefm_swing_rot_time_const.length(stikp.size());
+  i_stp.eefm_swing_pos_modification_limit.length(stikp.size());
+  i_stp.eefm_swing_rot_modification_limit.length(stikp.size());
   i_stp.eefm_ee_moment_limit.length(stikp.size());
   i_stp.eefm_ee_forcemoment_distribution_weight.length(stikp.size());
   for (size_t j = 0; j < stikp.size(); j++) {
@@ -1817,6 +1819,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
       }
       i_stp.eefm_pos_compensation_limit[j] = stikp[j].eefm_pos_compensation_limit;
       i_stp.eefm_rot_compensation_limit[j] = stikp[j].eefm_rot_compensation_limit;
+      i_stp.eefm_swing_pos_modification_limit[j] = stikp[j].eefm_swing_pos_modification_limit;
+      i_stp.eefm_swing_rot_modification_limit[j] = stikp[j].eefm_swing_rot_modification_limit;
   }
   for (size_t i = 0; i < 3; i++) {
     i_stp.eefm_swing_pos_damping_gain[i] = eefm_swing_pos_damping_gain(i);
@@ -1985,6 +1989,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
        i_stp.eefm_rot_compensation_limit.length () == stikp.size() &&
        i_stp.eefm_swing_rot_spring_gain.length () == stikp.size() &&
        i_stp.eefm_swing_rot_time_const.length () == stikp.size() &&
+       i_stp.eefm_swing_pos_modification_limit.length () == stikp.size() &&
+       i_stp.eefm_swing_rot_modification_limit.length () == stikp.size() &&
        i_stp.eefm_ee_moment_limit.length () == stikp.size() &&
        i_stp.eefm_ee_forcemoment_distribution_weight.length () == stikp.size()) {
       is_damping_parameter_ok = true;
@@ -2004,6 +2010,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
           }
           stikp[j].eefm_pos_compensation_limit = i_stp.eefm_pos_compensation_limit[j];
           stikp[j].eefm_rot_compensation_limit = i_stp.eefm_rot_compensation_limit[j];
+          stikp[j].eefm_swing_pos_modification_limit = i_stp.eefm_swing_pos_modification_limit[j];
+          stikp[j].eefm_swing_rot_modification_limit = i_stp.eefm_swing_rot_modification_limit[j];
       }
   } else {
       is_damping_parameter_ok = false;
@@ -2127,6 +2135,8 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
                     << "eefm_swing_pos_time_const = " << stikp[j].eefm_swing_pos_time_const.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", "
                     << "eefm_swing_rot_spring_gain = " << stikp[j].eefm_swing_rot_spring_gain.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", "
                     << "eefm_swing_pos_time_const = " << stikp[j].eefm_swing_pos_time_const.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", "
+                    << "eefm_swing_pos_modification_limit = " << stikp[j].eefm_swing_pos_modification_limit << "[m], "
+                    << "eefm_swing_rot_modification_limit = " << stikp[j].eefm_swing_rot_modification_limit << "[rad], "
                     << std::endl;
           std::cerr << "[" << m_profile.instance_name << "]   [" << stikp[j].ee_name << "] "
                     << "eefm_ee_forcemoment_distribution_weight = " << stikp[j].eefm_ee_forcemoment_distribution_weight.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "" << std::endl;

@@ -137,6 +137,10 @@ module OpenHRP
       sequence<double> eefm_pos_compensation_limit;
       /// Sequence of all end-effector rot compensation limit [rad]
       sequence<double> eefm_rot_compensation_limit;
+      /// Sequence of all swing end-effector position modification limit [m]
+      sequence<double> eefm_swing_pos_modification_limit;
+      /// Sequence of all swing end-effector rotation modification limit [rad]
+      sequence<double> eefm_swing_rot_modification_limit;
       /// End-effector position damping time constant for single support phase [s].
       double eefm_pos_time_const_swing;
       /// Transition time for single=>double support phase gain interpolation [s].
