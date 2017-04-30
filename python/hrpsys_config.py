@@ -401,6 +401,11 @@ class HrpsysConfigurator(object):
             if self.es:
                 connectPorts(self.st.port("emergencySignal"), self.es.port("emergencySignal"))
             connectPorts(self.st.port("emergencySignal"), self.abc.port("emergencySignal"))
+            connectPorts(self.st.port("absActCOG"), self.abc.port("absActCOG"))
+            connectPorts(self.st.port("absActCOGVel"), self.abc.port("absActCOGVel"))
+            connectPorts(self.st.port("absRefCOG"), self.abc.port("absRefCOG"))
+            connectPorts(self.st.port("absRefCOGVel"), self.abc.port("absRefCOGVel"))
+            connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
 
         # ref force moment connection
         for sen in self.getForceSensorNames():

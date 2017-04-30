@@ -381,6 +381,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   eefm_gravitational_acceleration = 9.80665; // [m/s^2]
   cop_check_margin = 20.0*1e-3; // [m]
   cp_check_margin.resize(4, 30*1e-3); // [m]
+  cp_offset = hrp::Vector3(0.0, 0.0, 0.0); // [m]
   tilt_margin.resize(2, 30 * M_PI / 180); // [rad]
   contact_decision_threshold = 50; // [N]
   eefm_use_force_difference_control = true;
@@ -1797,6 +1798,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
     i_stp.eefm_body_attitude_control_gain[i] = eefm_body_attitude_control_gain[i];
     i_stp.ref_capture_point[i] = ref_cp(i);
     i_stp.act_capture_point[i] = act_cp(i);
+    i_stp.cp_offset[i] = cp_offset(i);
   }
   i_stp.eefm_pos_time_const_support.length(stikp.size());
   i_stp.eefm_pos_damping_gain.length(stikp.size());
@@ -1991,6 +1993,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
     eefm_body_attitude_control_time_const[i] = i_stp.eefm_body_attitude_control_time_const[i];
     ref_cp(i) = i_stp.ref_capture_point[i];
     act_cp(i) = i_stp.act_capture_point[i];
+    cp_offset(i) = i_stp.cp_offset[i];
   }
   bool is_damping_parameter_ok = true;
   if ( i_stp.eefm_pos_damping_gain.length () == stikp.size() &&
