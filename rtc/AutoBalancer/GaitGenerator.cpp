@@ -684,6 +684,8 @@ namespace rats
   void gait_generator::modify_footsteps_for_recovery ()
   {
     if (isfinite(act_cog(0)) && isfinite(act_cogvel(0))) {
+      int emergency_step_cnt_thre = static_cast<int>(0.3/dt);
+      bool is_emergency_walking_step = false;
       // calculate diff_cp
       hrp::Vector3 ref_cp, act_cp, tmp_diff_cp;
       ref_cp = ref_cog + ref_cogvel / std::sqrt(gravitational_acceleration / (ref_cog(2) - refzmp(2)));
@@ -695,6 +697,9 @@ namespace rats
         } else {
           is_emergency_walking[i] = false;
         }
+        if (std::fabs((ref_cp - act_cp)(i)) > cp_check_margin_step[i]) {
+          is_emergency_walking_step = true;
+        }
       }
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
         static int not_emergency_cnt;
@@ -704,6 +709,13 @@ namespace rats
           preview_f_sum = preview_controller_ptr->get_preview_f(preview_controller_ptr->get_delay());
           for (size_t i = preview_controller_ptr->get_delay()-1; i >= lcg.get_lcg_count()+1; i--) {
             preview_f_sum += preview_controller_ptr->get_preview_f(i);
+          }
+          // emergency when standing
+          if (is_emergency_step) {
+            leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
           }
         }
         if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
@@ -729,6 +741,26 @@ namespace rats
           }
         }
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+        // whether recover from emergency step
+        if (is_emergency_step && !is_emergency_walking_step) {
+          not_emergency_cnt++;
+          if (not_emergency_cnt > emergency_step_cnt_thre && lcg.get_footstep_index() > 1) {
+            not_emergency_cnt = 0;
+            default_step_time = tmp_default_step_time;
+            default_double_support_ratio_before = tmp_default_double_support_ratio_before;
+            default_double_support_ratio_after = tmp_default_double_support_ratio_after;
+            is_emergency_step = false;
+            overwrite_footstep_nodes_list.clear();
+            leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+            coordinates tmp_footstep_coords = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords;
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            emergency_flg = STOPPING;
+          }
+        } else {
+          not_emergency_cnt = 0;
+        }
         // overwrite zmp
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
@@ -869,12 +901,25 @@ namespace rats
 						 const double vel_x, const double vel_y, const double vel_theta,
                                                  const std::vector<leg_type>& current_legs)
   {
+    if (!is_emergency_step) velocity_mode_flg = VEL_DOING;
+    else {
+      tmp_default_step_time = default_step_time;
+      tmp_default_double_support_ratio_before = default_double_support_ratio_before;
+      tmp_default_double_support_ratio_after = default_double_support_ratio_after;
+    }
     velocity_mode_flg = VEL_DOING;
     /* initialize */
     clear_footstep_nodes_list();
     set_velocity_param (vel_x, vel_y, vel_theta);
+    if (is_emergency_step) {
+      default_step_time = emergency_step_time[0];
+      default_double_support_ratio_before = 0.1;
+      default_double_support_ratio_after = 0.1;
+    }
     append_go_pos_step_nodes(_ref_coords, current_legs);
+    if (is_emergency_step) default_step_time = emergency_step_time[1];
     append_footstep_list_velocity_mode();
+    if (is_emergency_step) default_step_time = emergency_step_time[2];
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
   };

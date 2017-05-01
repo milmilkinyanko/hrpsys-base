@@ -255,6 +255,10 @@ module OpenHRP
       boolean modify_footsteps;
       /// CP check margin when modifying footsteps (x, y) [m]
       DblArray2 cp_check_margin;
+      /// CP check margin when emergency stepping (x, y) [m]
+      DblArray2 cp_check_margin_step;
+      /// Step time when emergency stepping [s] (1st, 2nd, 3rd steps)
+      DblArray3 emergency_step_time;
       /// Margin time ratio for footstep modification before landing [s]
       double margin_time_ratio;
     };
@@ -312,6 +316,8 @@ module OpenHRP
       GaitType default_gait_type;
       /// Sequence for all end-effectors' ik limb parameters
       sequence<IKLimbParameters> ik_limb_parameters;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**

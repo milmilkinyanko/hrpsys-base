@@ -49,6 +49,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
+      m_emergencySignalStepIn("emergencySignalStep", m_emergencySignalStep),
       m_absActCOGIn("absActCOG", m_absActCOG),
       m_absActCOGVelIn("absActCOGVel", m_absActCOGVel),
       m_absRefCOGIn("absRefCOG", m_absRefCOG),
@@ -95,6 +96,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("zmpIn", m_zmpIn);
     addInPort("optionalData", m_optionalDataIn);
     addInPort("emergencySignal", m_emergencySignalIn);
+    addInPort("emergencySignalStep", m_emergencySignalStepIn);
     addInPort("absActCOG", m_absActCOGIn);
     addInPort("absActCOGVel", m_absActCOGVelIn);
     addInPort("absRefCOG", m_absRefCOGIn);
@@ -354,6 +356,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_stop_mode = false;
     is_hand_fix_mode = false;
 
+    is_emergency_step_mode = false;
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -448,6 +452,18 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         //     is_stop_mode = true;
         //     gg->emergency_stop();
         // }
+    }
+    if (m_emergencySignalStepIn.isNew()) {
+        m_emergencySignalStepIn.read();
+        bool tmp_emergecy = false;
+        for (size_t i = 0; i < 4; i++) {
+          if (m_emergencySignalStep.data[i]) tmp_emergecy = true;
+        }
+        if (is_emergency_step_mode && tmp_emergecy && !gg->get_is_emergency_step()) {
+          gg->set_is_emergency_step(true);
+          is_emergency_step_mode = false;
+          goVelocity(m_emergencySignalStep.data[0]?0.1:(m_emergencySignalStep.data[1]?-0.1:0), m_emergencySignalStep.data[2]?0.1:(m_emergencySignalStep.data[3]?-0.1:0), 0);
+        }
     }
     if (m_absActCOGIn.isNew()) {
       m_absActCOGIn.read();
@@ -1504,6 +1520,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_footstep_modification_gain(i_param.footstep_modification_gain);
   gg->set_modify_footsteps(i_param.modify_footsteps);
   gg->set_cp_check_margin(i_param.cp_check_margin);
+  gg->set_cp_check_margin_step(i_param.cp_check_margin_step);
+  gg->set_emergency_step_time(i_param.emergency_step_time);
   gg->set_margin_time_ratio(i_param.margin_time_ratio);
   if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::SQUARE) {
     gg->set_stride_limitation_type(SQUARE);
@@ -1597,6 +1615,12 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.modify_footsteps = gg->get_modify_footsteps();
   for (size_t i=0; i<2; i++) {
     i_param.cp_check_margin[i] = gg->get_cp_check_margin(i);
+  }
+  for (size_t i=0; i<2; i++) {
+    i_param.cp_check_margin_step[i] = gg->get_cp_check_margin_step(i);
+  }
+  for (size_t i=0; i<3; i++) {
+    i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
   }
   i_param.margin_time_ratio = gg->get_margin_time_ratio();
   if (gg->get_stride_limitation_type() == SQUARE) {
@@ -1696,6 +1720,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   } else if (i_param.default_gait_type == OpenHRP::AutoBalancerService::GALLOP) {
       gait_type = GALLOP;
   }
+  is_emergency_step_mode = i_param.is_emergency_step_mode;
   for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
       std::cerr << "[" << m_profile.instance_name << "] End Effector [" << it->first << "]" << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   localpos = " << it->second.localPos.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
@@ -1783,6 +1808,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   case GALLOP: i_param.default_gait_type = OpenHRP::AutoBalancerService::GALLOP; break;
   default: break;
   }
+  i_param.is_emergency_step_mode = is_emergency_step_mode;
   // FIK
   i_param.move_base_gain = fik->move_base_gain;
   i_param.pos_ik_thre = fik->pos_ik_thre;

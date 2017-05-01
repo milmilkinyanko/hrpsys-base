@@ -417,6 +417,8 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
+  TimedBooleanSeq m_emergencySignalStep;
+  InPort<TimedBooleanSeq> m_emergencySignalStepIn;
   TimedPoint3D m_absActCOG;
   InPort<TimedPoint3D> m_absActCOGIn;
   TimedPoint3D m_absActCOGVel;
@@ -566,6 +568,8 @@ class AutoBalancer
 
   hrp::InvDynStateBuffer idsb;
   std::vector<IIRFilter> invdyn_zmp_filters;
+
+  bool is_emergency_step_mode;
 };
 
 

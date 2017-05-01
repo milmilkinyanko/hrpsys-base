@@ -74,6 +74,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_actContactStatesOut("actContactStates", m_actContactStates),
     m_COPInfoOut("COPInfo", m_COPInfo),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
+    m_emergencySignalStepOut("emergencySignalStep", m_emergencySignalStep),
     // for debug output
     m_originRefZmpOut("originRefZmp", m_originRefZmp),
     m_originRefCogOut("originRefCog", m_originRefCog),
@@ -136,6 +137,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("actContactStates", m_actContactStatesOut);
   addOutPort("COPInfo", m_COPInfoOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
+  addOutPort("emergencySignalStep", m_emergencySignalStepOut);
   // for debug output
   addOutPort("originRefZmp", m_originRefZmpOut);
   addOutPort("originRefCog", m_originRefCogOut);
@@ -381,6 +383,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   eefm_gravitational_acceleration = 9.80665; // [m/s^2]
   cop_check_margin = 20.0*1e-3; // [m]
   cp_check_margin.resize(4, 30*1e-3); // [m]
+  cp_check_thre_step.resize(2, 30*1e-3); // [m]
   cp_offset = hrp::Vector3(0.0, 0.0, 0.0); // [m]
   tilt_margin.resize(2, 30 * M_PI / 180); // [rad]
   contact_decision_threshold = 50; // [N]
@@ -420,6 +423,11 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       if ( sen != NULL ) is_legged_robot = true;
   }
   is_emergency = false;
+  m_emergencySignalStep.data.length(4);
+  for (size_t i = 0; i < 4; i++) {
+    is_emergency_step[i] = false;
+    m_emergencySignalStep.data[i] = false;
+  }
   reset_emergency_flag = false;
 
   m_qCurrent.data.length(m_robot->numJoints());
@@ -721,6 +729,12 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
     }
+    // emergencySignalStepping
+    m_emergencySignalStep.tm = m_qRef.tm;
+    for (size_t i = 0; i < 4; i++) {
+      m_emergencySignalStep.data[i] = is_emergency_step[i];
+    }
+    m_emergencySignalStepOut.write();
   }
 
   return RTC::RTC_OK;
@@ -1279,7 +1293,7 @@ void Stabilizer::calcStateForEmergencySignal()
     is_cop_outside = false;
   }
   // CP Check
-  bool is_cp_outside = false;
+  bool is_cp_outside = false, is_cp_outside_step[4] = {};
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     SimpleZMPDistributor::leg_type support_leg;
     size_t l_idx, r_idx;
@@ -1295,6 +1309,12 @@ void Stabilizer::calcStateForEmergencySignal()
     else if (act_contact_states[contact_states_index_map["rleg"]]) support_leg = SimpleZMPDistributor::RLEG;
     else if (act_contact_states[contact_states_index_map["lleg"]]) support_leg = SimpleZMPDistributor::LLEG;
     if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, rel_ee_pos, rel_ee_rot, rel_ee_name, support_leg, cp_check_margin, - sbp_cog_offset);
+    if (!is_walking) {
+      is_cp_outside_step[0] = (act_cp(0) - ref_cp(0) > cp_check_thre_step[0]);
+      is_cp_outside_step[1] = (act_cp(0) - ref_cp(0) < -1 * cp_check_thre_step[0]);
+      is_cp_outside_step[2] = (act_cp(1) - ref_cp(1) > cp_check_thre_step[1]);
+      is_cp_outside_step[3] = (act_cp(1) - ref_cp(1) < -1 * cp_check_thre_step[1]);
+    }
     if (DEBUGP) {
       std::cerr << "[" << m_profile.instance_name << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "
                 << "sbp cog offset [" << sbp_cog_offset(0) << " " << sbp_cog_offset(1) << "], outside ? "
@@ -1362,6 +1382,9 @@ void Stabilizer::calcStateForEmergencySignal()
       break;
   case OpenHRP::StabilizerService::CP:
       is_emergency = is_cp_outside;
+      for (size_t i = 0; i < 4; i++) {
+        is_emergency_step[i] = is_cp_outside_step[i];
+      }
       break;
   case OpenHRP::StabilizerService::TILT:
       is_emergency = will_fall || is_falling;
@@ -1898,6 +1921,9 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   for (size_t i = 0; i < cp_check_margin.size(); i++) {
     i_stp.cp_check_margin[i] = cp_check_margin[i];
   }
+  for (size_t i = 0; i < cp_check_thre_step.size(); i++) {
+    i_stp.cp_check_thre_step[i] = cp_check_thre_step[i];
+  }
   for (size_t i = 0; i < tilt_margin.size(); i++) {
     i_stp.tilt_margin[i] = tilt_margin[i];
   }
@@ -2081,6 +2107,9 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   cop_check_margin = i_stp.cop_check_margin;
   for (size_t i = 0; i < cp_check_margin.size(); i++) {
     cp_check_margin[i] = i_stp.cp_check_margin[i];
+  }
+  for (size_t i = 0; i < cp_check_thre_step.size(); i++) {
+    cp_check_thre_step[i] = i_stp.cp_check_thre_step[i];
   }
   for (size_t i = 0; i < tilt_margin.size(); i++) {
     tilt_margin[i] = i_stp.tilt_margin[i];
