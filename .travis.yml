@@ -2,6 +2,8 @@ cache: apt
 language:
   - cpp
   - python
+sudo:
+  - true
 python:
   - "2.7"
 compiler:
