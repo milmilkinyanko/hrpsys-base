@@ -818,8 +818,13 @@ namespace rats
         }
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         // overwrite zmp
+        struct timespec startTime1, endTime1;
+        clock_gettime(CLOCK_REALTIME, &startTime1);
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
+        clock_gettime(CLOCK_REALTIME, &endTime1);
         overwrite_footstep_nodes_list.clear();
+        double time1 = (double)(endTime1.tv_sec - startTime1.tv_sec + (endTime1.tv_nsec - startTime1.tv_nsec) * 1e-9);
+        std::cerr << time1 << std::endl;
       }
     }
   }

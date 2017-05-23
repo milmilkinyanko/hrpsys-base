@@ -9,6 +9,7 @@
 #include <boost/assign.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/shared_ptr.hpp>
+#include <sys/time.h>
 
 namespace rats
 {
