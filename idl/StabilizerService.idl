@@ -235,6 +235,8 @@ module OpenHRP
       double detection_time_to_air;
       /// Limit of compensation for difference between ref-act root rot [rad].
       DblArray2 root_rot_compensation_limit;
+      /// whether get ref_force for water walking
+      boolean get_ref_force_for_water;
     };
 
     /**

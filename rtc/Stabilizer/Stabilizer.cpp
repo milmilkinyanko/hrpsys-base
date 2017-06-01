@@ -71,6 +71,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_contactStatesIn("contactStates", m_contactStates),
     m_toeheelRatioIn("toeheelRatio", m_toeheelRatio),
     m_controlSwingSupportTimeIn("controlSwingSupportTime", m_controlSwingSupportTime),
+    m_controlSwingSupportTimeRatioIn("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatio),
     m_qRefSeqIn("qRefSeq", m_qRefSeq),
     m_walkingStatesIn("walkingStates", m_walkingStates),
     m_sbpCogOffsetIn("sbpCogOffset", m_sbpCogOffset),
@@ -132,6 +133,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addInPort("contactStates", m_contactStatesIn);
   addInPort("toeheelRatio", m_toeheelRatioIn);
   addInPort("controlSwingSupportTime", m_controlSwingSupportTimeIn);
+  addInPort("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatioIn);
   addInPort("qRefSeq", m_qRefSeqIn);
   addInPort("walkingStates", m_walkingStatesIn);
   addInPort("sbpCogOffset", m_sbpCogOffsetIn);
@@ -401,6 +403,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   initial_cp_too_large_error = true;
   is_walking = false;
   is_estop_while_walking = false;
+  get_ref_force_for_water = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
   use_limb_stretch_avoidance = false;
   limb_stretch_avoidance_time_const = 1.5;
@@ -576,6 +579,9 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
   }
   if (m_controlSwingSupportTimeIn.isNew()){
     m_controlSwingSupportTimeIn.read();
+  }
+  if (m_controlSwingSupportTimeRatioIn.isNew()) {
+    m_controlSwingSupportTimeRatioIn.read();
   }
   for (size_t i = 0; i < m_wrenchesIn.size(); ++i) {
     if ( m_wrenchesIn[i]->isNew() ) {
@@ -993,6 +999,10 @@ void Stabilizer::getActualParameters ()
         hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
         //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
         hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        // water
+        if (ref_contact_states[i] && (!(ref_contact_states[contact_states_index_map["rleg"]] && ref_contact_states[contact_states_index_map["lleg"]]))) {
+          if (get_ref_force_for_water && m_controlSwingSupportTimeRatio.data <= 0.5) get_ref_force_for_water = false;
+        }
         // <= Actual world frame
         // Convert force & moment as foot origin coords relative
         ikp.ref_moment = foot_origin_rot.transpose() * ikp.ref_moment;
@@ -1947,6 +1957,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   }
   i_stp.contact_decision_threshold = contact_decision_threshold;
   i_stp.is_estop_while_walking = is_estop_while_walking;
+  i_stp.get_ref_force_for_water = get_ref_force_for_water;
   switch(control_mode) {
   case MODE_IDLE: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_IDLE; break;
   case MODE_AIR: i_stp.controller_mode = OpenHRP::StabilizerService::MODE_AIR; break;
@@ -2134,6 +2145,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   }
   contact_decision_threshold = i_stp.contact_decision_threshold;
   is_estop_while_walking = i_stp.is_estop_while_walking;
+  get_ref_force_for_water = i_stp.get_ref_force_for_water;
   use_limb_stretch_avoidance = i_stp.use_limb_stretch_avoidance;
   limb_stretch_avoidance_time_const = i_stp.limb_stretch_avoidance_time_const;
   for (size_t i = 0; i < 2; i++) {

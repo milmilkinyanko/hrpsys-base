@@ -496,6 +496,8 @@ class AutoBalancer
   OutPort<TimedAcceleration3D> m_accRefOut;
   TimedBooleanSeq m_contactStates;
   OutPort<TimedBooleanSeq> m_contactStatesOut;
+  TimedDouble m_controlSwingSupportTimeRatio;
+  OutPort<TimedDouble> m_controlSwingSupportTimeRatioOut;
   TimedDoubleSeq m_toeheelRatio;
   OutPort<TimedDoubleSeq> m_toeheelRatioOut;
   TimedDoubleSeq m_controlSwingSupportTime;

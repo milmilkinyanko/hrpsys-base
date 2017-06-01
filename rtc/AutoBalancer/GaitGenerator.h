@@ -22,7 +22,7 @@ namespace rats
                            const double default_top_ratio = 0.5);
     void multi_mid_coords (coordinates& mid_coords, const std::vector<coordinates>& cs, const double eps = 0.001);
 
-    enum orbit_type {SHUFFLING, CYCLOID, RECTANGLE, STAIR, CYCLOIDDELAY, CYCLOIDDELAYKICK, CROSS};
+    enum orbit_type {SHUFFLING, CYCLOID, RECTANGLE, STAIR, CYCLOIDDELAY, CYCLOIDDELAYKICK, CROSS, WATER};
     enum leg_type {RLEG, LLEG, RARM, LARM, BOTH, ALL};
     enum stride_limitation_type {SQUARE, CIRCLE};
     std::string leg_type_to_leg_type_string (const leg_type l_r);
@@ -553,6 +553,23 @@ namespace rats
       };
     };
 
+    class water_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
+    {
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      {
+        std::vector<hrp::Vector3> water_path;
+        double max_height = std::max(start(2), goal(2))+height;
+        water_path.push_back(start);
+        water_path.push_back(hrp::Vector3(start(0), start(1), max_height));
+        for (size_t i = 0; i < 40; i++) {
+          water_path.push_back(hrp::Vector3(goal(0)-1e-3, goal(1), max_height));
+          water_path.push_back(hrp::Vector3(goal(0)+1e-3, goal(1), max_height));
+        }
+        water_path.push_back(goal);
+        return calc_antecedent_path_base(water_path);
+      };
+    };
+
     class stair_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
     {
       hrp::Vector3 way_point_offset;
@@ -702,6 +719,7 @@ namespace rats
       bool is_swing_phase;
       // Foot trajectory generators
       std::vector<rectangle_delay_hoffarbib_trajectory_generator> rdtg;
+      std::vector<water_delay_hoffarbib_trajectory_generator> wdtg;
       stair_delay_hoffarbib_trajectory_generator sdtg;
       std::vector<cycloid_delay_hoffarbib_trajectory_generator> cdtg;
       cycloid_delay_kick_hoffarbib_trajectory_generator cdktg;
@@ -724,6 +742,8 @@ namespace rats
                               const coordinates& goal, const double height) const;
       void rectangle_midcoords (coordinates& ret, const coordinates& start,
                                 const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx);
+      void water_midcoords (coordinates& ret, const coordinates& start,
+                                const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx);
       void stair_midcoords (coordinates& ret, const coordinates& start,
                             const coordinates& goal, const double height);
       void cycloid_delay_midcoords (coordinates& ret, const coordinates& start,
@@ -743,7 +763,7 @@ namespace rats
           current_toe_angle(0), current_heel_angle(0),
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), default_orbit_type(CYCLOID),
-          rdtg(), cdtg(),
+          rdtg(), wdtg(), cdtg(),
           thp(),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
@@ -872,6 +892,15 @@ namespace rats
             for (size_t i = 0; i < swing_leg_dst_steps.size(); i++) {
                 rdtg.push_back(rectangle_delay_hoffarbib_trajectory_generator());
                 rdtg.back().reset_all(dt, one_step_count,
+                                      default_double_support_ratio_before, default_double_support_ratio_after,
+                                      time_offset, final_distance_weight, time_offset_xy2z);
+            }
+            break;
+        case WATER:
+            wdtg.clear();
+            for (size_t i = 0; i < swing_leg_dst_steps.size(); i++) {
+                wdtg.push_back(water_delay_hoffarbib_trajectory_generator());
+                wdtg.back().reset_all(dt, one_step_count,
                                       default_double_support_ratio_before, default_double_support_ratio_after,
                                       time_offset, final_distance_weight, time_offset_xy2z);
             }
@@ -1430,6 +1459,7 @@ namespace rats
     size_t get_footstep_index() const { return lcg.get_footstep_index(); };
     size_t get_lcg_count() const { return lcg.get_lcg_count(); };
     double get_current_swing_time(const size_t idx) const { return lcg.get_current_swing_time(idx); };
+    double get_current_swing_time_ratio() const { return (double)(lcg.get_lcg_count()+1)/(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt); };
     // Get current swing time by checking whether given EE name is swing or support
     double get_current_swing_time_from_ee_name (const std::string ee_name) const
     {
@@ -1562,6 +1592,8 @@ namespace rats
             std::cerr << "CYCLOIDDELAYKICK" << std::endl;
         } else if (get_default_orbit_type() == CROSS) {
             std::cerr << "CROSS" << std::endl;
+        } else if (get_default_orbit_type() == WATER) {
+          std::cerr << "WATER" << std::endl;
         }
         std::cerr << "[" << print_str << "]   swing_trajectory_delay_time_offset = " << get_swing_trajectory_delay_time_offset() << "[s], swing_trajectory_final_distance_weight = " << get_swing_trajectory_final_distance_weight()
                   << ", swing_trajectory_time_offset_xy2z = " << get_swing_trajectory_time_offset_xy2z() << std::endl;

@@ -298,6 +298,9 @@ namespace rats
       case CROSS:
         cross_delay_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height, it1->l_r);
         break;
+      case WATER:
+        water_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height, swing_trajectory_generator_idx);
+        break;
       default: break;
       }
       swing_trajectory_generator_idx++;
@@ -428,6 +431,12 @@ namespace rats
                                                   const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx)
   {
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height);
+  };
+
+  void leg_coords_generator::water_midcoords (coordinates& ret, const coordinates& start,
+                                                  const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx)
+  {
+    wdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height);
   };
 
   void leg_coords_generator::stair_midcoords (coordinates& ret, const coordinates& start,
@@ -583,6 +592,10 @@ namespace rats
           break;
       case CROSS:
           crdtg.reset(one_step_count, default_double_support_ratio_before, default_double_support_ratio_after);
+          break;
+      case WATER:
+          for (size_t i = 0; i < wdtg.size(); i++)
+            wdtg[i].reset(one_step_count, default_double_support_ratio_before, default_double_support_ratio_after);
           break;
       default:
           break;

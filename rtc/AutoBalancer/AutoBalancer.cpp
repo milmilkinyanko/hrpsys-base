@@ -61,6 +61,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_contactStatesOut("contactStates", m_contactStates),
       m_toeheelRatioOut("toeheelRatio", m_toeheelRatio),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
+      m_controlSwingSupportTimeRatioOut("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatio),
       m_walkingStatesOut("walkingStates", m_walkingStates),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_cogOut("cogOut", m_cog),
@@ -106,6 +107,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("contactStates", m_contactStatesOut);
     addOutPort("toeheelRatio", m_toeheelRatioOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
+    addOutPort("controlSwingSupportTimeRatio", m_controlSwingSupportTimeRatioOut);
     addOutPort("cogOut", m_cogOut);
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
@@ -228,6 +230,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
       m_controlSwingSupportTime.data.length(num);
       for (size_t i = 0; i < num; i++) m_controlSwingSupportTime.data[i] = 0.0;
       for (size_t i = 0; i < num; i++) m_toeheelRatio.data[i] = rats::no_using_toe_heel_ratio;
+      m_controlSwingSupportTimeRatio.data = 0.0;
     }
     std::vector<hrp::Vector3> leg_pos;
     if (leg_offset_str.size() > 0) {
@@ -615,6 +618,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_contactStatesOut.write();
       m_controlSwingSupportTime.tm = m_qRef.tm;
       m_controlSwingSupportTimeOut.write();
+      m_controlSwingSupportTimeRatio.tm = m_qRef.tm;
+      m_controlSwingSupportTimeRatioOut.write();
       m_toeheelRatio.tm = m_qRef.tm;
       m_toeheelRatioOut.write();
       m_walkingStates.data = gg_is_walking;
@@ -743,6 +748,7 @@ void AutoBalancer::getOutputParametersForWalking ()
             m_contactStates.data[idx] = gg->get_current_support_state_from_ee_name(it->first);
             // Set controlSwingSupportTime
             m_controlSwingSupportTime.data[idx] = gg->get_current_swing_time_from_ee_name(it->first);
+            m_controlSwingSupportTimeRatio.data = gg->get_current_swing_time_ratio();
             // Set limbCOPOffset
             hrp::Vector3 tmpzmpoff(m_limbCOPOffset[idx].data.x, m_limbCOPOffset[idx].data.y, m_limbCOPOffset[idx].data.z);
             gg->get_swing_support_foot_zmp_offsets_from_ee_name(tmpzmpoff, it->first);
@@ -1467,6 +1473,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
     gg->set_default_orbit_type(CYCLOIDDELAYKICK);
   } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::CROSS) {
     gg->set_default_orbit_type(CROSS);
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::WATER) {
+    gg->set_default_orbit_type(WATER);
   }
   gg->set_swing_trajectory_delay_time_offset(i_param.swing_trajectory_delay_time_offset);
   gg->set_swing_trajectory_final_distance_weight(i_param.swing_trajectory_final_distance_weight);
@@ -1546,6 +1554,8 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
     i_param.default_orbit_type = OpenHRP::AutoBalancerService::CYCLOIDDELAYKICK;
   } else if (gg->get_default_orbit_type() == CROSS) {
     i_param.default_orbit_type = OpenHRP::AutoBalancerService::CROSS;
+  } else if (gg->get_default_orbit_type() == WATER) {
+    i_param.default_orbit_type = OpenHRP::AutoBalancerService::WATER;
   }
 
   hrp::Vector3 tmpv = gg->get_stair_trajectory_way_point_offset();
@@ -1976,7 +1986,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
     nume(j) = mass * gg->get_gravitational_acceleration() * tmpcog(j);
     denom(j) = mass * gg->get_gravitational_acceleration();
     for (size_t i = 0; i < sensor_names.size(); i++) {
-      if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
+      // if ( sensor_names[i].find("hsensor") != std::string::npos || sensor_names[i].find("asensor") != std::string::npos ) { // tempolary to get arm force coords
           hrp::Link* parentlink;
           hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_names[i]);
           if (sensor) parentlink = sensor->link;
@@ -1988,7 +1998,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                   denom(j) -= tmp_forces[i](2);
               }
           }
-      }
+      // }
     }
     sb_point(j) = nume(j) / denom(j);
   }
