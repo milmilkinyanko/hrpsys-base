@@ -128,6 +128,10 @@ class ReferenceForceUpdater
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedOrientation3D m_rpy;
   InPort<TimedOrientation3D> m_rpyIn;
+  RTC::TimedDouble m_controlSwingSupportTimeRatio;
+  RTC::InPort<RTC::TimedDouble> m_controlSwingSupportTimeRatioIn;
+  RTC::TimedBooleanSeq m_contactStates;
+  RTC::InPort<RTC::TimedBooleanSeq> m_contactStatesIn;
 
   // </rtc-template>
 
@@ -172,11 +176,14 @@ class ReferenceForceUpdater
     double d_gain;
     // I gain
     double i_gain;
+    /// time ratio offset
+    double time_ratio_offset;
     // Motion direction to update reference force
     hrp::Vector3 motion_dir;
     std::string frame;
     int update_count;
     bool is_active, is_stopping;
+    hrp::Vector3 prev_act_force;
     ReferenceForceUpdaterParam () {
       //params defined in idl
       motion_dir = hrp::Vector3::UnitZ();
@@ -186,9 +193,11 @@ class ReferenceForceUpdater
       p_gain = 0.02;
       d_gain = 0;
       i_gain = 0;
+      time_ratio_offset = 0.7;
       //additional params (not defined in idl)
       is_active = false;
       is_stopping = false;
+      prev_act_force = hrp::Vector3::Zero();
     };
   };
   std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;

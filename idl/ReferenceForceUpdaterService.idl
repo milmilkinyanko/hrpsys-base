@@ -29,6 +29,8 @@ module OpenHRP
           double d_gain;
           /// I gain
           double i_gain;
+          /// time ratio offset
+          double time_ratio_offset;
       };
 
       /**

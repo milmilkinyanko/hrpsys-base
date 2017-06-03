@@ -470,6 +470,9 @@ class HrpsysConfigurator(object):
             if StrictVersion(self.seq_version) >= StrictVersion('315.3.0'):
                 connectPorts(self.sh.port("basePosOut"), self.rfu.port("basePosIn"))
                 connectPorts(self.sh.port("baseRpyOut"), self.rfu.port("baseRpyIn"))
+            connectPorts(self.abc.port("controlSwingSupportTimeRatio"), self.rfu.port("controlSwingSupportTimeRatio"))
+            connectPorts(self.abc.port("contactStates"), self.rfu.port("contactStates"))
+
         # connection for tf
         if self.tf:
             # connection for actual torques
