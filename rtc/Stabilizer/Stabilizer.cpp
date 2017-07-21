@@ -366,6 +366,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       ikp.eefm_swing_pos_spring_gain = hrp::Vector3(0.0, 0.0, 0.0);
       ikp.eefm_swing_pos_time_const = hrp::Vector3(1.5, 1.5, 1.5);
       ikp.eefm_ee_moment_limit = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
+      ikp.eefm_d_foot_rpy_ratio = hrp::Vector3(1.0, 1.0, 1.0);
       if (ikp.ee_name.find("leg") == std::string::npos) { // Arm default
           ikp.eefm_ee_forcemoment_distribution_weight = Eigen::Matrix<double, 6,1>::Zero();
       } else { // Leg default
@@ -1041,6 +1042,7 @@ void Stabilizer::getActualParameters ()
           }
           ikp.d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
           ikp.d_foot_rpy = vlimit(ikp.d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
+          ikp.d_foot_rpy = ikp.d_foot_rpy.cwiseProduct(ikp.eefm_d_foot_rpy_ratio);
         }
         if (!eefm_use_force_difference_control) { // Pos
             hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain;
@@ -1920,6 +1922,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   i_stp.eefm_swing_rot_spring_gain.length(stikp.size());
   i_stp.eefm_swing_rot_time_const.length(stikp.size());
   i_stp.eefm_ee_moment_limit.length(stikp.size());
+  i_stp.eefm_d_foot_rpy_ratio.length(stikp.size());
   i_stp.eefm_ee_forcemoment_distribution_weight.length(stikp.size());
   for (size_t j = 0; j < stikp.size(); j++) {
       i_stp.eefm_pos_damping_gain[j].length(3);
@@ -1931,6 +1934,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
       i_stp.eefm_swing_rot_spring_gain[j].length(3);
       i_stp.eefm_swing_rot_time_const[j].length(3);
       i_stp.eefm_ee_moment_limit[j].length(3);
+      i_stp.eefm_d_foot_rpy_ratio[j].length(3);
       i_stp.eefm_ee_forcemoment_distribution_weight[j].length(6);
       for (size_t i = 0; i < 3; i++) {
           i_stp.eefm_pos_damping_gain[j][i] = stikp[j].eefm_pos_damping_gain(i);
@@ -1942,6 +1946,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
           i_stp.eefm_swing_rot_spring_gain[j][i] = stikp[j].eefm_swing_rot_spring_gain(i);
           i_stp.eefm_swing_rot_time_const[j][i] = stikp[j].eefm_swing_rot_time_const(i);
           i_stp.eefm_ee_moment_limit[j][i] = stikp[j].eefm_ee_moment_limit(i);
+          i_stp.eefm_d_foot_rpy_ratio[j][i] = stikp[j].eefm_d_foot_rpy_ratio(i);
           i_stp.eefm_ee_forcemoment_distribution_weight[j][i] = stikp[j].eefm_ee_forcemoment_distribution_weight(i);
           i_stp.eefm_ee_forcemoment_distribution_weight[j][i+3] = stikp[j].eefm_ee_forcemoment_distribution_weight(i+3);
       }
@@ -2120,6 +2125,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
        i_stp.eefm_swing_rot_spring_gain.length () == stikp.size() &&
        i_stp.eefm_swing_rot_time_const.length () == stikp.size() &&
        i_stp.eefm_ee_moment_limit.length () == stikp.size() &&
+       i_stp.eefm_d_foot_rpy_ratio.length () == stikp.size() &&
        i_stp.eefm_ee_forcemoment_distribution_weight.length () == stikp.size()) {
       is_damping_parameter_ok = true;
       for (size_t j = 0; j < stikp.size(); j++) {
@@ -2133,6 +2139,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
               stikp[j].eefm_swing_rot_spring_gain(i) = i_stp.eefm_swing_rot_spring_gain[j][i];
               stikp[j].eefm_swing_rot_time_const(i) = i_stp.eefm_swing_rot_time_const[j][i];
               stikp[j].eefm_ee_moment_limit(i) = i_stp.eefm_ee_moment_limit[j][i];
+              stikp[j].eefm_d_foot_rpy_ratio(i) = i_stp.eefm_d_foot_rpy_ratio[j][i];
               stikp[j].eefm_ee_forcemoment_distribution_weight(i) = i_stp.eefm_ee_forcemoment_distribution_weight[j][i];
               stikp[j].eefm_ee_forcemoment_distribution_weight(i+3) = i_stp.eefm_ee_forcemoment_distribution_weight[j][i+3];
           }
