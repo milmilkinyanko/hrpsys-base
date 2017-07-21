@@ -293,6 +293,8 @@ class AutoBalancer
 
   hrp::InvDynStateBuffer idsb;
   std::vector<IIRFilter> invdyn_zmp_filters;
+
+  hrp::Vector3 angular_momentum;
 };
 
 

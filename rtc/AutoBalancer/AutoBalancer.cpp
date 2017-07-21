@@ -373,6 +373,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_stop_mode = false;
     is_hand_fix_mode = false;
 
+    angular_momentum = hrp::Vector3::Zero();
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -1091,7 +1093,7 @@ void AutoBalancer::solveFullbodyIK ()
   if (ik_type == MODE_IK) {
       fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
   } else {
-      fik->solveRMC (dif_cog, transition_interpolator->isEmpty());
+      fik->solveRMC (dif_cog, angular_momentum, transition_interpolator->isEmpty());
   }
 }
 
@@ -1809,6 +1811,9 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   fik->pos_ik_thre = i_param.pos_ik_thre;
   fik->rot_ik_thre = i_param.rot_ik_thre;
   fik->printParam();
+  for (size_t i = 0; i < 3; i++) {
+    angular_momentum(i) = i_param.angular_momentum[i];
+  }
   // IK limb parameters
   fik->setIKParam(ee_vec, i_param.ik_limb_parameters);
   // Limb stretch avoidance
@@ -1889,6 +1894,9 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.move_base_gain = fik->move_base_gain;
   i_param.pos_ik_thre = fik->pos_ik_thre;
   i_param.rot_ik_thre = fik->rot_ik_thre;
+  for (size_t i = 0; i < 3; i++) {
+    i_param.angular_momentum[i] = angular_momentum(i);
+  }
   // IK limb parameters
   fik->getIKParam(ee_vec, i_param.ik_limb_parameters);
   // Limb stretch avoidance

@@ -281,14 +281,15 @@ public:
       m_robot->rootLink()->p(2) += d_root_height;
     };
     // Solve RMC
-    void solveRMC (const hrp::Vector3& _dif_cog, const bool is_transition)
+  void solveRMC (const hrp::Vector3& _dif_cog, const hrp::Vector3 angular_momentum, const bool is_transition)
     {
       hrp::Vector3 dif_cog(ratio_for_vel*_dif_cog);
       dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2);
       hrp::Vector3 ref_basePos = m_robot->rootLink()->p + -1 * move_base_gain * dif_cog;
       hrp::Matrix33 ref_baseRot = target_root_R;
       hrp::Vector3 Pref = m_robot->totalMass() * -dif_cog;
-      hrp::Vector3 Lref = hrp::Vector3::Zero();
+      // hrp::Vector3 Lref = hrp::Vector3::Zero();
+      hrp::Vector3 Lref = angular_momentum;
       hrp::dvector tmp_refdq = hrp::dvector::Zero(m_robot->numJoints());
 
       for ( std::map<std::string, IKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {

@@ -343,6 +343,8 @@ module OpenHRP
       sequence<double> limb_length_margin;
       /// IK type
       IKType default_ik_type;
+      /// hoge
+      DblArray3 angular_momentum;
     };
 
     /**
