@@ -160,6 +160,8 @@ namespace rats
         for (size_t i = 0; i < free_dof; ++i) {
             MHfree.col(i) = Jpl.col(free_id_[i]);
         }
+        // std::cerr << "dq: "<< dq_ref.transpose() << std::endl;
+        // std::cerr << "mom1: " << refmom.transpose() << std::endl;
 
         std::map<std::string, ConstraintValue>::iterator it;
         for (it = constraints_.begin(); it != constraints_.end(); ++it) {
@@ -190,7 +192,8 @@ namespace rats
         hrp::dvector y;
         A = s_ * MHbf;
         y = s_ * refmom;
-
+        // std::cerr << "mom2: " << refmom.transpose() << std::endl;
+        
         // Step4
         hrp::dvector dq_free(free_dof);
         for (size_t i = 0; i < free_dof; ++i) {

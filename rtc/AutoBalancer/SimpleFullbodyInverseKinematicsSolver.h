@@ -281,15 +281,42 @@ public:
       m_robot->rootLink()->p(2) += d_root_height;
     };
     // Solve RMC
-  void solveRMC (const hrp::Vector3& _dif_cog, const hrp::Vector3 angular_momentum, const bool is_transition)
+  void solveRMC (const hrp::Vector3& _dif_cog, hrp::Vector3& angular_momentum, const bool is_transition)
     {
       hrp::Vector3 dif_cog(ratio_for_vel*_dif_cog);
       dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2);
+      // std::cerr << "dif_cog2"<< dif_cog.transpose()<< std::endl;
       hrp::Vector3 ref_basePos = m_robot->rootLink()->p + -1 * move_base_gain * dif_cog;
       hrp::Matrix33 ref_baseRot = target_root_R;
       hrp::Vector3 Pref = m_robot->totalMass() * -dif_cog;
+      static double hoge = 0;
+      static bool fuga = true;
+      if (std::fabs(angular_momentum(0)) < 1e-5 && std::fabs(angular_momentum(1)) < 1e-5) {
+        hoge = 0;
+        std::cerr << "aaaaaaaaaaaaaaa" << std::endl;
+      } else if (hoge >= 160) {
+        // angular_momentum *= 0.5;
+        hoge -= 0.5;
+        fuga = false;
+        std::cerr << "bbbbbbbbbbbbbbb" << std::endl;
+      } else if (fuga){
+        hoge++;
+      } else if (!fuga){
+        hoge -= 0.5;
+        std::cerr << "ccccccccccccccc" << std::endl;
+      }
+      if (hoge == 0) {
+        std::cerr << "ddddddddddddddd" << std::endl;
+        angular_momentum = hrp::Vector3::Zero();
+        std::cerr << angular_momentum.transpose() << std::endl;
+        fuga = true;
+      }
+      // hrp::Vector3 Pref = m_robot->totalMass() * (-dif_cog - angular_momentum*hoge);
+      // std::cerr << "mass"<< m_robot->totalMass() << std::endl;
+      // std::cerr << "Pref"<< Pref.transpose() << std::endl;
+      std::cerr << "hoge"<< hoge << std::endl;
       // hrp::Vector3 Lref = hrp::Vector3::Zero();
-      hrp::Vector3 Lref = angular_momentum;
+      hrp::Vector3 Lref = angular_momentum * hoge;
       hrp::dvector tmp_refdq = hrp::dvector::Zero(m_robot->numJoints());
 
       for ( std::map<std::string, IKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {

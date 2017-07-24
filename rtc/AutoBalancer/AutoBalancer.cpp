@@ -1089,6 +1089,7 @@ void AutoBalancer::solveFullbodyIK ()
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
+  // std::cerr << "dif_cog1"<< dif_cog.transpose()<< std::endl;
 
   if (ik_type == MODE_IK) {
       fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
