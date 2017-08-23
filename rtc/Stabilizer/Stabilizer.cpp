@@ -414,6 +414,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
+  flywheel_tau = hrp::Vector3::Zero();
+  flywheel_on = false;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -957,6 +959,25 @@ void Stabilizer::getActualParameters ()
         if (!szd->is_inside_support_polygon(tmp_new_refzmp, hrp::Vector3::Zero(), true, std::string(m_profile.instance_name))) new_refzmp.head(2) = tmp_new_refzmp;
       }
 
+      // flywheel
+      {
+        Eigen::Vector2d tmp_new_refzmp(new_refzmp.head(2));
+        szd->get_vertices(support_polygon_vetices);
+        szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
+        flywheel_tau = hrp::Vector3::Zero();
+        if (!szd->is_inside_support_polygon(tmp_new_refzmp, hrp::Vector3::Zero(), true, std::string(m_profile.instance_name)) && true) {
+          hrp::Vector3 tmp_ref_zmp = foot_origin_rot * ref_zmp;
+          hrp::Vector3 diff_zmp = new_refzmp - hrp::Vector3(tmp_new_refzmp(0),tmp_new_refzmp(1),0);
+          // hrp::Vector3 diff_zmp = new_refzmp - hrp::Vector3(tmp_ref_zmp(0),tmp_ref_zmp(1),0);
+          // std::cerr << diff_zmp.transpose() << std::endl;
+          new_refzmp.head(2) = tmp_new_refzmp;
+          flywheel_tau = eefm_gravitational_acceleration * total_mass * hrp::Vector3(-diff_zmp(1), diff_zmp(0), 0);
+          // std::cerr << flywheel_tau.transpose() << std::endl;
+          flywheel_on = true;
+        } else {
+          flywheel_on = false;
+        }
+      }
       // Distribute ZMP into each EE force/moment at each COP
       if (st_algorithm == OpenHRP::StabilizerService::EEFM) {
           // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
@@ -1426,8 +1447,25 @@ void Stabilizer::moveBasePosRotForBodyRPYControl ()
     //   Basically Equation (1) and (2) in the paper [1]
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
     bool is_root_rot_limit = false;
+    //flywheel
+    hrp::Matrix33 I;
+    m_robot->calcForwardKinematics(true);
+    m_robot->calcCM();
+    m_robot->rootLink()->calcSubMassCM();
+    m_robot->rootLink()->calcSubMassInertia(I);
+    // root_rot_compensation_limit[0] = deg2rad(50.0);
+    // root_rot_compensation_limit[1] = deg2rad(35.0);
+    hrp::Vector3 d_rpy_acc_comp = I.inverse() * flywheel_tau;
+    // std::cerr << d_rpy_acc_comp.transpose() << std::endl;
+    static hrp::Vector3 d_rpy_vel;
     for (size_t i = 0; i < 2; i++) {
-        d_rpy[i] = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]) * dt + d_rpy[i];
+      if (flywheel_on) {
+        d_rpy_vel[i] += d_rpy_acc_comp(i) * dt;
+        // std::cerr << i << " : " << d_rpy_vel[i] << std::endl;
+      } else {
+        d_rpy_vel[i] = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]);
+      }
+        d_rpy[i] = d_rpy_vel[i] * dt + d_rpy[i];
         d_rpy[i] = vlimit(d_rpy[i], -1 * root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
         is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i] ) < 1e-5); // near the limit
     }
