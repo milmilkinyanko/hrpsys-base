@@ -74,6 +74,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_qRefSeqIn("qRefSeq", m_qRefSeq),
     m_walkingStatesIn("walkingStates", m_walkingStates),
     m_sbpCogOffsetIn("sbpCogOffset", m_sbpCogOffset),
+    m_nextFsPosIn("nextFsPos", m_nextFsPos),
     m_qRefOut("q", m_qRef),
     m_tauOut("tau", m_tau),
     m_zmpOut("zmp", m_zmp),
@@ -136,6 +137,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addInPort("qRefSeq", m_qRefSeqIn);
   addInPort("walkingStates", m_walkingStatesIn);
   addInPort("sbpCogOffset", m_sbpCogOffsetIn);
+  addInPort("nextFsPos", m_nextFsPosIn);
 
   // Set OutPort buffer
   addOutPort("q", m_qRefOut);
@@ -407,6 +409,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   is_walking = false;
   is_estop_while_walking = false;
   sbp_cog_offset = hrp::Vector3(0.0, 0.0, 0.0);
+  next_footstep_pos = hrp::Vector3(0.0, 0.0, 0.0);
   use_limb_stretch_avoidance = false;
   use_zmp_truncation = false;
   limb_stretch_avoidance_time_const = 1.5;
@@ -414,6 +417,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
+  d_rpy_acc = hrp::Vector3::Zero();
+  d_rpy_vel = hrp::Vector3::Zero();
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -616,6 +621,12 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
     sbp_cog_offset(0) = m_sbpCogOffset.data.x;
     sbp_cog_offset(1) = m_sbpCogOffset.data.y;
     sbp_cog_offset(2) = m_sbpCogOffset.data.z;
+  }
+  if (m_nextFsPosIn.isNew()){
+    m_nextFsPosIn.read();
+    next_footstep_pos(0) = m_nextFsPos.data.x;
+    next_footstep_pos(1) = m_nextFsPos.data.y;
+    next_footstep_pos(2) = m_nextFsPos.data.z;
   }
 
   if (is_legged_robot) {
@@ -870,6 +881,7 @@ void Stabilizer::getActualParameters ()
     act_cp = act_cog + act_cogvel / std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
+    abs_act_cp = foot_origin_pos + foot_origin_rot * act_cp;
     // <= Actual foot_origin frame
 
     // Actual world frame =>
@@ -948,6 +960,51 @@ void Stabilizer::getActualParameters ()
               std::cerr << ", cop_pos (" << ee_name[i] << ")    = " << hrp::Vector3(tmpp*1e3).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[mm]" << std::endl;
           }
       }
+
+      // balance
+      {
+        double remain_swing_time;
+        if ( !ref_contact_states[contact_states_index_map["rleg"]] ) { // rleg swing
+          remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["rleg"]];
+        } else { // lleg swing
+          remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["lleg"]];
+        }
+        // double n = (is_walking ? remain_swing_time : 0.1) / dt;
+        double n = 0.8 / dt;
+        const double R = 1e-0, Q = 1e-5;
+        // hrp::Vector3 xp = foot_origin_pos;
+        hrp::Vector3 xp = foot_origin_pos + foot_origin_rot * ref_zmp;
+        hrp::Vector3 xcp = abs_act_cp - xp;
+        // hrp::Vector3 dxsp = xp - xp;
+        hrp::Vector3 dxsp = (is_walking ? next_footstep_pos : xp) - xp;
+        double w = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+        double z = (act_cog - act_zmp)(2);
+        double h = 1 + w * dt;
+        // new_refzmp = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / (1 - std::pow(h,2*n));
+        // std::cerr << "a: " << new_refzmp.transpose() << std::endl;
+        new_refzmp = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / ((1 + R/(Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))) * (1 - std::pow(h,2*n)));
+        // std::cerr << "b: " << new_refzmp.transpose() << std::endl;
+        flywheel_tau = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
+        // std::cerr << "a: " << flywheel_tau.transpose() << std::endl;
+        // hrp::Vector3 xco = abs_act_cp;
+        // hrp::Vector3 dxs = xp;
+        // flywheel_tau = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xco - dxs) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
+        // std::cerr << "b: " << flywheel_tau.transpose() << std::endl;
+        for (size_t i = 0; i < 2; i++) {
+          if (std::fabs((ref_cp - act_cp)(i)) < 0.02) flywheel_tau(i) = 0.0;
+        }
+      }
+
+      // {
+      //   double n = 1.0 / dt;
+      //   hrp::Vector3 xco = abs_act_cp;
+      //   hrp::Vector3 xp = foot_origin_pos + foot_origin_rot * ref_zmp;
+      //   hrp::Vector3 dxsp = xp - xp;
+      //   double w = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+      //   double z = (act_cog - act_zmp)(2);
+      //   double h = 1 + w * dt;
+      //   flywheel_tau = - (std::pow(h,n-1) * (1 + h) * (std::pow(h,n) * xco - dxsp) * std::pow(w,2) * total_mass * z) / (1 - std::pow(h,2*n));
+      // }
 
       // truncate ZMP
       if (use_zmp_truncation) {
@@ -1425,11 +1482,25 @@ void Stabilizer::moveBasePosRotForBodyRPYControl ()
     // Body rpy control
     //   Basically Equation (1) and (2) in the paper [1]
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
+
+    hrp::Matrix33 I;
+    m_robot->calcForwardKinematics(true);
+    m_robot->calcCM();
+    m_robot->rootLink()->calcSubMassCM();
+    m_robot->rootLink()->calcSubMassInertia(I);
+    d_rpy_acc = I.inverse() * hrp::Vector3(-flywheel_tau(1), flywheel_tau(0), 0.0);
+    // std::cerr << d_rpy_acc.transpose() << std::endl;
+
     bool is_root_rot_limit = false;
     for (size_t i = 0; i < 2; i++) {
-        d_rpy[i] = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]) * dt + d_rpy[i];
-        d_rpy[i] = vlimit(d_rpy[i], -1 * root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
-        is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i] ) < 1e-5); // near the limit
+      if (std::fabs(d_rpy_acc(i)) < 1e-4) {
+        d_rpy_vel(i) = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]);
+      } else {
+        d_rpy_vel(i) += d_rpy_acc(i) * dt;
+      }
+      d_rpy[i] = d_rpy_vel(i) * dt + d_rpy[i];
+      d_rpy[i] = vlimit(d_rpy[i], -1 * root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
+      is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i] ) < 1e-5); // near the limit
     }
     rats::rotm3times(current_root_R, target_root_R, hrp::rotFromRpy(d_rpy[0], d_rpy[1], 0));
     m_robot->rootLink()->R = current_root_R;

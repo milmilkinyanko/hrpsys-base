@@ -1060,6 +1060,7 @@ namespace rats
     hrp::Vector3 diff_cp, modified_d_footstep;
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
+    hrp::Vector3 next_footstep_pos;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1111,7 +1112,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE),next_footstep_pos(hrp::Vector3::Zero()),
         preview_controller_ptr(NULL) {
         swing_foot_zmp_offsets = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
         prev_que_sfzos = boost::assign::list_of<hrp::Vector3>(hrp::Vector3::Zero());
@@ -1511,6 +1512,7 @@ namespace rats
     stride_limitation_type get_stride_limitation_type () const { return default_stride_limitation_type; };
     double get_toe_check_thre () const { return thtc.get_toe_check_thre(); };
     double get_heel_check_thre () const { return thtc.get_heel_check_thre(); };
+    void get_next_footstep_pos (hrp::Vector3& fspos) { fspos = next_footstep_pos; };
     // Get ee coords by checking whether given EE name is swing or support
     bool get_swing_support_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
     {

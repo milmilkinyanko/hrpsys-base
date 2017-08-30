@@ -649,6 +649,7 @@ namespace rats
 
   bool gait_generator::proc_one_tick ()
   {
+    next_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
     solved = false;
     /* update refzmp */
     if (emergency_flg == EMERGENCY_STOP && lcg.get_footstep_index() > 0) {

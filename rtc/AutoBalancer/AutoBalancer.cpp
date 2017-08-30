@@ -78,6 +78,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_cogOut("cogOut", m_cog),
       m_AutoBalancerServicePort("AutoBalancerService"),
+      m_nextFsPosOut("nextFsPos", m_nextFsPos),
       // </rtc-template>
       gait_type(BIPED),
       m_robot(hrp::BodyPtr()),
@@ -124,6 +125,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("cogOut", m_cogOut);
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
+    addOutPort("nextFsPos", m_nextFsPosOut);
   
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -615,6 +617,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_sbpCogOffset.data.y = sbp_cog_offset(1);
       m_sbpCogOffset.data.z = sbp_cog_offset(2);
       m_sbpCogOffset.tm = m_qRef.tm;
+      // nextFsPos
+      {
+        hrp::Vector3 tmppos;
+        gg->get_next_footstep_pos(tmppos);
+        m_nextFsPos.data.x = tmppos(0);
+        m_nextFsPos.data.y = tmppos(1);
+        m_nextFsPos.data.z = tmppos(2);
+        m_nextFsPos.tm = m_qRef.tm;
+      }
       // write
       m_basePosOut.write();
       m_baseRpyOut.write();
@@ -623,6 +634,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
+      m_nextFsPosOut.write();
 
       // reference acceleration
       hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
