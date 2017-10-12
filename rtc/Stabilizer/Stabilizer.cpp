@@ -969,29 +969,28 @@ void Stabilizer::getActualParameters ()
         } else { // lleg swing
           remain_swing_time = m_controlSwingSupportTime.data[contact_states_index_map["lleg"]];
         }
-        // double n = (is_walking ? remain_swing_time : 0.1) / dt;
-        double n = 0.8 / dt;
-        const double R = 1e-0, Q = 1e-5;
-        // hrp::Vector3 xp = foot_origin_pos;
-        hrp::Vector3 xp = foot_origin_pos + foot_origin_rot * ref_zmp;
-        hrp::Vector3 xcp = abs_act_cp - xp;
-        // hrp::Vector3 dxsp = xp - xp;
-        hrp::Vector3 dxsp = (is_walking ? next_footstep_pos : xp) - xp;
-        double w = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
-        double z = (act_cog - act_zmp)(2);
-        double h = 1 + w * dt;
-        // new_refzmp = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / (1 - std::pow(h,2*n));
-        // std::cerr << "a: " << new_refzmp.transpose() << std::endl;
-        new_refzmp = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / ((1 + R/(Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))) * (1 - std::pow(h,2*n)));
-        // std::cerr << "b: " << new_refzmp.transpose() << std::endl;
-        flywheel_tau = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
-        // std::cerr << "a: " << flywheel_tau.transpose() << std::endl;
-        // hrp::Vector3 xco = abs_act_cp;
-        // hrp::Vector3 dxs = xp;
-        // flywheel_tau = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xco - dxs) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
-        // std::cerr << "b: " << flywheel_tau.transpose() << std::endl;
         for (size_t i = 0; i < 2; i++) {
-          if (std::fabs((ref_cp - act_cp)(i)) < 0.02) flywheel_tau(i) = 0.0;
+          // double n = (is_walking ? remain_swing_time : 0.1) / dt;
+          double n = 0.8 / dt;
+          const double R = 1e-0, Q = (std::fabs((ref_cp - act_cp)(i)) < 0.02) ? 1e0 : 1e-5;
+          // hrp::Vector3 xp = foot_origin_pos;
+          double xp = (foot_origin_pos + foot_origin_rot * ref_zmp)(i);
+          double xcp = abs_act_cp(i) - xp;
+          // hrp::Vector3 dxsp = xp - xp;
+          double dxsp = (is_walking ? next_footstep_pos(i) : xp) - xp;
+          double w = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+          double z = (act_cog - act_zmp)(2);
+          double h = 1 + w * dt;
+          // new_refzmp = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / (1 - std::pow(h,2*n));
+          // std::cerr << "a: " << new_refzmp.transpose() << std::endl;
+          new_refzmp(i) = xp - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp)) / ((1 + R/(Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))) * (1 - std::pow(h,2*n)));
+          // std::cerr << "b: " << new_refzmp.transpose() << std::endl;
+          flywheel_tau(i) = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xcp - dxsp) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
+          // std::cerr << "a: " << flywheel_tau.transpose() << std::endl;
+          // hrp::Vector3 xco = abs_act_cp;
+          // hrp::Vector3 dxs = xp;
+          // flywheel_tau = - (std::pow(h,n-1) * (1 + h)  * (std::pow(h,n) * xco - dxs) * std::pow(w,2) * total_mass * z) / ((1 + (Q * std::pow(w,4) * std::pow(total_mass,2) * std::pow(z,2))/R) * (1 - std::pow(h,2*n)));
+          // std::cerr << "b: " << flywheel_tau.transpose() << std::endl;
         }
       }
 
@@ -1494,10 +1493,9 @@ void Stabilizer::moveBasePosRotForBodyRPYControl ()
     bool is_root_rot_limit = false;
     for (size_t i = 0; i < 2; i++) {
       if (std::fabs(d_rpy_acc(i)) < 1e-4) {
-        d_rpy_vel(i) = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]);
-      } else {
-        d_rpy_vel(i) += d_rpy_acc(i) * dt;
+        d_rpy_vel(i) = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)));
       }
+      d_rpy_vel(i) += d_rpy_acc(i) * dt;
       d_rpy[i] = d_rpy_vel(i) * dt + d_rpy[i];
       d_rpy[i] = vlimit(d_rpy[i], -1 * root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
       is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i] ) < 1e-5); // near the limit
