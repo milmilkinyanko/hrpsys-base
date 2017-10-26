@@ -1139,14 +1139,14 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.targetPos = ref_cog;// COM height will not be constraint
         tmp.targetRpy = hrp::Vector3(0, 0, 0);//reference angular momentum
         //  tmp.targetRpy = hrp::Vector3(0, 10, 0);//reference angular momentum
-        tmp.constraint_weight << 3,3,1e-6,1e-6,1e-6,1e-6;// consider angular momentum
+        tmp.constraint_weight << 3,3,1,3,3,0;// consider angular momentum
 //        tmp.constraint_weight << 3,3,1,0,0,0;// not consider angular momentum
         tmp.rot_precision = 1e-1;//angular momentum precision
         ik_tgt_list.push_back(tmp);
     }
     // knee stretch protection
-    if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
-    if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
+    // if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
+    // if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
     if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
     if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
 //  // reduce chest joint move
@@ -1879,7 +1879,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i = 0; i < fik->ikp.size(); i++) {
     fik->ikp[ee_vec[i]].limb_length_margin = i_param.limb_length_margin[i];
   }
-  if (control_mode == MODE_IDLE) {
+  // if (control_mode == MODE_IDLE) {
+  if (true) {
     ik_mode = i_param.ik_mode;
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode = " << ik_mode << std::endl;
   } else {
