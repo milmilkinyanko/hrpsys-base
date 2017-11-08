@@ -295,6 +295,8 @@ class AutoBalancer
   // Used for ref force balancing.
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
+
+  bool optional_flag;
 };
 
 

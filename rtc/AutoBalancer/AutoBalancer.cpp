@@ -381,6 +381,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
+
+    optional_flag = false;
     return RTC::RTC_OK;
 }
 
@@ -463,6 +465,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_optionalDataIn.isNew()) {
         m_optionalDataIn.read();
+        if (m_optionalData.data.length() > 3) {
+            if (m_optionalData.data[2] > 0.5) optional_flag = true;
+            else optional_flag = false;
+        }
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
@@ -648,6 +654,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
 
       // control parameters
+      if (optional_flag) {
+        m_contactStates.data[contact_states_index_map["rleg"]] = (m_optionalData.data[3] > 1e-6 ? true : false);
+        m_contactStates.data[contact_states_index_map["lleg"]] = (m_optionalData.data[3] > 1e-6 ? true : false);
+      }
       m_contactStates.tm = m_qRef.tm;
       m_contactStatesOut.write();
       m_controlSwingSupportTime.tm = m_qRef.tm;
@@ -658,6 +668,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_walkingStates.tm = m_qRef.tm;
       m_walkingStatesOut.write();
 
+      if (optional_flag) {
+        m_force[0].data[2] = m_optionalData.data[3];
+        m_force[1].data[2] = m_optionalData.data[3];
+      }
       for (unsigned int i=0; i<m_ref_forceOut.size(); i++){
           m_force[i].tm = m_qRef.tm;
           m_ref_forceOut[i]->write();
@@ -1103,6 +1117,9 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localPos = ikp["rleg"].localPos;
         tmp.localR = ikp["rleg"].localR;
         tmp.targetPos = ikp["rleg"].target_p0;
+        if (optional_flag) {
+          tmp.targetPos(2) += m_optionalData.data[1];
+        }
         tmp.targetRpy = hrp::rpyFromRot(ikp["rleg"].target_r0);
         tmp.constraint_weight << 1,1,3,3,3,1;
         ik_tgt_list.push_back(tmp);
@@ -1112,6 +1129,9 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localPos = ikp["lleg"].localPos;
         tmp.localR = ikp["lleg"].localR;
         tmp.targetPos = ikp["lleg"].target_p0;
+        if (optional_flag) {
+          tmp.targetPos(2) += m_optionalData.data[1];
+        }
         tmp.targetRpy = hrp::rpyFromRot(ikp["lleg"].target_r0);
         tmp.constraint_weight << 1,1,3,3,3,1;
         ik_tgt_list.push_back(tmp);
@@ -1138,20 +1158,23 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.target_link_name = "COM";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
+        if (optional_flag) {
+          ref_cog(2) += m_optionalData.data[0];
+        }
         tmp.targetPos = ref_cog;// COM height will not be constraint
         tmp.targetRpy = hrp::Vector3(0, 0, 0);//reference angular momentum
         //  tmp.targetRpy = hrp::Vector3(0, 10, 0);//reference angular momentum
-        tmp.constraint_weight << 3,3,1e-6,1,1,1;// consider angular momentum (JAXON)
-//        tmp.constraint_weight << 3,3,1e-3,1e-5,1e-5,1e-5;// consider angular momentum (CHIDORI)
+        tmp.constraint_weight << 3,3,1,3,3,0;// consider angular momentum (JAXON)
+        // tmp.constraint_weight << 3,3,1,3,3,0;// consider angular momentum (CHIDORI)
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight.tail(3).fill(0);// disable angular momentum control in transition
 //        tmp.rot_precision = 1e-1;//angular momentum precision
         ik_tgt_list.push_back(tmp);
     }
     // knee stretch protection
-    if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
-    if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
-    if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
-    if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
+    // if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
+    // if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
+    // if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
+    // if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
 //  // reduce chest joint move
 //    if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
 //    if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
@@ -1162,6 +1185,8 @@ void AutoBalancer::solveFullbodyIK ()
     fik->rootlink_rpy_ulimit << deg2rad(10), deg2rad(10), DBL_MAX;
   // set desired natural pose and pullback gain
   for(int i=0;i<m_robot->numJoints();i++) fik->q_ref(i) = m_qRef.data[i];
+  fik->q_ref_pullback_gain.head(m_robot->numJoints()).fill(0);//JAXON
+  // fik->q_ref_pullback_gain.head(m_robot->numJoints()).fill(0);//CHIDORI
   fik->revertRobotStateToCurrentAll();
 
   int loop_result = 0;
@@ -1884,7 +1909,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i = 0; i < fik->ikp.size(); i++) {
     fik->ikp[ee_vec[i]].limb_length_margin = i_param.limb_length_margin[i];
   }
-  if (control_mode == MODE_IDLE) {
+  // if (control_mode == MODE_IDLE) {
+  if(true) {
     ik_mode = i_param.ik_mode;
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode = " << ik_mode << std::endl;
   } else {
