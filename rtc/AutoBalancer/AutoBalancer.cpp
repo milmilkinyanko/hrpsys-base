@@ -383,6 +383,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
     optional_flag = false;
+    dz_cog = 0.0;
     return RTC::RTC_OK;
 }
 
@@ -1159,8 +1160,11 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
         if (optional_flag) {
-          ref_cog(2) += m_optionalData.data[0];
+          dz_cog =  m_optionalData.data[0];
+        } else {
+          dz_cog = - 1/5.0 * dz_cog * m_dt + dz_cog;
         }
+        ref_cog(2) += dz_cog;
         tmp.targetPos = ref_cog;// COM height will not be constraint
         tmp.targetRpy = hrp::Vector3(0, 0, 0);//reference angular momentum
         //  tmp.targetRpy = hrp::Vector3(0, 10, 0);//reference angular momentum

@@ -297,6 +297,7 @@ class AutoBalancer
   hrp::Vector3 additional_force_applied_point_offset;
 
   bool optional_flag;
+  double dz_cog;
 };
 
 
