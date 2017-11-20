@@ -133,9 +133,17 @@ void interpolator::setGoal(const double *newg, double time,
 void interpolator::setGoal(const double *newg, const double *newv, double time,
                            bool online)
 {
+    setGoal(newg, NULL, NULL, time, online);
+}
+
+void interpolator::setGoal(const double *newg, const double *newv, const double *newa, double time,
+                           bool online)
+{
     memcpy(gx, newg, sizeof(double)*dim);
     if ( newv != NULL ) memcpy(gv, newv, sizeof(double)*dim);
     else { for(int i = 0; i < dim; i++) { gv[i] = 0; } }
+    if ( newa != NULL ) memcpy(ga, newa, sizeof(double)*dim);
+    else { for(int i = 0; i < dim; i++) { ga[i] = 0; } }
     target_t = time;
 
     double A,B,C;
@@ -323,7 +331,7 @@ void interpolator::pop_back()
   }
 }
 
-void interpolator::set(const double *x_, const double *v_)
+void interpolator::set(const double *x_, const double *v_, const double *a_)
 {
   for (int i=0; i<dim; i++){
     gx[i] = x[i] = x_[i];
@@ -332,7 +340,11 @@ void interpolator::set(const double *x_, const double *v_)
     }else{
         gv[i] = v[i] = 0;
     }
-    ga[i] = a[i] = 0;
+    if (a_){
+        ga[i] = a[i] = a_[i];
+    }else{
+        ga[i] = a[i] = 0;
+    }
   }
 }
 

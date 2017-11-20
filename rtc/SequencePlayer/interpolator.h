@@ -33,7 +33,7 @@ public:
   void get(double *x_, double *v_, bool popp=true);
   void get(double *x_, double *v_, double *a_, bool popp=true);
   // Reset current value.
-  void set(const double *x, const double *v=NULL);
+  void set(const double *x, const double *v=NULL, const double *a=NULL);
   // Set goal and complete all interpolation.
   //   After calling of go(), value queue (q, dq, ddq) is full and remain_t = 0.
   void go(const double *gx, const double *gv, double time, bool immediate=true);
@@ -53,6 +53,8 @@ public:
   bool setInterpolationMode (interpolation_mode i_mode_);
   // Set goal
   //   If online=true, user can get and interpolate value through get() function.
+  void setGoal(const double *gx, const double *gv, const double *ga, double time,
+               bool online=true);
   void setGoal(const double *gx, const double *gv, double time,
                bool online=true);
   void setGoal(const double *gx, double time, bool online=true);
