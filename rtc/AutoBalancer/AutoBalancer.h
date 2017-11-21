@@ -143,6 +143,8 @@ class AutoBalancer
   InPort<TimedPoint3D> m_diffCPIn;
   TimedBooleanSeq m_actContactStates;
   InPort<TimedBooleanSeq> m_actContactStatesIn;
+  TimedPoint3D m_actCOGVel;
+  InPort<TimedPoint3D> m_actCOGVelIn;
   TimedPoint3D m_refFootOriginExtMoment;
   InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
   TimedBoolean m_refFootOriginExtMomentIsHoldValue;
@@ -302,6 +304,7 @@ class AutoBalancer
   hrp::Vector3 act_cogvel;
   interpolator *jump_z_hoff_interpolator;
   interpolator *jump_z_cubic_interpolator;
+  bool is_online_jump, is_jump;
 };
 
 

@@ -457,6 +457,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
     prev_ref_contact_states.push_back(true);
     m_actContactStates.data[i] = false;
     act_contact_states.push_back(false);
+    prev_act_contact_states.push_back(false);
     toeheel_ratio.push_back(1.0);
   }
   m_COPInfo.data.length(m_contactStates.data.length()*3); // nx, ny, fz for each end-effectors
@@ -853,7 +854,16 @@ void Stabilizer::getActualParameters ()
     if (ref_contact_states != prev_ref_contact_states) {
       act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;
     } else {
-      act_cogvel = (act_cog - prev_act_cog)/dt;
+      if (act_contact_states[contact_states_index_map["rleg"]] || act_contact_states[contact_states_index_map["lleg"]]) { // on ground
+        act_cogvel = (act_cog - prev_act_cog)/dt;
+      } else if (prev_act_contact_states[contact_states_index_map["rleg"]] || prev_act_contact_states[contact_states_index_map["lleg"]]) { // take off
+        jump_time_count = 1;
+        jump_initial_velocity = act_cogvel(2);
+        act_cogvel(2) = jump_initial_velocity - eefm_gravitational_acceleration * jump_time_count * dt;
+      } else { // jumping
+        jump_time_count++;
+        act_cogvel(2) = jump_initial_velocity - eefm_gravitational_acceleration * jump_time_count * dt;
+      }
     }
     prev_act_foot_origin_rot = foot_origin_rot;
     act_cogvel = act_cogvel_filter->passFilter(act_cogvel);
@@ -1156,6 +1166,7 @@ void Stabilizer::getActualParameters ()
     m_robot->calcForwardKinematics();
   }
   copy (ref_contact_states.begin(), ref_contact_states.end(), prev_ref_contact_states.begin());
+  copy (act_contact_states.begin(), act_contact_states.end(), prev_act_contact_states.begin());
   if (control_mode != MODE_ST) d_pos_z_root = 0.0;
 }
 

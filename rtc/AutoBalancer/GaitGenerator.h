@@ -1505,6 +1505,7 @@ namespace rats
     double get_overwritable_stride_limitation (const size_t idx) const { return overwritable_stride_limitation[idx]; };
     double get_footstep_modification_gain () const { return footstep_modification_gain; };
     double get_cp_check_margin (const size_t idx) const { return cp_check_margin[idx]; };
+    double get_act_contact_states (const size_t idx) const { return act_contact_states[idx]; };
     bool get_modify_footsteps () const { return modify_footsteps; };
     double get_margin_time_ratio () const { return margin_time_ratio; };
     bool get_use_stride_limitation () const { return use_stride_limitation; };

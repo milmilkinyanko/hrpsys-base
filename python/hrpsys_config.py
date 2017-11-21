@@ -403,6 +403,7 @@ class HrpsysConfigurator(object):
             connectPorts(self.st.port("emergencySignal"), self.abc.port("emergencySignal"))
             connectPorts(self.st.port("diffCapturePoint"), self.abc.port("diffCapturePoint"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
+            connectPorts(self.st.port("originActCogVel"), self.abc.port("originActCogVel"))
             if self.rfu:
                 connectPorts(self.st.port("diffFootOriginExtMoment"), self.rfu.port("diffFootOriginExtMoment"))
                 connectPorts(self.rfu.port("refFootOriginExtMoment"), self.abc.port("refFootOriginExtMoment"))
