@@ -210,6 +210,7 @@ class AutoBalancer
   void getTargetParameters();
   void solveSimpleFullbodyIK ();
   void solveFullbodyIK ();
+  void solveJumpZ ();
   void startABCparam(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
   void stopABCparam();
   void waitABCTransition();
@@ -296,8 +297,11 @@ class AutoBalancer
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
 
-  bool optional_flag;
-  double dz_cog;
+  double jump_dt[5], jump_z[6], jump_dz, dz_cog, acc_cog, jump_remain_time;
+  size_t jump_phase;
+  hrp::Vector3 act_cogvel;
+  interpolator *jump_z_hoff_interpolator;
+  interpolator *jump_z_cubic_interpolator;
 };
 
 

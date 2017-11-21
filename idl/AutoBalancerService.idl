@@ -14,6 +14,7 @@ module OpenHRP
     typedef double DblArray3[3];
     typedef double DblArray4[4];
     typedef double DblArray5[5];
+    typedef double DblArray6[6];
 
     /**
      * @struct Footstep
@@ -342,6 +343,12 @@ module OpenHRP
       DblArray3 additional_force_applied_point_offset;
       /// switch SimpleFullbodyIK to FullbodyIK
       IKMode ik_mode;
+      /// jump height
+      double jump_height;
+      /// jump via height
+      DblArray6 jump_via_height;
+      /// jump via time width
+      DblArray5 jump_via_time_width;
     };
 
     /**

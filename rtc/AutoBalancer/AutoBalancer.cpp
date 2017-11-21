@@ -279,6 +279,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     leg_names_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     leg_names_interpolator->setName(std::string(m_profile.instance_name)+" leg_names_interpolator");
     leg_names_interpolator_ratio = 1.0;
+    jump_z_hoff_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
+    jump_z_hoff_interpolator->setName(std::string(m_profile.instance_name)+" jump_z_hoff_interpolator");
+    jump_z_cubic_interpolator = new interpolator(1, m_dt, interpolator::CUBICSPLINE, 1);
+    jump_z_cubic_interpolator->setName(std::string(m_profile.instance_name)+" jump_z_cubic_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -382,8 +386,24 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
-    optional_flag = false;
+    jump_dt[0] = 2.0;
+    jump_dt[1] = 0.7;
+    jump_dt[2] = 0.0; // tmp
+    jump_dt[3] = 0.6;
+    jump_dt[4] = 2.0;
+    jump_z[0] = 0.0;
+    jump_z[1] = -0.1;
+    jump_z[2] = 0.0;
+    jump_z[3] = 0.0;
+    jump_z[4] = -0.2;
+    jump_z[5] = 0.0;
+    jump_dz = -1.0;
     dz_cog = 0.0;
+    acc_cog = 0.0;
+    jump_remain_time = 0.0;
+    jump_phase = 0;
+    act_cogvel = hrp::Vector3::Zero();
+
     return RTC::RTC_OK;
 }
 
@@ -395,6 +415,8 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete transition_interpolator;
   delete adjust_footstep_interpolator;
   delete leg_names_interpolator;
+  delete jump_z_hoff_interpolator;
+  delete jump_z_cubic_interpolator;
   return RTC::RTC_OK;
 }
 
@@ -466,10 +488,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_optionalDataIn.isNew()) {
         m_optionalDataIn.read();
-        if (m_optionalData.data.length() > 3) {
-            if (m_optionalData.data[2] > 0.5) optional_flag = true;
-            else optional_flag = false;
-        }
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
@@ -655,10 +673,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
 
       // control parameters
-      if (optional_flag) {
-        m_contactStates.data[contact_states_index_map["rleg"]] = (m_optionalData.data[3] > 1e-6 ? true : false);
-        m_contactStates.data[contact_states_index_map["lleg"]] = (m_optionalData.data[3] > 1e-6 ? true : false);
-      }
       m_contactStates.tm = m_qRef.tm;
       m_contactStatesOut.write();
       m_controlSwingSupportTime.tm = m_qRef.tm;
@@ -669,10 +683,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_walkingStates.tm = m_qRef.tm;
       m_walkingStatesOut.write();
 
-      if (optional_flag) {
-        m_force[0].data[2] = m_optionalData.data[3];
-        m_force[1].data[2] = m_optionalData.data[3];
-      }
       for (unsigned int i=0; i<m_ref_forceOut.size(); i++){
           m_force[i].tm = m_qRef.tm;
           m_ref_forceOut[i]->write();
@@ -1098,8 +1108,108 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
+void AutoBalancer::solveJumpZ ()
+{
+  if (jump_remain_time == 0.0) { // initialize
+    double tmpg = gg->get_gravitational_acceleration();
+    jump_dt[2] = 2 * std::sqrt(2*tmpg*jump_dz) / tmpg;
+    for (size_t i = 0; i < 5; i++) jump_remain_time += jump_dt[i];
+    jump_z_cubic_interpolator->set(&jump_z[0], &act_cogvel(2));
+    jump_z_cubic_interpolator->setGoal(&jump_z[1], jump_dt[0], true);
+  }
+  switch(jump_phase) {
+  case 0:
+    {
+      double tmpt = 0.0;
+      for (size_t i = 4; i > 0; i--) tmpt += jump_dt[i];
+      if (jump_remain_time >= tmpt) {
+        double tmpv;
+        jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+        jump_remain_time -= m_dt;
+        break;
+      } else {
+        double tmpg = - gg->get_gravitational_acceleration();
+        double tmpv = std::sqrt(-2*tmpg*jump_dz);
+        double tmp = 0.0;
+        jump_z_cubic_interpolator->set(&jump_z[1]);
+        jump_z_cubic_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
+        // jump_z_hoff_interpolator->set(&jump_z[1]);
+        // jump_z_hoff_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
+        jump_phase = 1;
+      }
+    }
+  case 1:
+    {
+      double tmpt = 0.0;
+      for (size_t i = 4; i > 1; i--) tmpt += jump_dt[i];
+      if (jump_remain_time >= tmpt) {
+        double tmpv;
+        jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+        // jump_z_hoff_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+        jump_remain_time -= m_dt;
+        break;
+      } else {
+        jump_phase = 2;
+      }
+    }
+  case 2: // jumping
+    {
+      double tmpt = 0.0;
+      for (size_t i = 4; i > 2; i--) tmpt += jump_dt[i];
+      // double tmpdt = tmpt + jump_dt[2] - jump_remain_time;
+      if (jump_remain_time >= tmpt) {
+        double tmpg = - gg->get_gravitational_acceleration();
+        // dz_cog = jump_z[2] - std::sqrt(2*tmpg*jump_dz)*tmpdt + tmpg*tmpdt*tmpdt/2.0;
+        dz_cog = 0.0;
+        acc_cog = tmpg;
+        jump_remain_time -= m_dt;
+        m_contactStates.data[contact_states_index_map["rleg"]] = false;
+        m_contactStates.data[contact_states_index_map["lleg"]] = false;
+        break;
+      } else {
+        double tmpg = - gg->get_gravitational_acceleration();
+        double tmpv = tmpg*jump_dt[2]/2.0 + (jump_z[3]-jump_z[2])/jump_dt[2];
+        jump_z_hoff_interpolator->set(&jump_z[3], &tmpv, &tmpg);
+        jump_z_hoff_interpolator->setGoal(&jump_z[4], jump_dt[3], true);
+        jump_phase = 3;
+      }
+    }
+  case 3:
+    {
+      double tmpt = 0.0;
+      for (size_t i = 4; i > 3; i--) tmpt += jump_dt[i];
+      if (jump_remain_time >= tmpt) {
+        double tmpv;
+        jump_z_hoff_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+        jump_remain_time -= m_dt;
+        break;
+      } else {
+        jump_z_cubic_interpolator->set(&jump_z[4]);
+        jump_z_cubic_interpolator->setGoal(&jump_z[5], jump_dt[4], true);
+        jump_phase = 4;
+      }
+    }
+  case 4:
+    {
+      if (jump_remain_time >= 0.0) {
+        double tmpv;
+        jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+        jump_remain_time -= m_dt;
+        break;
+      } else {
+        jump_remain_time = 0.0;
+        jump_dz = -1.0;
+      }
+    }
+  default:
+    break;
+  }
+  m_force[0].data[2] = m_force[1].data[2] = m_robot->totalMass() * (gg->get_gravitational_acceleration() + acc_cog) / 2.0;
+}
+
 void AutoBalancer::solveFullbodyIK ()
 {
+  if (jump_dz >= 0.0) solveJumpZ();
     std::vector<IKConstraint> ik_tgt_list;
     {
         IKConstraint tmp;
@@ -1118,9 +1228,6 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localPos = ikp["rleg"].localPos;
         tmp.localR = ikp["rleg"].localR;
         tmp.targetPos = ikp["rleg"].target_p0;
-        if (optional_flag) {
-          tmp.targetPos(2) += m_optionalData.data[1];
-        }
         tmp.targetRpy = hrp::rpyFromRot(ikp["rleg"].target_r0);
         tmp.constraint_weight << 1,1,3,3,3,1;
         ik_tgt_list.push_back(tmp);
@@ -1130,9 +1237,6 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localPos = ikp["lleg"].localPos;
         tmp.localR = ikp["lleg"].localR;
         tmp.targetPos = ikp["lleg"].target_p0;
-        if (optional_flag) {
-          tmp.targetPos(2) += m_optionalData.data[1];
-        }
         tmp.targetRpy = hrp::rpyFromRot(ikp["lleg"].target_r0);
         tmp.constraint_weight << 1,1,3,3,3,1;
         ik_tgt_list.push_back(tmp);
@@ -1159,11 +1263,6 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.target_link_name = "COM";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
-        if (optional_flag) {
-          dz_cog =  m_optionalData.data[0];
-        } else {
-          dz_cog = - 1/5.0 * dz_cog * m_dt + dz_cog;
-        }
         ref_cog(2) += dz_cog;
         tmp.targetPos = ref_cog;// COM height will not be constraint
         tmp.targetRpy = hrp::Vector3(0, 0, 0);//reference angular momentum
@@ -1920,6 +2019,13 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   } else {
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode cannot be set in (control_mode != MODE_IDLE). Current ik_mode is " << ik_mode << std::endl;
   }
+  jump_dz = i_param.jump_height;
+  for (size_t i = 0; i < 6; i++) {
+    jump_z[i] = i_param.jump_via_height[i];
+  }
+  for (size_t i = 0; i < 5; i++) {
+    jump_dt[i] = i_param.jump_via_time_width[i];
+  }
   return true;
 };
 
@@ -2002,6 +2108,13 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       i_param.additional_force_applied_point_offset[i] = additional_force_applied_point_offset(i);
   }
   i_param.ik_mode = ik_mode;
+  i_param.jump_height = jump_dz;
+  for (size_t i = 0; i < 6; i++) {
+    i_param.jump_via_height[i] = jump_z[i];
+  }
+  for (size_t i = 0; i < 5; i++) {
+    i_param.jump_via_time_width[i] = jump_dt[i];
+  }
   return true;
 };
 
