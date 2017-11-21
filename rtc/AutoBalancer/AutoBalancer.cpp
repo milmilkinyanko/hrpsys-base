@@ -1313,14 +1313,12 @@ void AutoBalancer::solveFullbodyIK ()
 //    if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
 //    if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
 //    if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
-    fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
-    if(fik->q_ref_constraint_weight.rows()>12+21)fik->q_ref_constraint_weight.segment(12,21).fill(1e-6);//上半身関節角のq_refへの緩い拘束(JAXON)
-    fik->rootlink_rpy_llimit << deg2rad(-10), deg2rad(-10), -DBL_MAX;
-    fik->rootlink_rpy_ulimit << deg2rad(10), deg2rad(10), DBL_MAX;
+    fik->dq_weight_all.tail(3).fill(1e2);//ベースリンク回転変位の重みは1e1以下は暴れる？
+    // if(fik->q_ref_constraint_weight.rows()>12+21)fik->q_ref_constraint_weight.segment(12,21).fill(1e-6);//上半身関節角のq_refへの緩い拘束(JAXON)
+    fik->rootlink_rpy_llimit << deg2rad(-10), deg2rad(-30), -DBL_MAX;
+    fik->rootlink_rpy_ulimit << deg2rad(10), deg2rad(30), DBL_MAX;
   // set desired natural pose and pullback gain
   for(int i=0;i<m_robot->numJoints();i++) fik->q_ref(i) = m_qRef.data[i];
-  fik->q_ref_pullback_gain.head(m_robot->numJoints()).fill(0);//JAXON
-  // fik->q_ref_pullback_gain.head(m_robot->numJoints()).fill(0);//CHIDORI
   fik->revertRobotStateToCurrentAll();
 
   int loop_result = 0;
