@@ -176,6 +176,7 @@ class Stabilizer
   RTC::TimedBooleanSeq m_actContactStates;
   RTC::TimedDoubleSeq m_COPInfo;
   RTC::TimedLong m_emergencySignal;
+  RTC::TimedBoolean m_emergencySignalStep;
   RTC::TimedDoubleSeq m_qRefSeq;
   RTC::TimedBoolean m_walkingStates;
   RTC::TimedPoint3D m_sbpCogOffset;
@@ -224,6 +225,7 @@ class Stabilizer
   RTC::OutPort<RTC::TimedBooleanSeq> m_actContactStatesOut;
   RTC::OutPort<RTC::TimedDoubleSeq> m_COPInfoOut;
   RTC::OutPort<RTC::TimedLong> m_emergencySignalOut;
+  RTC::OutPort<RTC::TimedBoolean> m_emergencySignalStepOut;
   // for debug output
   RTC::OutPort<RTC::TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   RTC::OutPort<RTC::TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;

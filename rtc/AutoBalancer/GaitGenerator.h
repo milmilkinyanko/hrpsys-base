@@ -1037,8 +1037,8 @@ namespace rats
     std::vector<hrp::Vector3> swing_foot_zmp_offsets, prev_que_sfzos;
     double dt; /* control loop [s] */
     std::vector<std::string> all_limbs;
-    double default_step_time;
-    double default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after;
+    double default_step_time, tmp_default_step_time;
+    double default_double_support_ratio_before, default_double_support_ratio_after, tmp_default_double_support_ratio_before, tmp_default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after;
     double default_double_support_ratio_swing_before; /*first double support time for leg coords generator */
     double default_double_support_ratio_swing_after; /*last double support time for leg coords generator */
     double gravitational_acceleration;
@@ -1055,8 +1055,8 @@ namespace rats
     std::map<leg_type, std::string> leg_type_map;
     coordinates initial_foot_mid_coords;
     bool solved;
-    double leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
-    bool use_stride_limitation, is_emergency_walking[2], modify_footsteps;
+    double leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio, cp_check_margin_step[2], emergency_step_time[3];
+    bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
     hrp::Vector3 diff_cp, modified_d_footstep;
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
@@ -1110,7 +1110,7 @@ namespace rats
         vel_param(), offset_vel_param(), thtc(), cog(hrp::Vector3::Zero()), refzmp(hrp::Vector3::Zero()), prev_que_rzmp(hrp::Vector3::Zero()), diff_cp(hrp::Vector3::Zero()), modified_d_footstep(hrp::Vector3::Zero()),
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
-        velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6),
+        velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), is_emergency_step(false),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE),
         preview_controller_ptr(NULL) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
@@ -1121,6 +1121,8 @@ namespace rats
         for (size_t i = 0; i < 5; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
+        for (size_t i=0; i<3; i++) emergency_step_time[i] = 0.8;
+        for (size_t i = 0; i < 2; i++) cp_check_margin_step[i] = 0.03;
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
@@ -1308,6 +1310,17 @@ namespace rats
     void set_stride_limitation_type (const stride_limitation_type _tmp) { default_stride_limitation_type = _tmp; };
     void set_toe_check_thre (const double _a) { thtc.set_toe_check_thre(_a); };
     void set_heel_check_thre (const double _a) { thtc.set_heel_check_thre(_a); };
+    void set_cp_check_margin_step (const double _cp_check_margin_step[2]) {
+      for (size_t i=0; i < 2; i++) {
+        cp_check_margin_step[i] = _cp_check_margin_step[i];
+      }
+    };
+    void set_emergency_step_time (const double _emergency_step_time[3]) {
+      for (size_t i = 0; i < 3; i++) {
+        emergency_step_time[i] = _emergency_step_time[i];
+      }
+    }
+        void set_is_emergency_step (const bool _is_emergency_step) { is_emergency_step = _is_emergency_step; };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {
@@ -1508,10 +1521,14 @@ namespace rats
     double get_act_contact_states (const size_t idx) const { return act_contact_states[idx]; };
     bool get_modify_footsteps () const { return modify_footsteps; };
     double get_margin_time_ratio () const { return margin_time_ratio; };
+    void get_diff_cp (hrp::Vector3& cp) { cp = diff_cp; };
     bool get_use_stride_limitation () const { return use_stride_limitation; };
     stride_limitation_type get_stride_limitation_type () const { return default_stride_limitation_type; };
     double get_toe_check_thre () const { return thtc.get_toe_check_thre(); };
     double get_heel_check_thre () const { return thtc.get_heel_check_thre(); };
+    double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
+    double get_cp_check_margin_step (const size_t idx) const { return cp_check_margin_step[idx]; };
+        bool get_is_emergency_step () const { return is_emergency_step; };
     // Get ee coords by checking whether given EE name is swing or support
     bool get_swing_support_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
     {

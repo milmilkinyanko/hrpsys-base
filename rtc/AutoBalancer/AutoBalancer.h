@@ -139,6 +139,8 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
+  TimedBoolean m_emergencySignalStep;
+  InPort<TimedBoolean> m_emergencySignalStepIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
   TimedBooleanSeq m_actContactStates;
@@ -305,6 +307,7 @@ class AutoBalancer
   interpolator *jump_z_hoff_interpolator;
   interpolator *jump_z_cubic_interpolator;
   bool is_online_jump, is_take_off, is_ik_retrieve;
+  bool is_emergency_step_mode;
 };
 
 

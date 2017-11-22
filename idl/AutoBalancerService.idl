@@ -265,6 +265,10 @@ module OpenHRP
       DblArray2 cp_check_margin;
       /// Margin time ratio for footstep modification before landing [s]
       double margin_time_ratio;
+      /// CP check margin until stopping when emergency step (x, y) [m]
+      DblArray2 cp_check_margin_step;
+      /// Step time when emergency stepping [s]
+      DblArray3 emergency_step_time;
     };
 
     /**
@@ -353,6 +357,8 @@ module OpenHRP
       boolean is_online_jump;
       /// whether retrieve joint angle to reference when ik
       boolean is_ik_retrieve;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**
