@@ -84,6 +84,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_actContactStatesOut("actContactStates", m_actContactStates),
     m_COPInfoOut("COPInfo", m_COPInfo),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
+    m_emergencySignalStepOut("emergencySignalStep", m_emergencySignalStep),
     // for debug output
     m_originRefZmpOut("originRefZmp", m_originRefZmp),
     m_originRefCogOut("originRefCog", m_originRefCog),
@@ -148,6 +149,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("actContactStates", m_actContactStatesOut);
   addOutPort("COPInfo", m_COPInfoOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
+  addOutPort("emergencySignalStep", m_emergencySignalStepOut);
   // for debug output
   addOutPort("originRefZmp", m_originRefZmpOut);
   addOutPort("originRefCog", m_originRefCogOut);
@@ -438,6 +440,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   }
   is_emergency = false;
   reset_emergency_flag = false;
+  m_emergencySignalStep.data = false;
 
   m_qCurrent.data.length(m_robot->numJoints());
   m_qRef.data.length(m_robot->numJoints());
@@ -751,6 +754,8 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
     }
+    m_emergencySignalStep.tm = m_qRef.tm;
+    m_emergencySignalStepOut.write();
   }
 
   return RTC::RTC_OK;
@@ -1344,7 +1349,7 @@ void Stabilizer::calcStateForEmergencySignal()
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     szd->get_margined_vertices(margined_support_polygon_vetices);
     szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
-    if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    if (!is_walking || is_estop_while_walking) m_emergencySignalStep.data = is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     if (DEBUGP) {
       std::cerr << "[" << m_profile.instance_name << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "
                 << "sbp cog offset [" << sbp_cog_offset(0) << " " << sbp_cog_offset(1) << "], outside ? "

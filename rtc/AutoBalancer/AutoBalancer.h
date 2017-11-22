@@ -138,6 +138,8 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedLong m_emergencySignal;
   InPort<TimedLong> m_emergencySignalIn;
+  TimedBoolean m_emergencySignalStep;
+  InPort<TimedBoolean> m_emergencySignalStepIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
   TimedBooleanSeq m_actContactStates;
@@ -292,6 +294,8 @@ class AutoBalancer
   // Used for ref force balancing.
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
+
+  bool is_emergency_step_mode;
 };
 
 

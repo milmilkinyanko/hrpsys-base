@@ -401,6 +401,7 @@ class HrpsysConfigurator(object):
             if self.es:
                 connectPorts(self.st.port("emergencySignal"), self.es.port("emergencySignal"))
             connectPorts(self.st.port("emergencySignal"), self.abc.port("emergencySignal"))
+            connectPorts(self.st.port("emergencySignalStep"), self.abc.port("emergencySignalStep"))
             connectPorts(self.st.port("diffCapturePoint"), self.abc.port("diffCapturePoint"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
             if self.rfu:

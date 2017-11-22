@@ -264,6 +264,10 @@ module OpenHRP
       DblArray2 cp_check_margin;
       /// Margin time ratio for footstep modification before landing [s]
       double margin_time_ratio;
+      /// CP check margin until stopping when emergency step (x, y) [m]
+      DblArray2 cp_check_margin_step;
+      /// Step time when emergency stepping [s]
+      DblArray3 emergency_step_time;
     };
 
     /**
@@ -331,6 +335,8 @@ module OpenHRP
       string additional_force_applied_link_name;
       /// Link local offset[m] of force applied point for MODE_REF_FORCE_WITH_FOOT. This is local value in the link frame specified by "additional_force_applied_link_name". Zero by default.
       DblArray3 additional_force_applied_point_offset;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**

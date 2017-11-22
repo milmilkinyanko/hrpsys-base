@@ -60,6 +60,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
+      m_emergencySignalStepIn("emergencySignalStep", m_emergencySignalStep),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
@@ -105,6 +106,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("zmpIn", m_zmpIn);
     addInPort("optionalData", m_optionalDataIn);
     addInPort("emergencySignal", m_emergencySignalIn);
+    addInPort("emergencySignalStep", m_emergencySignalStepIn);
     addInPort("diffCapturePoint", m_diffCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
@@ -380,6 +382,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
+    is_emergency_step_mode = false;
     return RTC::RTC_OK;
 }
 
@@ -471,6 +474,16 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         //     gg->emergency_stop();
         // }
     }
+    if (m_emergencySignalStepIn.isNew()){
+      m_emergencySignalStepIn.read();
+      hrp::Vector3 tmpcp;
+      gg->get_diff_cp(tmpcp);
+      tmpcp = m_robot->rootLink()->R * tmpcp;
+      if (is_emergency_step_mode && m_emergencySignalStep.data && !gg_is_walking) {
+        gg->set_is_emergency_step(true);
+        goVelocity(0,tmpcp(2)>0?-1e-6:1e-6,0);
+      }
+    }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
       gg->set_diff_cp(hrp::Vector3(m_diffCP.data.x, m_diffCP.data.y, m_diffCP.data.z));
@@ -504,7 +517,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       if (!is_transition_interpolator_empty) {
         transition_interpolator->get(&transition_interpolator_ratio, true);
       } else {
-        transition_interpolator_ratio = (control_mode == MODE_IDLE) ? 0.0 : 1.0;
+       transition_interpolator_ratio = (control_mode == MODE_IDLE) ? 0.0 : 1.0;
       }
       if (control_mode != MODE_IDLE ) {
         solveFullbodyIK();
@@ -1548,6 +1561,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_modify_footsteps(i_param.modify_footsteps);
   gg->set_cp_check_margin(i_param.cp_check_margin);
   gg->set_margin_time_ratio(i_param.margin_time_ratio);
+  gg->set_cp_check_margin_step(i_param.cp_check_margin_step);
+  gg->set_emergency_step_time(i_param.emergency_step_time);
   if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::SQUARE) {
     gg->set_stride_limitation_type(SQUARE);
   } else if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::CIRCLE) {
@@ -1638,6 +1653,12 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.use_stride_limitation = gg->get_use_stride_limitation();
   i_param.footstep_modification_gain = gg->get_footstep_modification_gain();
   i_param.modify_footsteps = gg->get_modify_footsteps();
+  for (size_t i = 0; i < 2; i++) {
+    i_param.cp_check_margin_step[i] = gg->get_cp_check_margin_step(i);
+  }
+  for (size_t i = 0; i < 3; i++) {
+    i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
+  }
   for (size_t i=0; i<2; i++) {
     i_param.cp_check_margin[i] = gg->get_cp_check_margin(i);
   }
@@ -1796,6 +1817,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i = 0; i < fik->ikp.size(); i++) {
     fik->ikp[ee_vec[i]].limb_length_margin = i_param.limb_length_margin[i];
   }
+  is_emergency_step_mode = i_param.is_emergency_step_mode;
   return true;
 };
 
@@ -1877,6 +1899,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i = 0; i < 3; i++) {
       i_param.additional_force_applied_point_offset[i] = additional_force_applied_point_offset(i);
   }
+  i_param.is_emergency_step_mode = is_emergency_step_mode;
   return true;
 };
 

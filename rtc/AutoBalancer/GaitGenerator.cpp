@@ -781,6 +781,9 @@ namespace rats
   void gait_generator::modify_footsteps_for_recovery ()
   {
     if (isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
+      int emergency_step_cnt_thre = static_cast<int>(0.3/dt);
+      bool is_step_outside = false;
+      static int not_emergency_count;
       // calculate diff_cp
       hrp::Vector3 tmp_diff_cp;
       for (size_t i = 0; i < 2; i++) {
@@ -789,6 +792,9 @@ namespace rats
           tmp_diff_cp(i) = diff_cp(i) - cp_check_margin[i] * diff_cp(i)/std::fabs(diff_cp(i));
         } else {
           is_emergency_walking[i] = false;
+        }
+        if (std::fabs(diff_cp(i)) > cp_check_margin_step[i]) {
+          is_step_outside = true;
         }
       }
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) {
@@ -800,6 +806,13 @@ namespace rats
             preview_f_sum += preview_controller_ptr->get_preview_f(i);
           }
           modified_d_footstep = hrp::Vector3::Zero();
+          // emergency when standing
+          if (is_emergency_step) {
+            leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+          }
         }
         if (lcg.get_lcg_count() <= preview_controller_ptr->get_delay()) {
           preview_f_sum += preview_controller_ptr->get_preview_f(lcg.get_lcg_count());
@@ -822,16 +835,33 @@ namespace rats
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
           }
-          if (is_emergency_walking[0] || is_emergency_walking[1]) {
-            overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+          if (is_emergency_step && not_emergency_count > emergency_step_cnt_thre) {
+            is_emergency_step = false;
+            not_emergency_count = 0;
+            overwrite_footstep_nodes_list.clear();
+            leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+            coordinates tmp_footstep_coords = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords;
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+            overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
             // overwrite zmp
             overwrite_refzmp_queue(overwrite_footstep_nodes_list);
             overwrite_footstep_nodes_list.clear();
-            modified_d_footstep += d_footstep;
+          } else {
+            if (is_step_outside) not_emergency_count = 0;
+            else not_emergency_count++;
+            if (is_emergency_walking[0] || is_emergency_walking[1]) {
+              overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+              // overwrite zmp
+              overwrite_refzmp_queue(overwrite_footstep_nodes_list);
+              overwrite_footstep_nodes_list.clear();
+              modified_d_footstep += d_footstep;
+            }
           }
         }
       } else {
         modified_d_footstep = hrp::Vector3::Zero();
+        not_emergency_count = 0;
       }
     }
   }
@@ -969,12 +999,24 @@ namespace rats
 						 const double vel_x, const double vel_y, const double vel_theta,
                                                  const std::vector<leg_type>& current_legs)
   {
-    velocity_mode_flg = VEL_DOING;
+    if (!is_emergency_step) velocity_mode_flg = VEL_DOING;
+    else {
+      tmp_default_step_time = default_step_time;
+      tmp_default_double_support_ratio_before = default_double_support_ratio_before;
+      tmp_default_double_support_ratio_after = default_double_support_ratio_after;
+    }
     /* initialize */
     clear_footstep_nodes_list();
     set_velocity_param (vel_x, vel_y, vel_theta);
+    if (is_emergency_step) {
+      default_step_time = emergency_step_time[0];
+      default_double_support_ratio_before = 0.05;
+      default_double_support_ratio_after = 0.05;
+    }
     append_go_pos_step_nodes(_ref_coords, current_legs);
+    if (is_emergency_step) default_step_time = emergency_step_time[1];
     append_footstep_list_velocity_mode();
+    if (is_emergency_step) default_step_time = emergency_step_time[2];
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
   };
