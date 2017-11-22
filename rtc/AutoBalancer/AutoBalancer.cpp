@@ -406,7 +406,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     jump_phase = 0;
     act_cogvel = hrp::Vector3::Zero();
     is_online_jump = false;
-    is_jump = false;
+    is_take_off = false;
+    is_ik_retrieve = true;
 
     return RTC::RTC_OK;
 }
@@ -1171,7 +1172,7 @@ void AutoBalancer::solveJumpZ ()
       for (size_t i = 4; i > 2; i--) tmpt += jump_dt[i];
       // double tmpdt = tmpt + jump_dt[2] - jump_remain_time;
       if (jump_remain_time >= tmpt) {
-        if (is_online_jump && is_jump && (gg->get_act_contact_states(0) || gg->get_act_contact_states(1))) { // early touch
+        if (is_online_jump && is_take_off && (gg->get_act_contact_states(0) || gg->get_act_contact_states(1))) { // early touch
           double tmpg = - gg->get_gravitational_acceleration();
           double tmpsv = act_cogvel(2);
           jump_z_hoff_interpolator->set(&jump_z[3], &tmpsv, &tmpg);
@@ -1185,7 +1186,7 @@ void AutoBalancer::solveJumpZ ()
           jump_remain_time -= m_dt;
           m_contactStates.data[contact_states_index_map["rleg"]] = false;
           m_contactStates.data[contact_states_index_map["lleg"]] = false;
-          is_jump = !gg->get_act_contact_states(0) && !gg->get_act_contact_states(1);
+          is_take_off = !gg->get_act_contact_states(0) && !gg->get_act_contact_states(1);
           break;
         }
       } else {
@@ -1229,7 +1230,8 @@ void AutoBalancer::solveJumpZ ()
         jump_remain_time = 0.0;
         jump_dz = -1.0;
         jump_phase = 0;
-        is_jump = false;
+        is_take_off = false;
+        is_ik_retrieve = true;
       }
     }
   default:
@@ -1314,7 +1316,11 @@ void AutoBalancer::solveFullbodyIK ()
 //    if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
 //    if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
     fik->dq_weight_all.tail(3).fill(1e2);//ベースリンク回転変位の重みは1e1以下は暴れる？
-    // if(fik->q_ref_constraint_weight.rows()>12+21)fik->q_ref_constraint_weight.segment(12,21).fill(1e-6);//上半身関節角のq_refへの緩い拘束(JAXON)
+    if (is_ik_retrieve) {
+      if(fik->q_ref_constraint_weight.rows()>12+21)fik->q_ref_constraint_weight.segment(12,21).fill(5e-8);//上半身関節角のq_refへの緩い拘束(JAXON)
+    } else {
+      if(fik->q_ref_constraint_weight.rows()>12+21)fik->q_ref_constraint_weight.segment(12,21).fill(0);//上半身関節角のq_refへの緩い拘束(JAXON)
+    }
     fik->rootlink_rpy_llimit << deg2rad(-10), deg2rad(-30), -DBL_MAX;
     fik->rootlink_rpy_ulimit << deg2rad(10), deg2rad(30), DBL_MAX;
   // set desired natural pose and pullback gain
@@ -2056,6 +2062,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
     jump_dt[i] = i_param.jump_via_time_width[i];
   }
   is_online_jump = i_param.is_online_jump;
+  is_ik_retrieve = i_param.is_ik_retrieve;
   return true;
 };
 
@@ -2146,6 +2153,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
     i_param.jump_via_time_width[i] = jump_dt[i];
   }
   i_param.is_online_jump = is_online_jump;
+  i_param.is_ik_retrieve = is_ik_retrieve;
   return true;
 };
 
