@@ -410,6 +410,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_online_jump = false;
     is_take_off = false;
     is_ik_retrieve = true;
+    is_jumping = false;
 
     is_emergency_step_mode = false;
     return RTC::RTC_OK;
@@ -510,7 +511,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       hrp::Vector3 tmpcp;
       gg->get_diff_cp(tmpcp);
       tmpcp = m_robot->rootLink()->R * tmpcp;
-      if (is_emergency_step_mode && m_emergencySignalStep.data && !gg_is_walking) {
+      if (is_emergency_step_mode && m_emergencySignalStep.data && !gg_is_walking && !is_jumping) {
         gg->set_is_emergency_step(true);
         goVelocity(0,tmpcp(2)>0?-1e-6:1e-6,0);
       }
@@ -1150,6 +1151,7 @@ void AutoBalancer::solveJumpZ ()
     for (size_t i = 0; i < 5; i++) jump_remain_time += jump_dt[i];
     jump_z_cubic_interpolator->set(&jump_z[0], &tmpsv);
     jump_z_cubic_interpolator->setGoal(&jump_z[1], jump_dt[0], true);
+    is_jumping = true;
   }
   switch(jump_phase) {
   case 0:
@@ -1238,6 +1240,7 @@ void AutoBalancer::solveJumpZ ()
         jump_z_cubic_interpolator->set(&jump_z[4], &tmpsv);
         jump_z_cubic_interpolator->setGoal(&jump_z[5], jump_dt[4], true);
         jump_phase = 4;
+        is_jumping = false;
       }
     }
   case 4:
@@ -1328,10 +1331,12 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
     }
     // knee stretch protection
-    // if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
-    // if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
-    // if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
-    // if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
+    if (!is_jumping) {
+      if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
+      if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
+      if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
+      if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
+    }
 //  // reduce chest joint move
 //    if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
 //    if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
