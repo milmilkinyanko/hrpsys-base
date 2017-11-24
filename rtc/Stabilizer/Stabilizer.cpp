@@ -970,7 +970,12 @@ void Stabilizer::getActualParameters ()
       if (use_zmp_truncation) {
         Eigen::Vector2d tmp_new_refzmp(new_refzmp.head(2));
         szd->get_vertices(support_polygon_vetices);
-        szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
+        if (!ref_contact_states[contact_states_index_map["rleg"]] && !ref_contact_states[contact_states_index_map["lleg"]]) {
+          std::vector<bool> tmpcs(2, true);
+          szd->calc_convex_hull(support_polygon_vetices, tmpcs, ee_pos, ee_rot);
+        } else {
+          szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
+        }
         if (!szd->is_inside_support_polygon(tmp_new_refzmp, hrp::Vector3::Zero(), true, std::string(m_profile.instance_name))) new_refzmp.head(2) = tmp_new_refzmp;
       }
 
