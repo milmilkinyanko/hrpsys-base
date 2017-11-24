@@ -774,7 +774,15 @@ void AutoBalancer::getTargetParameters()
     if (gg_is_walking) {
       ref_cog = gg->get_cog();
     } else {
-      ref_cog = tmp_foot_mid_pos;
+      if (transition_interpolator_ratio == 1) {
+        for (size_t i = 0; i < 2; i++) {
+          double tmp_dcog = (tmp_foot_mid_pos - ref_cog)(i);
+          double lvlimit = -1 * 1e-3 * m_dt, uvlimit = 1 * 1e-3 * m_dt; // 1 [mm/s]
+          ref_cog(i) += fik->vlimit(tmp_dcog, lvlimit, uvlimit);
+        }
+      } else {
+        ref_cog = tmp_foot_mid_pos;
+      }
     }
     ref_cog(2) = tmp_ref_cog(2);
     if (gg_is_walking) {
