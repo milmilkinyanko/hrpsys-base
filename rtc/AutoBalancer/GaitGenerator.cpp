@@ -861,6 +861,7 @@ namespace rats
         }
       } else {
         modified_d_footstep = hrp::Vector3::Zero();
+        not_emergency_count = 0;
       }
     }
   }
