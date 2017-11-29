@@ -1186,13 +1186,13 @@ namespace rats
       rg.update_refzmp();
       sfzos.clear();
     }
+    finalize_count = 0;
     refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
     if (!refzmp_exist_p) {
       finalize_count++;
       rzmp = prev_que_rzmp;
       sfzos = prev_que_sfzos;
     } else {
-      finalize_count = 0;
       prev_que_rzmp = rzmp;
       prev_que_sfzos = sfzos;
     }
