@@ -729,7 +729,7 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
     return false;
 }
 
-bool robot::setServoGainPercentage(const char *i_jname, double i_percentage)
+bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, int mode)
 {
     if ( i_percentage < 0 || 100 < i_percentage ) {
         std::cerr << "[RobotHardware] Invalid percentage " <<  i_percentage << "[%] for setServoGainPercentage. Percentage should be in (0, 100)[%]." << std::endl;
@@ -739,9 +739,9 @@ bool robot::setServoGainPercentage(const char *i_jname, double i_percentage)
     if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0){
         for (unsigned int i=0; i<numJoints(); i++){
             if (!read_pgain(i, &old_pgain[i])) old_pgain[i] = pgain[i];
-            pgain[i] = default_pgain[i] * i_percentage/100.0;
+            if (mode / 2 == 0) pgain[i] = default_pgain[i] * i_percentage/100.0;// 0 or 1
             if (!read_dgain(i, &old_dgain[i])) old_dgain[i] = dgain[i];
-            dgain[i] = default_dgain[i] * i_percentage/100.0;
+            if (mode % 2 == 0) dgain[i] = default_dgain[i] * i_percentage/100.0;// 0 or 2
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(i, &old_tqpgain[i])) old_tqpgain[i] = tqpgain[i];
             if (!read_torque_dgain(i, &old_tqdgain[i])) old_tqdgain[i] = tqdgain[i];
@@ -751,9 +751,9 @@ bool robot::setServoGainPercentage(const char *i_jname, double i_percentage)
         std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage << "[%] for all joints" << std::endl;
     }else if ((l = link(i_jname))){
         if (!read_pgain(l->jointId, &old_pgain[l->jointId])) old_pgain[l->jointId] = pgain[l->jointId];
-        pgain[l->jointId] = default_pgain[l->jointId] * i_percentage/100.0;
+        if (mode / 2 == 0) pgain[l->jointId] = default_pgain[l->jointId] * i_percentage/100.0;// 0 or 1
         if (!read_dgain(l->jointId, &old_dgain[l->jointId])) old_dgain[l->jointId] = dgain[l->jointId];
-        dgain[l->jointId] = default_dgain[l->jointId] * i_percentage/100.0;
+        if (mode % 2 == 0) dgain[l->jointId] = default_dgain[l->jointId] * i_percentage/100.0;// 0 or 2
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
         if (!read_torque_pgain(l->jointId, &old_tqpgain[l->jointId])) old_tqpgain[l->jointId] = tqpgain[l->jointId];
         if (!read_torque_dgain(l->jointId, &old_tqdgain[l->jointId])) old_tqdgain[l->jointId] = tqdgain[l->jointId];
@@ -766,9 +766,9 @@ bool robot::setServoGainPercentage(const char *i_jname, double i_percentage)
         if (jgroup.size()==0) return false;
         for (unsigned int i=0; i<jgroup.size(); i++){
             if (!read_pgain(jgroup[i], &old_pgain[jgroup[i]])) old_pgain[jgroup[i]] = pgain[jgroup[i]];
-            pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage/100.0;
+            if (mode / 2 == 0) pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage/100.0;// 0 or 1
             if (!read_dgain(jgroup[i], &old_dgain[jgroup[i]])) old_dgain[jgroup[i]] = dgain[jgroup[i]];
-            dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage/100.0;
+            if (mode % 2 == 0) dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage/100.0;// 0 or 2
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(jgroup[i], &old_tqpgain[jgroup[i]])) old_tqpgain[jgroup[i]] = tqpgain[jgroup[i]];
             if (!read_torque_dgain(jgroup[i], &old_tqdgain[jgroup[i]])) old_tqdgain[jgroup[i]] = tqdgain[jgroup[i]];

@@ -93,6 +93,20 @@ module OpenHRP
     void setServoGainPercentage(in string name, in double percentage);
 
     /**
+     * @brief set the parcentage to the default servo Pgain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoPGainPercentage(in string name, in double percentage);
+
+    /**
+     * @brief set the parcentage to the default servo Dgain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoDGainPercentage(in string name, in double percentage);
+
+    /**
      * @brief set the maximum joint servo error angle
      * @param name joint name, part name or "all"
      * @param limit the maximum joint servo error angle[rad]
