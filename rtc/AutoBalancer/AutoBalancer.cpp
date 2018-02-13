@@ -383,7 +383,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
-    m_tmpCogValues.data.length(3*4);
+    m_tmpCogValues.data.length(3*5);
     return RTC::RTC_OK;
 }
 
@@ -638,6 +638,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_tmpCogValues.data[9] = tmpcog_value2(0);
           m_tmpCogValues.data[10] = tmpcog_value2(1);
           m_tmpCogValues.data[11] = tmpcog_value2(2);
+          // 外力なし
+          m_tmpCogValues.data[12] = tmpcog_value3(0);
+          m_tmpCogValues.data[13] = tmpcog_value3(1);
+          m_tmpCogValues.data[14] = tmpcog_value3(2);
           m_tmpCogValuesOut.write();
       };
       // write
@@ -2086,13 +2090,13 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
     } else {
         for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
             // Check leg_names. leg_names is assumed to be support limb for locomotion, cannot be used for manipulation. If it->first is not included in leg_names, use it for manipulation and static balance point calculation.
-            if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+            // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
                 size_t idx = contact_states_index_map[it->first];
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
                 nume(j) += ( (fpos(2) - ref_com_height) * tmp_forces[idx](j) - fpos(j) * tmp_forces[idx](2) );
                 denom(j) -= tmp_forces[idx](2);
-            }
+            // }
         }
         if ( use_force == MODE_REF_FORCE_WITH_FOOT ) {
             hrp::Vector3 fpos(additional_force_applied_link->p+additional_force_applied_point_offset);
@@ -2113,14 +2117,14 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
           double fxy = 0;
           tmpcog_value0(j) = mg * ref_cog(j);
           for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-              if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
                   size_t idx = contact_states_index_map[it->first];
                   // Force applied point is assumed as end effector
                   hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
                   tmpcog_value0(j) += fpos(j) * ref_forces[idx](2) - fpos(2) * ref_forces[idx](j);
                   fz += ref_forces[idx](2);
                   fxy += ref_forces[idx](j);
-              }
+              // }
           }
           tmpcog_value0(j) += -1 * fz * ref_cog(j);
           tmpcog_value0(j) += fxy * ref_com_height;
@@ -2132,13 +2136,13 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
           double fz = 0;
           tmpcog_value1(j) = mg * ref_cog(j);
           for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-              if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
                   size_t idx = contact_states_index_map[it->first];
                   // Force applied point is assumed as end effector
                   hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
                   tmpcog_value1(j) -= fpos(j) * ref_forces[idx](2);
                   fz += ref_forces[idx](2);
-              }
+              // }
           }
           tmpcog_value1(j) = tmpcog_value1(j)/(mg-fz);
       }
@@ -2150,14 +2154,14 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
           double fxy = 0;
           tmpcog_value2(j) = mg * ref_cog(j);
           for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-              if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
                   size_t idx = contact_states_index_map[it->first];
                   // Force applied point is assumed as end effector
                   hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
                   tmpcog_value2(j) += fpos(j) * ref_forces[idx](2) - fpos(2) * ref_forces[idx](j);
                   fz += ref_forces[idx](2);
                   fxy += ref_forces[idx](j);
-              }
+              // }
           }
           tmpcog_value2(j) += -1 * fz * ref_cog(j);
           tmpcog_value2(j) += fxy * ref_com_height;
@@ -2169,6 +2173,22 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
           tmpcog_value2(j) += (tmpcog(2)-ref_com_height) * fz * tmpvv(j) / gg->get_gravitational_acceleration();
           //std::cerr << (tmpcog(2)-ref_com_height) << " " <<  fz << " " <<  gg->get_cog_acc()(j) << " " <<  gg->get_gravitational_acceleration() << std::endl;
           tmpcog_value2(j) = tmpcog_value2(j)/mg;
+      }
+      // 外力なし
+      tmpcog_value3 = hrp::Vector3::Zero();
+      for (size_t j = 0; j < 2; j++) {
+          double fz = 0;
+          tmpcog_value3(j) = mg * ref_cog(j);
+          // for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+          //     if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+          //         size_t idx = contact_states_index_map[it->first];
+          //         // Force applied point is assumed as end effector
+          //         hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
+          //         tmpcog_value3(j) -= fpos(j) * ref_forces[idx](2);
+          //         fz += ref_forces[idx](2);
+          //     }
+          // }
+          tmpcog_value3(j) = tmpcog_value3(j)/(mg-fz);
       }
   };
 };
