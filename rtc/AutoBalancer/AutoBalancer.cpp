@@ -630,18 +630,18 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_tmpCogValues.data[3] = tmpcog_value0(0);
           m_tmpCogValues.data[4] = tmpcog_value0(1);
           m_tmpCogValues.data[5] = tmpcog_value0(2);
-          // こじお式の重心位置
-          m_tmpCogValues.data[6] = tmpcog_value1(0);
-          m_tmpCogValues.data[7] = tmpcog_value1(1);
-          m_tmpCogValues.data[8] = tmpcog_value1(2);
+          // 外力なし
+          m_tmpCogValues.data[6] = tmpcog_value3(0);
+          m_tmpCogValues.data[7] = tmpcog_value3(1);
+          m_tmpCogValues.data[8] = tmpcog_value3(2);
           // 野沢式の重心位置（方法３）
           m_tmpCogValues.data[9] = tmpcog_value2(0);
           m_tmpCogValues.data[10] = tmpcog_value2(1);
           m_tmpCogValues.data[11] = tmpcog_value2(2);
-          // 外力なし
-          m_tmpCogValues.data[12] = tmpcog_value3(0);
-          m_tmpCogValues.data[13] = tmpcog_value3(1);
-          m_tmpCogValues.data[14] = tmpcog_value3(2);
+          // 加速度
+          m_tmpCogValues.data[12] = tmpcog_value1(0);
+          m_tmpCogValues.data[13] = tmpcog_value1(1);
+          m_tmpCogValues.data[14] = tmpcog_value1(2);
           m_tmpCogValuesOut.write();
       };
       // write
@@ -2133,18 +2133,21 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
       // こじお式の結果をtmpcog_value1に代入
       tmpcog_value1 = hrp::Vector3::Zero();
       for (size_t j = 0; j < 2; j++) {
-          double fz = 0;
-          tmpcog_value1(j) = mg * ref_cog(j);
-          for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
-                  size_t idx = contact_states_index_map[it->first];
-                  // Force applied point is assumed as end effector
-                  hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
-                  tmpcog_value1(j) -= fpos(j) * ref_forces[idx](2);
-                  fz += ref_forces[idx](2);
-              // }
-          }
-          tmpcog_value1(j) = tmpcog_value1(j)/(mg-fz);
+          // double fz = 0;
+          // tmpcog_value1(j) = mg * ref_cog(j);
+          // for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+          //     // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+          //         size_t idx = contact_states_index_map[it->first];
+          //         // Force applied point is assumed as end effector
+          //         hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
+          //         tmpcog_value1(j) -= fpos(j) * ref_forces[idx](2);
+          //         fz += ref_forces[idx](2);
+          //     // }
+          // }
+          // tmpcog_value1(j) = tmpcog_value1(j)/(mg-fz);
+        hrp::Vector3 tmpvv;
+        if (gg_is_walking) tmpvv = gg->get_cog_acc();
+        tmpcog_value1 = tmpvv;
       }
       // 野沢式の結果をtmpcog_value2に代入。メモの方法３
       tmpcog_value2 = hrp::Vector3::Zero();
