@@ -273,9 +273,10 @@ public:
        \param name joint name, part name or "all"
        \param percentage to joint servo gain[0-100]
        \param mode 0 when setting PDgain, 1 when setting Pgain or 2 when setting Dgain
+       \param transition_time length of time [s] required to change gains
        \return true if set successfully, false otherwise 
      */
-    bool setServoGainPercentage(const char *i_jname, double i_percentage, int mode=0);
+    bool setServoGainPercentage(const char *i_jname, double i_percentage, int mode, double transition_time=0);
 
     /**
        \brief set the parcentage to the default servo torque gain
@@ -382,6 +383,7 @@ private:
 
     int inertia_calib_counter, force_calib_counter;
     std::vector<double> gain_counter;
+    std::vector<int> max_gain_count;
 
     std::vector< boost::array<double,3> > gyro_sum;
     std::vector< boost::array<double,3> > accel_sum;

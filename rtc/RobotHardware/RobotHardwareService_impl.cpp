@@ -136,6 +136,16 @@ void RobotHardwareService_impl::setServoDGainPercentage(const char *jname, doubl
     m_robot->setServoGainPercentage(jname, percentage, 2);
 }
 
+void RobotHardwareService_impl::setServoPGainPercentageWithTime(const char *jname, double percentage, double time)
+{
+    m_robot->setServoGainPercentage(jname, percentage, 1, time);
+}
+
+void RobotHardwareService_impl::setServoDGainPercentageWithTime(const char *jname, double percentage, double time)
+{
+    m_robot->setServoGainPercentage(jname, percentage, 2, time);
+}
+
 void RobotHardwareService_impl::setServoTorqueGainPercentage(const char *jname, double percentage)
 {
     m_robot->setServoTorqueGainPercentage(jname, percentage);

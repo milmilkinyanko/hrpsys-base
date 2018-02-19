@@ -24,6 +24,8 @@ public:
     void setServoGainPercentage(const char *jname, double limit);
     void setServoPGainPercentage(const char *jname, double limit);
     void setServoDGainPercentage(const char *jname, double limit);
+    void setServoPGainPercentageWithTime(const char *jname, double limit, double time);
+    void setServoDGainPercentageWithTime(const char *jname, double limit, double time);
     void setServoTorqueGainPercentage(const char *jname, double limit);
     void setServoErrorLimit(const char *jname, double limit);
     void calibrateInertiaSensor();
