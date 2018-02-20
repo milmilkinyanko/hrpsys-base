@@ -383,7 +383,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
-    m_tmpCogValues.data.length(3*5);
+    m_tmpCogValues.data.length(3*7);
     return RTC::RTC_OK;
 }
 
@@ -642,6 +642,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_tmpCogValues.data[12] = tmpcog_value1(0);
           m_tmpCogValues.data[13] = tmpcog_value1(1);
           m_tmpCogValues.data[14] = tmpcog_value1(2);
+          // 加速度考慮1
+          m_tmpCogValues.data[15] = tmpcog_value4(0);
+          m_tmpCogValues.data[16] = tmpcog_value4(1);
+          m_tmpCogValues.data[17] = tmpcog_value4(2);
+          // 加速度考慮2
+          m_tmpCogValues.data[18] = tmpcog_value5(0);
+          m_tmpCogValues.data[19] = tmpcog_value5(1);
+          m_tmpCogValues.data[20] = tmpcog_value5(2);
           m_tmpCogValuesOut.write();
       };
       // write
@@ -1199,6 +1207,10 @@ void AutoBalancer::stopABCparam()
 
 bool AutoBalancer::startWalking ()
 {
+  delta_tmpcog = hrp::Vector3::Zero();
+  delta_tmpcogvel = hrp::Vector3::Zero();
+  prev_delta_tmpcog = hrp::Vector3::Zero();
+
   if ( control_mode != MODE_ABC ) {
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
     return false;
@@ -2192,6 +2204,83 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
           //     }
           // }
           tmpcog_value3(j) = tmpcog_value3(j)/(mg-fz);
+      }
+      // 加速度考慮１
+      tmpcog_value4 = hrp::Vector3::Zero();
+      for (size_t j = 0; j < 2; j++) {
+          // nozawa 式
+          double fz = 0;
+          double fxy = 0;
+          tmpcog_value4(j) = mg * ref_cog(j);
+          for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+                  size_t idx = contact_states_index_map[it->first];
+                  // Force applied point is assumed as end effector
+                  hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
+                  tmpcog_value4(j) += fpos(j) * ref_forces[idx](2) - fpos(2) * ref_forces[idx](j);
+                  fz += ref_forces[idx](2);
+                  fxy += ref_forces[idx](j);
+              // }
+          }
+          tmpcog_value4(j) += -1 * fz * ref_cog(j);
+          tmpcog_value4(j) += fxy * ref_com_height;
+          //tmpcog_value2(j) += (ref_cog(2)-ref_com_height) * fz * gg->get_cog_acc()(2) / gg->get_gravitational_acceleration();
+          // 加速度分を考慮、超テキトーコード
+          hrp::Vector3 tmpvv;
+          if (gg_is_walking) tmpvv = gg->get_cog_acc();
+          else tmpvv = hrp::Vector3::Zero();
+          tmpcog_value4(j) += (tmpcog(2)-ref_com_height) * fz * tmpvv(j) / gg->get_gravitational_acceleration();
+          // tmpcog_value4(j) += (tmpcog(2)-ref_com_height) * (mass - (mg - fz)/(gg->get_gravitational_acceleration() - fz/mass)) * tmpvv(j);
+          //std::cerr << (tmpcog(2)-ref_com_height) << " " <<  fz << " " <<  gg->get_cog_acc()(j) << " " <<  gg->get_gravitational_acceleration() << std::endl;
+          tmpcog_value4(j) = tmpcog_value4(j)/mg;
+          double omega = std::sqrt(gg->get_gravitational_acceleration() / (tmpcog(2)-ref_com_height));
+          tmpcog_value4(j)  = tmpcog_value4(j) * (1 - std::exp(omega*m_dt)/(2) - std::exp(-omega*m_dt)/(2));
+      }
+      // 加速度考慮２
+      tmpcog_value5 = hrp::Vector3::Zero();
+      std::cerr << "cog : " << delta_tmpcog(1) << " vel : " << delta_tmpcogvel(1) << std::endl;
+      for (size_t j = 0; j < 2; j++) {
+          // nozawa 式
+          double fz = 0;
+          double fxy = 0;
+          tmpcog_value5(j) = mg * ref_cog(j);
+          for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+              // if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) {
+                  size_t idx = contact_states_index_map[it->first];
+                  // Force applied point is assumed as end effector
+                  hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
+                  tmpcog_value5(j) += fpos(j) * ref_forces[idx](2) - fpos(2) * ref_forces[idx](j);
+                  fz += ref_forces[idx](2);
+                  fxy += ref_forces[idx](j);
+              // }
+          }
+          tmpcog_value5(j) += -1 * fz * ref_cog(j);
+          tmpcog_value5(j) += fxy * ref_com_height;
+          //tmpcog_value2(j) += (ref_cog(2)-ref_com_height) * fz * gg->get_cog_acc()(2) / gg->get_gravitational_acceleration();
+          // 加速度分を考慮、超テキトーコード
+          hrp::Vector3 tmpvv;
+          if (gg_is_walking) tmpvv = gg->get_cog_acc();
+          else tmpvv = hrp::Vector3::Zero();
+          tmpcog_value5(j) += (tmpcog(2)-ref_com_height) * fz * tmpvv(j) / gg->get_gravitational_acceleration();
+          //std::cerr << (tmpcog(2)-ref_com_height) << " " <<  fz << " " <<  gg->get_cog_acc()(j) << " " <<  gg->get_gravitational_acceleration() << std::endl;
+          tmpcog_value5(j) = tmpcog_value5(j)/mg;
+
+          double mrw2 = (tmpcog_value5(j) - ref_cog(j));
+          double omega = std::sqrt(gg->get_gravitational_acceleration() / (tmpcog(2)-ref_com_height));
+          double tmp_c1 = (- mrw2 + delta_tmpcog(j) + delta_tmpcogvel(j)/omega)/2;
+          double tmp_c2 = (- mrw2 + delta_tmpcog(j) - delta_tmpcogvel(j)/omega)/2;
+          delta_tmpcog(j) = mrw2 + tmp_c1 * std::exp(omega * m_dt) + tmp_c2 * std::exp(-omega * m_dt);
+          delta_tmpcogvel(j) = (delta_tmpcog(j) - prev_delta_tmpcog(j))/m_dt;
+          prev_delta_tmpcog(j) = delta_tmpcog(j);
+
+          tmpcog_value5(j) = delta_tmpcog(j) + ref_cog(j);
+
+          delta_tmpcog(j) = 0;
+          delta_tmpcogvel(j) = 0;
+
+
+          tmpcog_value5(0) = tmp_c1 * std::exp(omega * m_dt);
+          tmpcog_value5(1) = tmp_c2 * std::exp(-omega * m_dt);
       }
   };
 };
