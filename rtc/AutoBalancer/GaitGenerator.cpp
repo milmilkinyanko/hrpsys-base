@@ -310,7 +310,7 @@ namespace rats
           if (swing_leg_src_steps.size() == 1) /* only biped or crawl because there is only one toe_heel_interpolator */
               modif_foot_coords_for_toe_heel_phase(ret, _current_toe_angle, _current_heel_angle);
       }
-      rets.push_back(step_node(it1->l_r, ret, 0, 0, 0, 0));
+      rets.push_back(step_node(it1->l_r, ret, step_height, swing_leg_src_steps.front().step_time, 0, 0));
     }
   };
 
@@ -780,6 +780,7 @@ namespace rats
 
   void gait_generator::modify_footsteps_for_recovery ()
   {
+    // std::cerr << footstep_nodes_list[lcg.get_footstep_index()][0].step_time << std::endl;
     if (isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
       int emergency_step_cnt_thre = static_cast<int>(0.3/dt);
       bool is_step_outside = false;
@@ -851,6 +852,13 @@ namespace rats
             if (is_step_outside) not_emergency_count = 0;
             else not_emergency_count++;
             if (is_emergency_walking[0] || is_emergency_walking[1]) {
+              std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+              // for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+              //   footstep_nodes_list[i].front().step_time = 2.0;
+              // }
+              // footstep_nodes_list[lcg.get_footstep_index()][0].step_time = 4.0;
+              // footstep_nodes_list[lcg.get_footstep_index()+1][0].step_time = 4.0;
+              // default_step_time = 0.5;
               overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
               // overwrite zmp
               overwrite_refzmp_queue(overwrite_footstep_nodes_list);
@@ -1140,6 +1148,11 @@ namespace rats
     /*   reset index and counter */
     rg.set_indices(idx);
     if (overwritable_footstep_index_offset == 0) {
+        // size_t tmp_cnt = lcg.get_lcg_count() + static_cast<size_t>(fnsl[0][0].step_time/dt) - rg.get_one_step_count();
+        // std::cerr << "one : " << rg.get_one_step_count() << " lcg : " << lcg.get_lcg_count() << " set : " << tmp_cnt
+        //           << " time :" << fnsl[0][0].step_time << std::endl;
+        // rg.set_one_step_count(static_cast<size_t>(fnsl[0][0].step_time/dt));
+        // lcg.set_lcg_count(tmp_cnt);
         rg.set_refzmp_count(lcg.get_lcg_count()); // Start refzmp_count from current remaining footstep count of swinging.
     } else {
         rg.set_refzmp_count(static_cast<size_t>(fnsl[0][0].step_time/dt)); // Start refzmp_count from step length of first overwrite step

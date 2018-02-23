@@ -349,6 +349,11 @@ namespace rats
         void push_refzmp_from_footstep_nodes_for_single (const std::vector<step_node>& fns, const std::vector<step_node>& _support_leg_steps, const toe_heel_types& tht);
       void update_refzmp ();
       // setter
+      void set_one_step_count (const size_t _count)
+      {
+        one_step_count = _count;
+        thp.set_one_step_count(_count);
+      };
       void set_indices (const size_t idx) { refzmp_index = idx; };
       void set_refzmp_count(const size_t _refzmp_count) { refzmp_count = _refzmp_count; };
       void set_default_zmp_offsets(const std::vector<hrp::Vector3>& tmp) { default_zmp_offsets = tmp; };
@@ -380,6 +385,7 @@ namespace rats
       double get_heel_zmp_offset_x () const { return heel_zmp_offset_x; };
       bool get_use_toe_heel_transition () const { return use_toe_heel_transition; };
       bool get_use_toe_heel_auto_set () const { return use_toe_heel_auto_set; };
+      size_t get_one_step_count() const { return one_step_count; };
       const std::map<leg_type, double> get_zmp_weight_map () const { return zmp_weight_map; };
       void proc_zmp_weight_map_interpolation () {
           if (!zmp_weight_interpolator->isEmpty()) {
@@ -956,6 +962,7 @@ namespace rats
           }
           calc_swing_leg_src_steps(swing_leg_src_steps, fnsl, current_footstep_index);
       };
+      void set_lcg_count(size_t _count) { lcg_count = _count; };
       size_t get_footstep_index() const { return footstep_index; };
       size_t get_lcg_count() const { return lcg_count; };
       double get_current_swing_time(const size_t idx) const { return current_swing_time.at(idx); };
