@@ -98,6 +98,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     m_allRefWrenchOut("allRefWrench", m_allRefWrench),
     m_allEECompOut("allEEComp", m_allEEComp),
     m_debugDataOut("debugData", m_debugData),
+    m_tmpCogValuesOut("tmpCogValues", m_tmpCogValues),
     control_mode(MODE_IDLE),
     st_algorithm(OpenHRP::StabilizerService::TPCC),
     emergency_check_mode(OpenHRP::StabilizerService::NO_CHECK),
@@ -162,6 +163,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("allRefWrench", m_allRefWrenchOut);
   addOutPort("allEEComp", m_allEECompOut);
   addOutPort("debugData", m_debugDataOut);
+  addOutPort("tmpCogValues", m_tmpCogValuesOut);
   
   // Set service provider to Ports
   m_StabilizerServicePort.registerProvider("service0", "StabilizerService", m_service0);
@@ -414,6 +416,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
+  start_foot_guided_walk = false;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -481,6 +484,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   m_allRefWrench.data.length(stikp.size() * 6); // 6 is wrench dim
   m_allEEComp.data.length(stikp.size() * 6); // 6 is pos+rot dim
   m_debugData.data.length(1); m_debugData.data[0] = 0.0;
+  m_tmpCogValues.data.length(3*2);
 
   //
   szd = new SimpleZMPDistributor(dt);
@@ -671,6 +675,8 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_actCP.data.z = rel_act_cp(2);
       m_actCP.tm = m_qRef.tm;
       m_actCPOut.write();
+      m_tmpCogValues.tm = m_qRef.tm;
+      m_tmpCogValuesOut.write();
       {
         hrp::Vector3 tmp_diff_cp = ref_foot_origin_rot * (ref_cp - act_cp - cp_offset);
         m_diffCP.data.x = tmp_diff_cp(0);
@@ -900,6 +906,52 @@ void Stabilizer::getActualParameters ()
       std::cerr << "[" << m_profile.instance_name << "]   "
                 << "new_zmp    = " << hrp::Vector3(tmpnew_refzmp*1e3).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]"))
                 << ", dif_zmp    = " << hrp::Vector3((tmpnew_refzmp-ref_zmp)*1e3).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[mm]" << std::endl;
+    }
+
+    // foot guided control
+    {
+      hrp::Vector3 origin_new_refzmp = new_refzmp;
+      double step_time = 1.5;
+      hrp::Vector3 next_cog = hrp::Vector3::Zero();
+      hrp::Vector3 next_zmp = hrp::Vector3::Zero();
+      hrp::Link* r_target = m_robot->link(stikp[0].target_name);
+      hrp::Vector3 rfoot_pos = r_target->p + r_target->R * stikp[0].localCOPPos;
+      hrp::Link* l_target = m_robot->link(stikp[1].target_name);
+      hrp::Vector3 lfoot_pos = l_target->p + l_target->R * stikp[1].localCOPPos;
+      hrp::Vector3 abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
+      hrp::Vector3 abs_act_cogvel = ref_foot_origin_rot * act_cogvel;
+      double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+      static size_t tmp_count;
+      static double remain_step_time = step_time;
+      static size_t support_leg = 2; // 0 : rleg, 1 : lleg, 2 : double
+      static hrp::Vector3 x_p = ref_foot_origin_pos;
+      // static hrp::Vector3 dx_sp = rfoot_pos - x_p;
+      static hrp::Vector3 dx_sp = x_p - x_p;
+      hrp::Vector3 x_cp = abs_act_cog + abs_act_cogvel / omega - x_p;
+      if (start_foot_guided_walk) {
+        if (remain_step_time >= 0) {
+          // remain_step_time -= dt;
+        } else {
+          // remain_step_time = step_time;
+          // if (support_leg == 2 || support_leg == 1) {
+          //   support_leg = 0;
+          //   // x_p = rfoot_pos;
+          //   // dx_sp = lfoot_pos - x_p;
+          // } else {
+          //   support_leg = 1;
+          //   // x_p = lfoot_pos;
+          //   // dx_sp = rfoot_pos - x_p;
+          // }
+        }
+        next_zmp = x_p + 2 * (x_cp - std::exp(-omega * remain_step_time) * dx_sp) / (1 - std::exp(-2 * omega * remain_step_time));
+        new_refzmp = next_zmp;
+      }
+      m_tmpCogValues.data[0] = next_zmp(0);
+      m_tmpCogValues.data[1] = next_zmp(1);
+      m_tmpCogValues.data[2] = next_zmp(2);
+      m_tmpCogValues.data[3] = next_cog(0);
+      m_tmpCogValues.data[4] = next_cog(1);
+      m_tmpCogValues.data[5] = next_cog(2);
     }
 
     std::vector<std::string> ee_name;
@@ -1240,6 +1292,7 @@ void Stabilizer::getTargetParameters ()
       ref_cogvel = (ref_cog - prev_ref_cog)/dt;
     }
     prev_ref_foot_origin_rot = ref_foot_origin_rot = foot_origin_rot;
+    ref_foot_origin_pos = foot_origin_pos;
     for (size_t i = 0; i < stikp.size(); i++) {
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
@@ -2015,6 +2068,7 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   i_stp.end_effector_list.length(stikp.size());
   i_stp.use_limb_stretch_avoidance = use_limb_stretch_avoidance;
   i_stp.use_zmp_truncation = use_zmp_truncation;
+  i_stp.start_foot_guided_walk = start_foot_guided_walk;
   i_stp.limb_stretch_avoidance_time_const = limb_stretch_avoidance_time_const;
   i_stp.limb_length_margin.length(stikp.size());
   i_stp.detection_time_to_air = detection_count_to_air * dt;
@@ -2194,6 +2248,7 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
   is_estop_while_walking = i_stp.is_estop_while_walking;
   use_limb_stretch_avoidance = i_stp.use_limb_stretch_avoidance;
   use_zmp_truncation = i_stp.use_zmp_truncation;
+  start_foot_guided_walk = i_stp.start_foot_guided_walk;
   limb_stretch_avoidance_time_const = i_stp.limb_stretch_avoidance_time_const;
   for (size_t i = 0; i < 2; i++) {
     limb_stretch_avoidance_vlimit[i] = i_stp.limb_stretch_avoidance_vlimit[i];

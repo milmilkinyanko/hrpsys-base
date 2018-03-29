@@ -188,6 +188,7 @@ class Stabilizer
   RTC::TimedDoubleSeq m_allRefWrench;
   RTC::TimedDoubleSeq m_allEEComp;
   RTC::TimedDoubleSeq m_debugData;
+  RTC::TimedDoubleSeq m_tmpCogValues;
   
   // DataInPort declaration
   // <rtc-template block="inport_declare">
@@ -233,6 +234,7 @@ class Stabilizer
   RTC::OutPort<RTC::TimedDoubleSeq> m_allRefWrenchOut;
   RTC::OutPort<RTC::TimedDoubleSeq> m_allEECompOut;
   RTC::OutPort<RTC::TimedDoubleSeq> m_debugDataOut;
+  RTC::OutPort<RTC::TimedDoubleSeq> m_tmpCogValuesOut;
   
   // </rtc-template>
 
@@ -297,7 +299,7 @@ class Stabilizer
   int is_air_counter, detection_count_to_air;
   bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
   bool is_walking, is_estop_while_walking;
-  hrp::Vector3 current_root_p, target_root_p;
+  hrp::Vector3 current_root_p, target_root_p, ref_foot_origin_pos;
   hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;
   std::vector <hrp::Vector3> target_ee_p, rel_ee_pos, act_ee_p, projected_normal, act_force, ref_force, ref_moment;
   std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R;
@@ -334,6 +336,7 @@ class Stabilizer
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
+  bool start_foot_guided_walk;
 };
 
 
