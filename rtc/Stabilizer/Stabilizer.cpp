@@ -472,6 +472,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
 
   //
   act_cogvel_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, dt, hrp::Vector3::Zero())); // [Hz]
+  act_zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector2> >(new FirstOrderLowPassFilter<hrp::Vector2>(0.1, dt, hrp::Vector2::Zero())); // [Hz]
 
   // for debug output
   m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -484,7 +485,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   m_allRefWrench.data.length(stikp.size() * 6); // 6 is wrench dim
   m_allEEComp.data.length(stikp.size() * 6); // 6 is pos+rot dim
   m_debugData.data.length(1); m_debugData.data[0] = 0.0;
-  m_tmpCogValues.data.length(3*2);
+  m_tmpCogValues.data.length(3*4);
 
   //
   szd = new SimpleZMPDistributor(dt);
@@ -575,7 +576,7 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
   if (m_contactStatesIn.isNew()){
     m_contactStatesIn.read();
     for (size_t i = 0; i < m_contactStates.data.length(); i++) {
-      ref_contact_states[i] = m_contactStates.data[i];
+      if (!start_foot_guided_walk) ref_contact_states[i] = m_contactStates.data[i];
     }
   }
   if (m_toeheelRatioIn.isNew()){
@@ -601,8 +602,8 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
   for (size_t i = 0; i < m_limbCOPOffsetIn.size(); ++i) {
     if ( m_limbCOPOffsetIn[i]->isNew() ) {
       m_limbCOPOffsetIn[i]->read();
-      //stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * hrp::Vector3(m_limbCOPOffset[i].data.x, m_limbCOPOffset[i].data.y, m_limbCOPOffset[i].data.z);
-      stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * hrp::Vector3(m_limbCOPOffset[i].data.x, 0, m_limbCOPOffset[i].data.z);
+      stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * hrp::Vector3(m_limbCOPOffset[i].data.x, m_limbCOPOffset[i].data.y, m_limbCOPOffset[i].data.z);
+      // stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * hrp::Vector3(m_limbCOPOffset[i].data.x, 0, m_limbCOPOffset[i].data.z);
     }
   }
   if (m_qRefSeqIn.isNew()) {
@@ -908,52 +909,6 @@ void Stabilizer::getActualParameters ()
                 << ", dif_zmp    = " << hrp::Vector3((tmpnew_refzmp-ref_zmp)*1e3).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[mm]" << std::endl;
     }
 
-    // foot guided control
-    {
-      hrp::Vector3 origin_new_refzmp = new_refzmp;
-      double step_time = 1.5;
-      hrp::Vector3 next_cog = hrp::Vector3::Zero();
-      hrp::Vector3 next_zmp = hrp::Vector3::Zero();
-      hrp::Link* r_target = m_robot->link(stikp[0].target_name);
-      hrp::Vector3 rfoot_pos = r_target->p + r_target->R * stikp[0].localCOPPos;
-      hrp::Link* l_target = m_robot->link(stikp[1].target_name);
-      hrp::Vector3 lfoot_pos = l_target->p + l_target->R * stikp[1].localCOPPos;
-      hrp::Vector3 abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
-      hrp::Vector3 abs_act_cogvel = ref_foot_origin_rot * act_cogvel;
-      double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
-      static size_t tmp_count;
-      static double remain_step_time = step_time;
-      static size_t support_leg = 2; // 0 : rleg, 1 : lleg, 2 : double
-      static hrp::Vector3 x_p = ref_foot_origin_pos;
-      // static hrp::Vector3 dx_sp = rfoot_pos - x_p;
-      static hrp::Vector3 dx_sp = x_p - x_p;
-      hrp::Vector3 x_cp = abs_act_cog + abs_act_cogvel / omega - x_p;
-      if (start_foot_guided_walk) {
-        if (remain_step_time >= 0) {
-          // remain_step_time -= dt;
-        } else {
-          // remain_step_time = step_time;
-          // if (support_leg == 2 || support_leg == 1) {
-          //   support_leg = 0;
-          //   // x_p = rfoot_pos;
-          //   // dx_sp = lfoot_pos - x_p;
-          // } else {
-          //   support_leg = 1;
-          //   // x_p = lfoot_pos;
-          //   // dx_sp = rfoot_pos - x_p;
-          // }
-        }
-        next_zmp = x_p + 2 * (x_cp - std::exp(-omega * remain_step_time) * dx_sp) / (1 - std::exp(-2 * omega * remain_step_time));
-        new_refzmp = next_zmp;
-      }
-      m_tmpCogValues.data[0] = next_zmp(0);
-      m_tmpCogValues.data[1] = next_zmp(1);
-      m_tmpCogValues.data[2] = next_zmp(2);
-      m_tmpCogValues.data[3] = next_cog(0);
-      m_tmpCogValues.data[4] = next_cog(1);
-      m_tmpCogValues.data[5] = next_cog(2);
-    }
-
     std::vector<std::string> ee_name;
     // distribute new ZMP into foot force & moment
     std::vector<hrp::Vector3> tmp_ref_force, tmp_ref_moment;
@@ -986,6 +941,121 @@ void Stabilizer::getActualParameters ()
               ee_forcemoment_distribution_weight[i][j] = ikp.eefm_ee_forcemoment_distribution_weight[j];
           }
           tmp_toeheel_ratio.push_back(toeheel_ratio[i]);
+      }
+
+      // foot guided control
+      {
+        hrp::Vector3 origin_new_refzmp = new_refzmp; // for debug
+        double step_time = 1.5;
+        static hrp::Vector3 next_cog;
+        static hrp::Vector3 next_cogvel;
+        hrp::Vector3 next_zmp = hrp::Vector3::Zero();
+        hrp::Link* r_target = m_robot->link(stikp[0].target_name);
+        hrp::Vector3 rfoot_pos = ref_foot_origin_pos + ref_foot_origin_rot * (foot_origin_rot.transpose() * ((r_target->p + r_target->R * stikp[0].localCOPPos) - foot_origin_pos));
+        hrp::Link* l_target = m_robot->link(stikp[1].target_name);
+        hrp::Vector3 lfoot_pos =  ref_foot_origin_pos + ref_foot_origin_rot * (foot_origin_rot.transpose() * ((l_target->p + l_target->R * stikp[1].localCOPPos) - foot_origin_pos));
+        hrp::Vector3 abs_act_cog = ref_foot_origin_pos + ref_foot_origin_rot * act_cog;
+        hrp::Vector3 abs_act_cogvel = ref_foot_origin_rot * act_cogvel;
+        double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+        static double remain_step_time = step_time;
+        static size_t support_leg = 2; // 0 : rleg, 1 : lleg, 2 : double
+        static hrp::Vector3 x_p = ref_foot_origin_pos;
+        static hrp::Vector3 dx_sp = lfoot_pos - x_p;
+        // static hrp::Vector3 dx_sp = x_p - x_p; // for balance
+        static hrp::Vector3 cog_offset;
+        // static bool changed_to_single;
+        static hrp::Vector3 current_cog, cogvel; // for reference
+        // hrp::Vector3 x_cp = abs_act_cog + abs_act_cogvel / omega - x_p; // for actual
+        hrp::Vector3 x_cp = next_cog + cogvel / omega - x_p; // for reference
+        hrp::Vector2 tmp_act_zmp(act_zmp.head(2));
+        // tmp_act_zmp = act_zmp_filter->passFilter(tmp_act_zmp);
+        if (start_foot_guided_walk) {
+          if (remain_step_time >= 0) {
+            remain_step_time -= dt;
+          } else {
+            remain_step_time = step_time;
+            if (support_leg == 1) {
+              support_leg = 0;
+              x_p = rfoot_pos;
+              dx_sp = lfoot_pos - x_p;
+            } else {
+              support_leg = 1;
+              x_p = lfoot_pos;
+              dx_sp = rfoot_pos - x_p;
+            }
+          }
+          double tmp_time = remain_step_time;
+          if (tmp_time < 50e-3) tmp_time = 50e-3; // refer : Bipedal walking control based on capture point dynamics
+          next_zmp = x_p + 2 * (x_cp - std::exp(-omega * tmp_time) * dx_sp) / (1 - std::exp(-2 * omega * tmp_time));
+          new_refzmp = next_zmp;
+          // // truncate
+          // hrp::Vector2 tmp_new_refzmp(new_refzmp.head(2));
+          // szd->get_vertices(support_polygon_vetices);
+          // szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
+          // if (!szd->is_inside_support_polygon(tmp_new_refzmp, hrp::Vector3::Zero(), true, std::string(m_profile.instance_name))) new_refzmp.head(2) = tmp_new_refzmp;
+          // // change contact states
+          // ref_contact_states[contact_states_index_map["rleg"]] = ref_contact_states[contact_states_index_map["lleg"]] = true;
+          // szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, rel_ee_pos, rel_ee_rot);
+          // szd->is_inside_support_polygon(tmp_act_zmp, hrp::Vector3::Zero(), true, std::string(m_profile.instance_name));
+          // ref_contact_states[contact_states_index_map["rleg"]] = false;
+          // szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, rel_ee_pos, rel_ee_rot);
+          // if (!szd->is_inside_support_polygon(tmp_act_zmp, hrp::Vector3::Zero())) {
+          //   ref_contact_states[contact_states_index_map["rleg"]] = true;
+          //   ref_contact_states[contact_states_index_map["lleg"]] = false;
+          //   szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, rel_ee_pos, rel_ee_rot);
+          //   if (!szd->is_inside_support_polygon(tmp_act_zmp, hrp::Vector3::Zero())) ref_contact_states[contact_states_index_map["lleg"]] = true;
+          // }
+          // cog
+          // next_cog = abs_act_cog + abs_act_cogvel * dt - new_refzmp * omega * omega * dt; // for actual
+          next_cog = next_cog + next_cogvel * dt; // for reference
+          next_cogvel = next_cog * omega * omega * dt + next_cogvel - new_refzmp * omega * omega *dt; // for reference
+          // target_root_p.head(2) = (next_cog + cog_offset).head(2;)
+        } else {
+          // cog_offset = target_root_p - abs_act_cog; // for actual
+          cog_offset = target_root_p - current_cog; // for reference
+        }
+        m_tmpCogValues.data[0] = new_refzmp(0);
+        m_tmpCogValues.data[1] = new_refzmp(1);
+        m_tmpCogValues.data[2] = new_refzmp(2);
+        m_tmpCogValues.data[3] = next_cog(0);
+        m_tmpCogValues.data[4] = next_cog(1);
+        m_tmpCogValues.data[5] = cogvel(1);
+        m_tmpCogValues.data[6] = ref_contact_states[contact_states_index_map["rleg"]];
+        m_tmpCogValues.data[7] = ref_contact_states[contact_states_index_map["lleg"]];
+        m_tmpCogValues.data[8] = remain_step_time;
+        m_tmpCogValues.data[9] = tmp_act_zmp(0);
+        m_tmpCogValues.data[10] = tmp_act_zmp(1);
+
+        m_tmpCogValues.data[0] = abs_act_cog(0);
+        m_tmpCogValues.data[1] = abs_act_cog(1);
+        m_tmpCogValues.data[2] = abs_act_cog(2);
+        m_tmpCogValues.data[3] = (next_cog + cog_offset)(0);
+        m_tmpCogValues.data[4] = (next_cog + cog_offset)(1);
+        m_tmpCogValues.data[5] = abs_act_cogvel(1);
+        m_tmpCogValues.data[6] = target_root_p(0);
+        m_tmpCogValues.data[7] = target_root_p(1);
+        m_tmpCogValues.data[8] = remain_step_time;
+        m_tmpCogValues.data[9] = new_refzmp(0);
+        m_tmpCogValues.data[10] = new_refzmp(1);
+
+        next_cog = std::cosh(omega*dt) * next_cog + std::sinh(omega*dt)/omega * next_cogvel + (1 - std::cosh(omega*dt)) * act_zmp;
+        next_cogvel = omega * std::sinh(omega*dt) * next_cog + std::cosh(omega*dt) * next_cogvel - omega * std::sinh(omega*dt) * act_zmp;
+        // next_cog = next_cog + next_cogvel * dt; // for reference
+        // next_cogvel = next_cog * omega * omega * dt + next_cogvel - (ref_foot_origin_pos + ref_foot_origin_rot * ref_zmp) * omega * omega * dt; // for reference
+        m_tmpCogValues.data[3] = next_cog(0);
+        m_tmpCogValues.data[4] = next_cog(1);
+        // m_tmpCogValues.data[0] = x_cp(0);
+        // m_tmpCogValues.data[1] = x_cp(1);
+        // m_tmpCogValues.data[3] = next_cog(0);
+        // m_tmpCogValues.data[4] = next_cog(1);
+        m_tmpCogValues.data[9] = (ref_foot_origin_pos + ref_foot_origin_rot * ref_zmp)(0);
+        m_tmpCogValues.data[10] = (ref_foot_origin_pos + ref_foot_origin_rot * ref_zmp)(1);
+        m_tmpCogValues.data[6] = next_cogvel(1);
+        // m_tmpCogValues.data[7] = support_leg;
+        // m_tmpCogValues.data[8] = remain_step_time;
+
+        if (!ref_contact_states[contact_states_index_map["rleg"]]) std::cerr << "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr" << std::endl;
+        if (!ref_contact_states[contact_states_index_map["lleg"]]) std::cerr << "llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll" << std::endl;
       }
 
       // All state variables are foot_origin coords relative
