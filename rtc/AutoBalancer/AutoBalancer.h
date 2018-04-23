@@ -23,6 +23,7 @@
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
 #include "GaitGenerator.h"
+#include "Stabilizer.h"
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalancerService_impl.h"
@@ -251,6 +252,8 @@ class AutoBalancer
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
   ggPtr gg;
+  typedef boost::shared_ptr<Stabilizer> stPtr;
+  stPtr st;
   bool gg_is_walking, gg_solved;
   // for abc
   typedef boost::shared_ptr<SimpleFullbodyInverseKinematicsSolver> fikPtr;
