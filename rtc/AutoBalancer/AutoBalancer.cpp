@@ -176,6 +176,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     fik = fikPtr(new FullbodyInverseKinematicsSolver(m_robot, std::string(m_profile.instance_name), m_dt));
     ik_mode = OpenHRP::AutoBalancerService::SIMPLE;
 
+    // Generate ST
+    st = stPtr(new Stabilizer(m_robot, std::string(m_profile.instance_name), m_dt));
+
     // setting from conf file
     // rleg,TARGET_LINK,BASE_LINK
     coil::vstring end_effectors_str = coil::split(prop["end_effectors"], ",");
