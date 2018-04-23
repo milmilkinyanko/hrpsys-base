@@ -117,6 +117,13 @@ class AutoBalancer
   bool releaseEmergencyStop();
   void distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp);
 
+  // Stabilizer
+  void getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param);
+  void setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_param);
+  void startStabilizer(void);
+  void stopStabilizer(void);
+
+
  protected:
   // Configuration variable declaration
   // <rtc-template block="config_declare">

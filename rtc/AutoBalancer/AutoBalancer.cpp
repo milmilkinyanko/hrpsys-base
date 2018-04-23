@@ -1335,6 +1335,14 @@ bool AutoBalancer::stopAutoBalancer ()
   }
 }
 
+void AutoBalancer::startStabilizer(void)
+{
+}
+
+void AutoBalancer::stopStabilizer(void)
+{
+}
+
 void AutoBalancer::waitABCTransition()
 {
   while (!transition_interpolator->isEmpty()) usleep(1000);
@@ -1976,6 +1984,14 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.ik_mode = ik_mode;
   return true;
 };
+
+void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_param)
+{
+}
+
+void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param)
+{
+}
 
 void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs)
 {
