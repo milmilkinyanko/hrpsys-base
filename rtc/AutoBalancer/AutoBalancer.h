@@ -160,6 +160,9 @@ class AutoBalancer
   InPort<TimedOrientation3D> m_rpyIn;
   TimedDoubleSeq m_qRefSeq;
   InPort<TimedDoubleSeq> m_qRefSeqIn;
+  std::vector<TimedDoubleSeq> m_wrenches;
+  std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
+
   // for debug
   TimedPoint3D m_cog;
   
