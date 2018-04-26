@@ -329,6 +329,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_ref_forceOut.resize(nforce);
     m_limbCOPOffset.resize(nforce);
     m_limbCOPOffsetOut.resize(nforce);
+    m_wrenches.resize(nforce);
+    m_wrenchesIn.resize(nforce);
+    st->wrenches.resize(nforce);
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -346,6 +349,11 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
+        // actual inport
+        m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
+        m_wrenches[i].data.length(6);
+        st->wrenches[i].resize(6);
+        registerInPort(sensor_names[i].c_str(), *m_wrenchesIn[i]);
     }
     // set force port
     for (unsigned int i=0; i<nforce; i++){
@@ -507,6 +515,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_rpyIn.isNew()) {
       m_rpyIn.read();
+    }
+    for (size_t i = 0; i < m_wrenchesIn.size(); ++i) {
+      if ( m_wrenchesIn[i]->isNew() ) {
+        m_wrenchesIn[i]->read();
+      }
     }
 
     // Calculation
@@ -700,10 +713,18 @@ void AutoBalancer::setABCData2ST()
     st->toeheel_ratio[i] = m_toeheelRatio.data[i];
     st->controlSwingSupportTime[i] = m_controlSwingSupportTime.data[i];
   }
-  st->act_Rs = hrp::rotFromRpy(m_rpy.data.r, m_rpy.data.p, m_rpy.data.y);
+  for (size_t j = 0; j < st->wrenches.size(); j++) {
+    for (size_t i = 0; i < 6; i++) {
+      st->wrenches[j][i] = m_wrenches[j].data[i];
+      std::cerr << j << " : " << i << " : " << st->wrenches[j][i] << std::endl;
+    }
+  }
+  st->rpy(0) = m_rpy.data.r;
+  st->rpy(1) = m_rpy.data.p;
+  st->rpy(2) = m_rpy.data.y;
   st->zmpRef = rel_ref_zmp;
   st->basePos = ref_basePos;
-  st->target_root_R = hrp::rotFromRpy(baseRpy);
+  st->baseRpy = baseRpy;
   st->is_walking = gg_is_walking;
   st->sbp_cog_offset = sbp_cog_offset;
 }

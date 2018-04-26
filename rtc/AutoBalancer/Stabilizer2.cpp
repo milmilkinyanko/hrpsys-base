@@ -213,7 +213,6 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
             }
         }
     }
-
     int nforce = npforce + nvforce;
     m_wrenches.resize(nforce);
     m_wrenchesIn.resize(nforce);
@@ -224,7 +223,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
     std::cerr << "[" << print_str << "] force sensor ports (" << npforce << ")" << std::endl;
     for (unsigned int i=0; i<nforce; ++i) {
         std::string force_sensor_name = force_sensor_names[i];
-        // actual inport
+        // actual inports
         m_wrenchesIn[i] = new RTC::InPort<RTC::TimedDoubleSeq>(force_sensor_name.c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
         registerInPort(force_sensor_name.c_str(), *m_wrenchesIn[i]);
@@ -811,7 +810,7 @@ void Stabilizer::getActualParameters ()
         m_robot->calcForwardKinematics();
         hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
         hrp::Matrix33 senR = sen->link->R * sen->localR;
-        // hrp::Matrix33 act_Rs(hrp::rotFromRpy(m_rpy.data.r, m_rpy.data.p, m_rpy.data.y));
+        hrp::Matrix33 act_Rs(hrp::rotFromRpy(m_rpy.data.r, m_rpy.data.p, m_rpy.data.y));
         //hrp::Matrix33 act_Rs(hrp::rotFromRpy(m_rpy.data.r*0.5, m_rpy.data.p*0.5, m_rpy.data.y*0.5));
         m_robot->rootLink()->R = act_Rs * (senR.transpose() * m_robot->rootLink()->R);
         m_robot->calcForwardKinematics();
@@ -1182,7 +1181,7 @@ void Stabilizer::getTargetParameters ()
     }
     m_robot->rootLink()->p = hrp::Vector3(m_basePos.data.x, m_basePos.data.y, m_basePos.data.z);
     target_root_p = m_robot->rootLink()->p;
-    // target_root_R = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);
+    target_root_R = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);
     m_robot->rootLink()->R = target_root_R;
     m_robot->calcForwardKinematics();
     ref_zmp = m_robot->rootLink()->R * hrp::Vector3(m_zmpRef.data.x, m_zmpRef.data.y, m_zmpRef.data.z) + m_robot->rootLink()->p; // base frame -> world frame

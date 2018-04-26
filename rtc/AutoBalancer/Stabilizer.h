@@ -127,9 +127,10 @@ public:
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
-  hrp::dvector qRef, qCurrent, qRefSeq, controlSwingSupportTime;
-  hrp::Matrix33 act_Rs, baseRot;
-  hrp::Vector3 zmpRef, basePos;
+  hrp::dvector qRef, qCurrent, qRefSeq, controlSwingSupportTime, COPInfo;
+  hrp::Matrix33 baseRot;
+  hrp::Vector3 zmpRef, basePos, rpy, baseRpy;
+  std::vector<hrp::dvector>  wrenches;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double _dt, const size_t _num)
     : m_robot(_robot), print_str(_print_str), dt(_dt)
@@ -140,6 +141,7 @@ public:
     ref_contact_states.resize(_num, false);
     toeheel_ratio.resize(_num, 1.0);
     controlSwingSupportTime.resize(_num, 1.0);
+    COPInfo.resize(_num*3); // nx, ny, fz for each end-effectors
   };
   ~Stabilizer() {};
 
