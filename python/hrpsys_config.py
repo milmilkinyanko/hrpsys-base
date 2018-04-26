@@ -383,6 +383,7 @@ class HrpsysConfigurator(object):
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
                                      self.rh.ref, "rfsensor") and self.st:
             connectPorts(self.kf.port("rpy"), self.st.port("rpy"))
+            connectPorts(self.kf.port("rpy"), self.abc.port("rpy"))
             connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
             connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
             connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
@@ -394,7 +395,9 @@ class HrpsysConfigurator(object):
             connectPorts(self.abc.port("contactStates"), self.st.port("contactStates"))
             connectPorts(self.abc.port("controlSwingSupportTime"), self.st.port("controlSwingSupportTime"))
             connectPorts(self.rh.port("q"), self.st.port("qCurrent"))
+            connectPorts(self.rh.port("q"), self.abc.port("qCurrent"))
             connectPorts(self.seq.port("qRef"), self.st.port("qRefSeq"))
+            connectPorts(self.seq.port("qRef"), self.abc.port("qRefSeq"))
             connectPorts(self.abc.port("walkingStates"), self.st.port("walkingStates"))
             connectPorts(self.abc.port("sbpCogOffset"), self.st.port("sbpCogOffset"))
             connectPorts(self.abc.port("toeheelRatio"), self.st.port("toeheelRatio"))
