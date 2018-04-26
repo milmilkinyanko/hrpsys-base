@@ -127,10 +127,19 @@ public:
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
+  hrp::dvector qRef, qCurrent, qRefSeq, controlSwingSupportTime;
+  hrp::Matrix33 act_Rs, baseRot;
+  hrp::Vector3 zmpRef, basePos;
 
-  Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double _dt)
+  Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double _dt, const size_t _num)
     : m_robot(_robot), print_str(_print_str), dt(_dt)
   {
+    qRef.resize(_robot->numJoints());
+    qCurrent.resize(_robot->numJoints());
+    qRefSeq.resize(_robot->numJoints());
+    ref_contact_states.resize(_num, false);
+    toeheel_ratio.resize(_num, 1.0);
+    controlSwingSupportTime.resize(_num, 1.0);
   };
   ~Stabilizer() {};
 
@@ -143,6 +152,36 @@ public:
   };
   void startStabilizer(void);
   void stopStabilizer(void);
+  double calcDampingControl (const double tau_d, const double tau, const double prev_d,
+                             const double DD, const double TT);
+  hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
+  double calcDampingControl (const double prev_d, const double TT);
+  hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
+                                   const hrp::Vector3& DD, const hrp::Vector3& TT);
+  void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
+  void calcTorque ();
+  void calcRUNST();
+  void moveBasePosRotForBodyRPYControl ();
+  double vlimit(double value, double llimit_value, double ulimit_value);
+  hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
+  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
+  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
+  void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
+  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
+  void calcStateForEmergencySignal();
+  void calcSwingSupportLimbGain();
+  void calcTPCC();
+  void calcEEForceMomentControl();
+  void calcSwingEEModification ();
+  void limbStretchAvoidanceControl (const std::vector<hrp::Vector3>& ee_p, const std::vector<hrp::Matrix33>& ee_R);
+  void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
+  void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
+  std::string getStabilizerAlgorithmString (OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm);
+  inline bool isContact (const size_t idx) // 0 = right, 1 = left
+  {
+    return (prev_act_force_z[idx] > 25.0);
+  };
+  void calcDiffFootOriginExtMoment ();
 };
 
 #endif // STABILIZER_COMPONENT_H

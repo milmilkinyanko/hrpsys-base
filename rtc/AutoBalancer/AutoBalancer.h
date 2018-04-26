@@ -134,6 +134,8 @@ class AutoBalancer
   // <rtc-template block="inport_declare">
   TimedDoubleSeq m_qRef;
   InPort<TimedDoubleSeq> m_qRefIn;
+  TimedDoubleSeq m_qCurrent;
+  InPort<TimedDoubleSeq> m_qCurrentIn;
   TimedPoint3D m_basePos;
   InPort<TimedPoint3D> m_basePosIn;
   TimedOrientation3D m_baseRpy;
@@ -154,6 +156,10 @@ class AutoBalancer
   InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
   TimedBoolean m_refFootOriginExtMomentIsHoldValue;
   InPort<TimedBoolean> m_refFootOriginExtMomentIsHoldValueIn;
+  TimedOrientation3D m_rpy;
+  InPort<TimedOrientation3D> m_rpyIn;
+  TimedDoubleSeq m_qRefSeq;
+  InPort<TimedDoubleSeq> m_qRefSeqIn;
   // for debug
   TimedPoint3D m_cog;
   
@@ -248,6 +254,7 @@ class AutoBalancer
   };
   bool calc_inital_support_legs(const double& y, std::vector<rats::coordinates>& initial_support_legs_coords, std::vector<rats::leg_type>& initial_support_legs, rats::coordinates& start_ref_coords);
   std::string getUseForceModeString ();
+  void setABCData2ST ();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -258,7 +265,7 @@ class AutoBalancer
   // for abc
   typedef boost::shared_ptr<SimpleFullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
-  hrp::Vector3 ref_cog, ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -280,8 +287,8 @@ class AutoBalancer
   interpolator *transition_interpolator;
   interpolator *adjust_footstep_interpolator;
   interpolator *leg_names_interpolator;
-  hrp::Vector3 input_zmp, input_basePos;
-  hrp::Matrix33 input_baseRot;
+  hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
+  hrp::Matrix33 input_baseRot, ref_baseRot;
 
   // static balance point offsetting
   hrp::Vector3 sbp_offset, sbp_cog_offset;

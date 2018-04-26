@@ -55,6 +55,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       // <rtc-template block="initializer">
       m_qRefIn("qRef", m_qRef),
+      m_qCurrentIn("qCurrent", m_qCurrent),
       m_basePosIn("basePosIn", m_basePos),
       m_baseRpyIn("baseRpyIn", m_baseRpy),
       m_zmpIn("zmpIn", m_zmp),
@@ -64,6 +65,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
       m_actContactStatesIn("actContactStates", m_actContactStates),
+      m_rpyIn("rpy", m_rpy),
+      m_qRefSeqIn("qRefSeq", m_qRefSeq),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -100,6 +103,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     // <rtc-template block="registration">
     // Set InPort buffers
     addInPort("qRef", m_qRefIn);
+    addInPort("qCurrent", m_qCurrentIn);
     addInPort("basePosIn", m_basePosIn);
     addInPort("baseRpyIn", m_baseRpyIn);
     addInPort("zmpIn", m_zmpIn);
@@ -109,6 +113,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
     addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
+    addInPort("rpy", m_rpyIn);
+    addInPort("qRefSeq", m_qRefSeqIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -160,6 +166,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     // allocate memory for outPorts
     m_qRef.data.length(m_robot->numJoints());
+    m_qCurrent.data.length(m_robot->numJoints());
+    m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
 
     control_mode = MODE_IDLE;
@@ -174,9 +182,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     // Generate FIK
     fik = fikPtr(new SimpleFullbodyInverseKinematicsSolver(m_robot, std::string(m_profile.instance_name), m_dt));
-
-    // Generate ST
-    st = stPtr(new Stabilizer(m_robot, std::string(m_profile.instance_name), m_dt));
 
     // setting from conf file
     // rleg,TARGET_LINK,BASE_LINK
@@ -246,6 +251,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
       m_controlSwingSupportTime.data.length(num);
       for (size_t i = 0; i < num; i++) m_controlSwingSupportTime.data[i] = 1.0;
       for (size_t i = 0; i < num; i++) m_toeheelRatio.data[i] = rats::no_using_toe_heel_ratio;
+
+      // Generate ST
+      st = stPtr(new Stabilizer(m_robot, std::string(m_profile.instance_name), m_dt, num));
     }
     std::vector<hrp::Vector3> leg_pos;
     if (leg_offset_str.size() > 0) {
@@ -443,6 +451,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_qRefIn.isNew()) {
         m_qRefIn.read();
     }
+    if (m_qCurrentIn.isNew()) {
+      m_qCurrentIn.read();
+    }
     if (m_basePosIn.isNew()) {
       m_basePosIn.read();
       input_basePos(0) = m_basePos.data.x;
@@ -493,12 +504,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
       gg->set_act_contact_states(tmp_contacts);
     }
+    if (m_rpyIn.isNew()) {
+      m_rpyIn.read();
+    }
 
     // Calculation
     Guard guard(m_mutex);
-    hrp::Vector3 ref_basePos;
-    hrp::Matrix33 ref_baseRot;
-    hrp::Vector3 rel_ref_zmp; // ref zmp in base frame
     if ( is_legged_robot ) {
       // For parameters
       fik->storeCurrentParameters();
@@ -584,7 +595,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_basePos.data.z = ref_basePos(2);
       m_basePos.tm = m_qRef.tm;
       // baseRpy
-      hrp::Vector3 baseRpy = hrp::rpyFromRot(ref_baseRot);
+      baseRpy = hrp::rpyFromRot(ref_baseRot);
       m_baseRpy.data.r = baseRpy(0);
       m_baseRpy.data.p = baseRpy(1);
       m_baseRpy.data.y = baseRpy(2);
@@ -662,8 +673,29 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_limbCOPOffsetOut[i]->write();
       }
     }
+    setABCData2ST();
 
     return RTC::RTC_OK;
+}
+
+void AutoBalancer::setABCData2ST()
+{
+  for ( int i = 0; i < m_robot->numJoints(); i++ ) {
+    st->qCurrent[i] =  m_qCurrent.data[i];
+    st->qRef[i] =  m_robot->joint(i)->q;
+    st->qRefSeq[i] =  m_qRefSeq.data[i];
+  }
+  for (size_t i; i < m_contactStates.data.length(); i++) {
+    st->ref_contact_states[i] = m_contactStates.data[i];
+    st->toeheel_ratio[i] = m_toeheelRatio.data[i];
+    st->controlSwingSupportTime[i] = m_controlSwingSupportTime.data[i];
+  }
+  st->act_Rs = hrp::rotFromRpy(m_rpy.data.r, m_rpy.data.p, m_rpy.data.y);
+  st->zmpRef = rel_ref_zmp;
+  st->basePos = ref_basePos;
+  st->target_root_R = hrp::rotFromRpy(baseRpy);
+  st->is_walking = gg_is_walking;
+  st->sbp_cog_offset = sbp_cog_offset;
 }
 
 void AutoBalancer::getTargetParameters()

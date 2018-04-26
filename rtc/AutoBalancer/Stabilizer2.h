@@ -23,7 +23,7 @@
 
 // Service implementation headers
 // <rtc-template block="service_impl_h">
-#include "StabilizerService_impl.h"
+#include "AutoBalancerService_impl.h"
 #include "TwoDofController.h"
 #include "ZMPDistributor.h"
 #include "../ImpedanceController/JointPathEx.h"
@@ -108,49 +108,49 @@ class Stabilizer
   void getCurrentParameters ();
   void getActualParameters ();
   void getTargetParameters ();
-  void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
+  // void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
   // void sync_2_st ();
   // void sync_2_idle();
-  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
-  void calcStateForEmergencySignal();
-  void calcRUNST();
-  void moveBasePosRotForBodyRPYControl ();
-  void calcSwingSupportLimbGain();
-  void calcTPCC();
-  void calcEEForceMomentControl();
-  void calcSwingEEModification ();
-  void limbStretchAvoidanceControl (const std::vector<hrp::Vector3>& ee_p, const std::vector<hrp::Matrix33>& ee_R);
-  void getParameter(OpenHRP::StabilizerService::stParam& i_stp);
-  void setParameter(const OpenHRP::StabilizerService::stParam& i_stp);
-  void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::StabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
-  void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::StabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
-  std::string getStabilizerAlgorithmString (OpenHRP::StabilizerService::STAlgorithm _st_algorithm);
+  // bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
+  // void calcStateForEmergencySignal();
+  // void calcRUNST();
+  // void moveBasePosRotForBodyRPYControl ();
+  // void calcSwingSupportLimbGain();
+  // void calcTPCC();
+  // void calcEEForceMomentControl();
+  // void calcSwingEEModification ();
+  // void limbStretchAvoidanceControl (const std::vector<hrp::Vector3>& ee_p, const std::vector<hrp::Matrix33>& ee_R);
+  void getParameter(OpenHRP::AutoBalancerService::stParam& i_stp);
+  void setParameter(const OpenHRP::AutoBalancerService::stParam& i_stp);
+  // void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
+  // void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
+  // std::string getStabilizerAlgorithmString (OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm);
   // void waitSTTransition();
   // funcitons for calc final torque output
-  void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
-  void calcTorque ();
-  void fixLegToCoords (const std::string& leg, const rats::coordinates& coords);
-  void getFootmidCoords (rats::coordinates& ret);
-  double calcDampingControl (const double tau_d, const double tau, const double prev_d,
-                             const double DD, const double TT);
-  hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
-  double calcDampingControl (const double prev_d, const double TT);
-  hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
-                                   const hrp::Vector3& DD, const hrp::Vector3& TT);
-  double vlimit(double value, double llimit_value, double ulimit_value);
-  hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
-  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
-  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
+  // void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
+  // void calcTorque ();
+  // void fixLegToCoords (const std::string& leg, const rats::coordinates& coords);
+  // void getFootmidCoords (rats::coordinates& ret);
+  // double calcDampingControl (const double tau_d, const double tau, const double prev_d,
+  //                            const double DD, const double TT);
+  // hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
+  // double calcDampingControl (const double prev_d, const double TT);
+  // hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
+  //                                  const hrp::Vector3& DD, const hrp::Vector3& TT);
+  // double vlimit(double value, double llimit_value, double ulimit_value);
+  // hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
+  // hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
+  // hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
 
-  inline bool isContact (const size_t idx) // 0 = right, 1 = left
-  {
-    return (prev_act_force_z[idx] > 25.0);
-  };
+  // inline bool isContact (const size_t idx) // 0 = right, 1 = left
+  // {
+  //   return (prev_act_force_z[idx] > 25.0);
+  // };
   // inline int calcMaxTransitionCount ()
   // {
   //     return (transition_time / dt);
   // };
-  void calcDiffFootOriginExtMoment ();
+  // void calcDiffFootOriginExtMoment ();
 
  protected:
   // Configuration variable declaration
@@ -243,13 +243,13 @@ class Stabilizer
 
   // Service declaration
   // <rtc-template block="service_declare">
-  RTC::CorbaPort m_StabilizerServicePort;
+  RTC::CorbaPort m_AutoBalancerServicePort;
   
   // </rtc-template>
 
   // Consumer declaration
   // <rtc-template block="consumer_declare">
-  StabilizerService_impl m_service0;
+  AutoBalancerService_impl m_service0;
   
   // </rtc-template>
 
@@ -309,7 +309,7 @@ class Stabilizer
   // std::vector<double> prev_act_force_z;
   // double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
   // boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_cogvel_filter;
-  // OpenHRP::StabilizerService::STAlgorithm st_algorithm;
+  // OpenHRP::AutoBalancerService::STAlgorithm st_algorithm;
   // SimpleZMPDistributor* szd;
   // std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
   // // TPCC
@@ -333,7 +333,7 @@ class Stabilizer
   // hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
   // double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   // std::vector<double> cp_check_margin, tilt_margin;
-  // OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
+  // OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
 };
 
 
