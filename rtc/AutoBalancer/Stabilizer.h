@@ -127,24 +127,27 @@ public:
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
-  hrp::dvector qRef, qCurrent, qRefSeq, controlSwingSupportTime, COPInfo;
+  hrp::dvector qRef, qCurrent, qRefSeq, controlSwingSupportTime, copInfo;
   hrp::Matrix33 baseRot;
   hrp::Vector3 zmpRef, basePos, rpy, baseRpy;
-  std::vector<hrp::dvector>  wrenches;
+  std::vector<hrp::dvector>  wrenches, ref_wrenches;
 
-  Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double _dt, const size_t _num)
-    : m_robot(_robot), print_str(_print_str), dt(_dt)
+  Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
+    : m_robot(_robot), print_str(_print_str), dt(_dt),
+      control_mode(MODE_IDLE),
+      st_algorithm(OpenHRP::AutoBalancerService::TPCC),
+      emergency_check_mode(OpenHRP::AutoBalancerService::NO_CHECK),
+      szd(NULL),
+      m_debugLevel(0)
   {
-    qRef.resize(_robot->numJoints());
-    qCurrent.resize(_robot->numJoints());
-    qRefSeq.resize(_robot->numJoints());
-    ref_contact_states.resize(_num, false);
-    toeheel_ratio.resize(_num, 1.0);
-    controlSwingSupportTime.resize(_num, 1.0);
-    COPInfo.resize(_num*3); // nx, ny, fz for each end-effectors
   };
   ~Stabilizer() {};
 
+  void initStabilizer(const RTC::Properties& prop, const size_t& _num);
+  void execStabilizer();
+  void getCurrentParameters ();
+  void getTargetParameters ();
+  void getActualParameters ();
   void waitSTTransition();
   void sync_2_st ();
   void sync_2_idle();
