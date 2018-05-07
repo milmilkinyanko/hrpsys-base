@@ -1,4 +1,4 @@
-set(comp_sources AutoBalancer.cpp AutoBalancerService_impl.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp ../SequencePlayer/interpolator.cpp PreviewController.cpp GaitGenerator.cpp SimpleFullbodyInverseKinematicsSolver.h ../TorqueFilter/IIRFilter.cpp Integrator.cpp TwoDofController.cpp Stabilizer.cpp)
+set(comp_sources AutoBalancer.cpp AutoBalancerService_impl.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp ../SequencePlayer/interpolator.cpp PreviewController.cpp GaitGenerator.cpp SimpleFullbodyInverseKinematicsSolver.h ../TorqueFilter/IIRFilter.cpp Integrator.cpp TwoDofController.cpp Stabilizer.cpp FootGuidedController.cpp)
 set(libs hrpModel-3.1 hrpCollision-3.1 hrpUtil-3.1 hrpsysBaseStub)
 add_library(AutoBalancer SHARED ${comp_sources})
 target_link_libraries(AutoBalancer ${libs})
@@ -7,7 +7,7 @@ set_target_properties(AutoBalancer PROPERTIES PREFIX "")
 add_executable(testPreviewController testPreviewController.cpp ../ImpedanceController/RatsMatrix.cpp PreviewController.cpp)
 target_link_libraries(testPreviewController ${libs})
 
-add_executable(testGaitGenerator testGaitGenerator.cpp ../ImpedanceController/RatsMatrix.cpp PreviewController.cpp GaitGenerator.cpp ../SequencePlayer/interpolator.cpp)
+add_executable(testGaitGenerator testGaitGenerator.cpp ../ImpedanceController/RatsMatrix.cpp PreviewController.cpp GaitGenerator.cpp ../SequencePlayer/interpolator.cpp FootGuidedController.cpp)
 target_link_libraries(testGaitGenerator ${libs})
 set_target_properties(testGaitGenerator PROPERTIES COMPILE_DEFINITIONS "FOR_TESTGAITGENERATOR=1")
 
