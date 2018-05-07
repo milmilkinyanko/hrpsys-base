@@ -216,10 +216,9 @@ void Stabilizer::execStabilizer()
   loop++;
 
   if (is_legged_robot) {
-    getCurrentParameters();
     getTargetParameters();
     getActualParameters();
-    // calcStateForEmergencySignal();
+    calcStateForEmergencySignal();
     switch (control_mode) {
     case MODE_IDLE:
       break;
@@ -246,6 +245,7 @@ void Stabilizer::execStabilizer()
       control_mode = MODE_AIR;
       break;
     }
+    getCurrentParameters();
   }
 }
 
@@ -1324,47 +1324,47 @@ void Stabilizer::calcStateForEmergencySignal()
       initial_cp_too_large_error = true;
     }
   }
-  // tilt Check
+  // tilt Check // cannot use
   hrp::Vector3 fall_direction = hrp::Vector3::Zero();
   bool is_falling = false, will_fall = false;
-  {
-    double total_force = 0.0;
-    for (size_t i = 0; i < stikp.size(); i++) {
-      if (is_zmp_calc_enable[i]) {
-        if (is_walking) {
-          if (projected_normal.at(i).norm() > sin(tilt_margin[0])) {
-            will_fall = true;
-            if (m_will_fall_counter[i] % static_cast <int>(1.0/dt) == 0 ) { // once per 1.0[s]
-              std::cerr << "[" << print_str << "] ["
-                        << "] " << stikp[i].ee_name << " cannot support total weight, "
-                        << "swgsuptime : " << controlSwingSupportTime[i] << ", state : " << ref_contact_states[i]
-                        << ", otherwise robot will fall down toward " << "(" << projected_normal.at(i)(0) << "," << projected_normal.at(i)(1) << ") direction" << std::endl;
-            }
-            m_will_fall_counter[i]++;
-          } else {
-            m_will_fall_counter[i] = 0;
-          }
-        }
-        fall_direction += projected_normal.at(i) * act_force.at(i).norm();
-        total_force += act_force.at(i).norm();
-      }
-    }
-    if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
-      fall_direction = fall_direction / total_force;
-    } else {
-      fall_direction = hrp::Vector3::Zero();
-    }
-    if (fall_direction.norm() > sin(tilt_margin[1])) {
-      is_falling = true;
-      if (m_is_falling_counter % static_cast <int>(0.2/dt) == 0) { // once per 0.2[s]
-        std::cerr << "[" << print_str << "] ["
-                  << "] robot is falling down toward " << "(" << fall_direction(0) << "," << fall_direction(1) << ") direction" << std::endl;
-      }
-      m_is_falling_counter++;
-    } else {
-      m_is_falling_counter = 0;
-    }
-  }
+  // {
+  //   double total_force = 0.0;
+  //   for (size_t i = 0; i < stikp.size(); i++) {
+  //     if (is_zmp_calc_enable[i]) {
+  //       if (is_walking) {
+  //         if (projected_normal.at(i).norm() > sin(tilt_margin[0])) {
+  //           will_fall = true;
+  //           if (m_will_fall_counter[i] % static_cast <int>(1.0/dt) == 0 ) { // once per 1.0[s]
+  //             std::cerr << "[" << print_str << "] ["
+  //                       << "] " << stikp[i].ee_name << " cannot support total weight, "
+  //                       << "swgsuptime : " << controlSwingSupportTime[i] << ", state : " << ref_contact_states[i]
+  //                       << ", otherwise robot will fall down toward " << "(" << projected_normal.at(i)(0) << "," << projected_normal.at(i)(1) << ") direction" << std::endl;
+  //           }
+  //           m_will_fall_counter[i]++;
+  //         } else {
+  //           m_will_fall_counter[i] = 0;
+  //         }
+  //       }
+  //       fall_direction += projected_normal.at(i) * act_force.at(i).norm();
+  //       total_force += act_force.at(i).norm();
+  //     }
+  //   }
+  //   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
+  //     fall_direction = fall_direction / total_force;
+  //   } else {
+  //     fall_direction = hrp::Vector3::Zero();
+  //   }
+  //   if (fall_direction.norm() > sin(tilt_margin[1])) {
+  //     is_falling = true;
+  //     if (m_is_falling_counter % static_cast <int>(0.2/dt) == 0) { // once per 0.2[s]
+  //       std::cerr << "[" << print_str << "] ["
+  //                 << "] robot is falling down toward " << "(" << fall_direction(0) << "," << fall_direction(1) << ") direction" << std::endl;
+  //     }
+  //     m_is_falling_counter++;
+  //   } else {
+  //     m_is_falling_counter = 0;
+  //   }
+  // }
   // Total check for emergency signal
   switch (emergency_check_mode) {
   case OpenHRP::AutoBalancerService::NO_CHECK:

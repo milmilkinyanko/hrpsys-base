@@ -383,6 +383,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_wrenchesIn.resize(nforce);
     st->wrenches.resize(nforce);
     st->ref_wrenches.resize(nforce);
+    st->limbCOPOffset.resize(nforce);
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -587,7 +588,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if ( is_legged_robot ) {
       // For parameters
-      fik->storeCurrentParameters();
       getTargetParameters();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
@@ -652,6 +652,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
                   << "] Finished cleanup" << std::endl;
         control_mode = MODE_IDLE;
       }
+      fik->storeCurrentParameters();
     }
 
     // Write Outport
@@ -780,6 +781,12 @@ void AutoBalancer::setABCData2ST()
       st->wrenches[j][i] = m_wrenches[j].data[i];
       st->ref_wrenches[j][i] = m_ref_force[j].data[i];
     }
+  }
+  for (size_t i = 0; i < st->limbCOPOffset.size(); i++) {
+    st->limbCOPOffset[i](0) = m_limbCOPOffset[i].data.x;
+    st->limbCOPOffset[i](1) = m_limbCOPOffset[i].data.y;
+    st->limbCOPOffset[i](2) = m_limbCOPOffset[i].data.z;
+    st->stikp[i].localCOPPos = st->stikp[i].localp + st->stikp[i].localR * hrp::Vector3(st->limbCOPOffset[i](0), 0, st->limbCOPOffset[i](2));
   }
   st->rpy(0) = m_rpy.data.r;
   st->rpy(1) = m_rpy.data.p;
