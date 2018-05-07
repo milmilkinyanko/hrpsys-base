@@ -131,6 +131,7 @@ public:
   hrp::Matrix33 baseRot;
   hrp::Vector3 zmpRef, basePos, rpy, baseRpy;
   std::vector<hrp::dvector>  wrenches, ref_wrenches;
+  std::vector<hrp::Vector3>  limbCOPOffset;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
