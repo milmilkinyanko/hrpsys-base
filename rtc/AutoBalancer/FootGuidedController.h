@@ -15,7 +15,7 @@ template <typename T> int sgn(T val) {
 class foot_guided_control_base
 {
 private:
-  void calc_u(const std::size_t N, const double ref_dcm, const double ref_vrp);
+  void calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp);
   void truncate_u();
   void calc_x_k();
 protected:
@@ -51,19 +51,19 @@ public:
   // destructor
   ~foot_guided_control_base() {};
   // update function
-  void update_control(double& vrp, const std::size_t N, const double ref_dcm, const double ref_vrp);
+  void update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp);
   void update_state(double& pos);
-  void update(double& vrp, double& pos, const std::size_t N, const double ref_dcm, const double ref_vrp);
+  void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
   void set_mat(const double dz);
   void set_pos (const double x) { x_k(0) = x; }
-  void set_vrp (const double u) { u_k = u; }
+  void set_zmp (const double u) { u_k = u; }
   void set_offset (const double offset) { w_k_offset = offset; }
   // get_function
   void get_pos (double& ret) { ret = x_k(0); }
   void get_vel (double& ret) { ret = x_k(1); }
   void get_acc (double& ret) { ret = xi * xi * ( x_k(0) - u_k ); }
-  void get_vrp (double& ret) { ret = u_k; }
+  void get_zmp (double& ret) { ret = u_k; }
   double get_xi() { return xi; }
   double get_dz() { return dz; }
 };
@@ -88,20 +88,20 @@ public:
     delete[] controllers;
   };
   // update function
-  void update_control(hrp::Vector3& p_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_vrp)
+  void update_control(hrp::Vector3& p_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].update_control(p_ret[i], N, ref_dcm[i], ref_vrp[i]);
+      controllers[i].update_control(p_ret[i], N, ref_dcm[i], ref_zmp[i]);
   }
   void update_state(hrp::Vector3& x_ret)
   {
     for (size_t i = 0; i < dim; i++)
       controllers[i].update_state(x_ret[i]);
   }
-  void update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_vrp)
+  void update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].update(p_ret[i], x_ret[i], N, ref_dcm[i], ref_vrp[i]);
+      controllers[i].update(p_ret[i], x_ret[i], N, ref_dcm[i], ref_zmp[i]);
   }
   // set function
   void set_offset(const hrp::Vector3& offset)
