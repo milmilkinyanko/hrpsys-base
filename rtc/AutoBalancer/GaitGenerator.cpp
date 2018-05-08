@@ -764,9 +764,10 @@ namespace rats
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index()), remain_count(lcg.get_lcg_count() + 1), ending_count(cur_steps.front().step_time/dt);
     hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
     hrp::Vector3 ref_zmp(hrp::Vector3::Zero()), ref_dcm(hrp::Vector3::Zero()), acc;
+    bool use_double_support = false;
     // decide ref zmp and ref dcm and remain count
     for (std::vector<step_node>::iterator it = cur_steps.begin(); it != cur_steps.end(); it++) {
-      ref_zmp += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
+      ref_zmp += it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
     }
     ref_zmp /= cur_steps.size();
     for (std::vector<step_node>::iterator it = dist_steps.begin(); it != dist_steps.end(); it++) {
@@ -788,13 +789,22 @@ namespace rats
         remain_count = 1;
       }
     }
+    if (use_double_support) {
+      std::vector<hrp::Vector3> sfzos; // unused
+      bool refzmp_exist_p = rg.get_current_refzmp(ref_zmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
+      if (!refzmp_exist_p) {
+        ref_zmp = prev_que_rzmp;
+      } else {
+        prev_que_rzmp = ref_zmp;
+      }
+    }
     // calc zmp and cog
     if (!is_first_count) // TODO remain_count == ending_count <= cur_steps and dist_steps haven't updated
       foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, ref_zmp);
     foot_guided_controller_ptr->get_acc(acc);
     foot_guided_controller_ptr->update_state(cog);
     // convert zmp -> refzmp
-    refzmp = zmp - dz;
+    refzmp = zmp;
     // set frist count flag
     if (is_first_count) is_first_count = false;
     if (remain_count == 1) is_first_count = true;
