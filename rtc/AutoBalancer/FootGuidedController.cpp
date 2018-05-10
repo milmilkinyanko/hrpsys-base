@@ -39,14 +39,10 @@ void foot_guided_control_base::set_mat()
 
 void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp)
 {
-  if ( N > 0 ) {
-    w_k = Phi * x_k;
-    double dxsp = ref_dcm - ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, T = N * dt;
-    T = std::max(50e-3, T); // lower limit, refer ; Bipedal walking control based on capture point dynamics
-    u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
-  } else {
-    u_k = ref_zmp;
-  }
+  w_k = Phi * x_k;
+  double dxsp = ref_dcm - ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, T = N * dt;
+  T = std::max(55e-3, T); // lower limit, refer ; Bipedal walking control based on capture point dynamics
+  u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
 }
 
 
