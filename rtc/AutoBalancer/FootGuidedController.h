@@ -38,14 +38,14 @@ public:
     : dt(_dt), dz(_dz), g(_g),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
-    set_mat(dz);
+    set_mat();
   }
   foot_guided_control_base(const double _dt,  const double _dz, const double init_xk,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
     : dt(_dt), dz(_dz), g(_g),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
-    set_mat(dz);
+    set_mat();
     x_k(0) = init_xk;
   }
   // destructor
@@ -55,10 +55,14 @@ public:
   void update_state(double& pos);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
-  void set_mat(const double dz);
+  void set_mat();
   void set_pos (const double x) { x_k(0) = x; }
   void set_zmp (const double u) { u_k = u; }
   void set_offset (const double offset) { w_k_offset = offset; }
+  void set_dz(const double _dz) {
+    dz = _dz;
+    set_mat();
+  };
   // get_function
   void get_pos (double& ret) { ret = x_k(0); }
   void get_vel (double& ret) { ret = x_k(1); }
@@ -114,6 +118,11 @@ public:
   void get_acc(hrp::Vector3& ret) {
     for (size_t i = 0; i < dim; i++)
       controllers[i].get_acc(ret[i]);
+  }
+  void set_dz(const double _dz) {
+    for (size_t i = 0; i < dim; i++) {
+      controllers[i].set_dz(_dz);
+    }
   }
 };
 #endif /*FOOT_H_*/

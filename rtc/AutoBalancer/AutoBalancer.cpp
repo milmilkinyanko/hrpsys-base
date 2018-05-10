@@ -664,6 +664,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         control_mode = MODE_IDLE;
       }
       fik->storeCurrentParameters();
+      m_robot->calcForwardKinematics();
+      hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
+      ref_cog(2) = tmp_ref_cog(2);
     }
 
     // Write Outport
@@ -827,7 +830,7 @@ void AutoBalancer::getTargetParameters()
     coordinates tmp_fix_coords;
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
-      gg_solved = gg->proc_one_tick();
+      gg_solved = gg->proc_one_tick(ref_cog);
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
       tmp_fix_coords = fix_leg_coords;
@@ -1428,7 +1431,7 @@ bool AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick() );
+  while ( !gg->proc_one_tick(ref_cog) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
