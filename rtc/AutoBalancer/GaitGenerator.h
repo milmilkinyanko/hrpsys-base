@@ -1134,13 +1134,13 @@ namespace rats
         foot_guided_controller_ptr = NULL;
       }
     };
-    void initialize_gait_parameter (const hrp::Vector3& cog,
+    void initialize_gait_parameter (const hrp::Vector3& cur_cog,
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,
                                     const double delay = 1.6);
-    bool proc_one_tick ();
+    bool proc_one_tick (const hrp::Vector3& cur_cog = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
-    void update_foot_guided_controller(bool& solved);
+    void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog);
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void modify_footsteps_for_recovery ();
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)

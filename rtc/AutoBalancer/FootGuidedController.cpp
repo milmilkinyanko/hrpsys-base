@@ -2,7 +2,7 @@
 #include "FootGuidedController.h"
 
 
-void foot_guided_control_base::set_mat(const double dz)
+void foot_guided_control_base::set_mat()
 {
   xi = std::sqrt(g / dz);
   h = 1 + xi * dt;
