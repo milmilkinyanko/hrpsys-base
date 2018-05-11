@@ -338,17 +338,15 @@ void Stabilizer::getTargetParameters ()
     // initialize for new_refzmp
     new_refzmp = ref_zmp;
     rel_cog = m_robot->rootLink()->R.transpose() * (ref_cog-m_robot->rootLink()->p);
+    ref_cogvel = (ref_cog - prev_ref_cog)/dt;
+    prev_ref_cog = ref_cog;
     // convert world (current-tmp) => local (foot_origin)
     zmp_origin_off = ref_zmp(2) - foot_origin_pos(2);
     ref_zmp = foot_origin_rot.transpose() * (ref_zmp - foot_origin_pos);
     ref_cog = foot_origin_rot.transpose() * (ref_cog - foot_origin_pos);
     new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
-    if (ref_contact_states != prev_ref_contact_states) {
-      ref_cogvel = (foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * ref_cogvel;
-    } else {
-      ref_cogvel = (ref_cog - prev_ref_cog)/dt;
-    }
-    prev_ref_foot_origin_rot = ref_foot_origin_rot = foot_origin_rot;
+    ref_cogvel = foot_origin_rot.transpose() * ref_cogvel;
+    ref_foot_origin_rot = foot_origin_rot;
     for (size_t i = 0; i < stikp.size(); i++) {
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
@@ -368,7 +366,6 @@ void Stabilizer::getTargetParameters ()
   } else {
     ref_cogvel = (ref_cog - prev_ref_cog)/dt;
   } // st_algorithm == OpenHRP::AutoBalancerService::EEFM
-  prev_ref_cog = ref_cog;
   // Calc swing support limb gain param
   calcSwingSupportLimbGain();
 }
