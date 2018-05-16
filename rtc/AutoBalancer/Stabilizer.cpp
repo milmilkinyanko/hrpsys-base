@@ -217,7 +217,7 @@ void Stabilizer::execStabilizer()
 
   if (is_legged_robot) {
     getTargetParameters();
-    getActualParameters();
+    getActualParametersForST();
     calcStateForEmergencySignal();
     switch (control_mode) {
     case MODE_IDLE:
@@ -347,6 +347,7 @@ void Stabilizer::getTargetParameters ()
     new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
     ref_cogvel = foot_origin_rot.transpose() * ref_cogvel;
     ref_foot_origin_rot = foot_origin_rot;
+    ref_foot_origin_pos = foot_origin_pos;
     for (size_t i = 0; i < stikp.size(); i++) {
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
@@ -424,12 +425,13 @@ void Stabilizer::getActualParameters ()
     act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
     act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
     //act_cogvel = foot_origin_rot.transpose() * act_cogvel;
-    if (ref_contact_states != prev_ref_contact_states) {
+    if ((foot_origin_pos - prev_act_foot_origin_pos).norm() > 1e-2) { // assume that origin_pos changes more than 1cm when contact states change
       act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;
     } else {
       act_cogvel = (act_cog - prev_act_cog)/dt;
     }
     prev_act_foot_origin_rot = foot_origin_rot;
+    prev_act_foot_origin_pos = foot_origin_pos;
     act_cogvel = act_cogvel_filter->passFilter(act_cogvel);
     prev_act_cog = act_cog;
     //act_root_rot = m_robot->rootLink()->R;
@@ -445,7 +447,40 @@ void Stabilizer::getActualParameters ()
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
     // <= Actual foot_origin frame
+  }
+}
 
+void Stabilizer::getActualParametersForST ()
+{
+  // Actual world frame =>
+  hrp::Vector3 foot_origin_pos;
+  hrp::Matrix33 foot_origin_rot;
+  if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    // update by current joint angles
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_robot->joint(i)->q = qCurrent[i];
+    }
+    // tempolary
+    m_robot->rootLink()->p = hrp::Vector3::Zero();
+    m_robot->calcForwardKinematics();
+    hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
+    hrp::Matrix33 senR = sen->link->R * sen->localR;
+    hrp::Matrix33 act_Rs(hrp::rotFromRpy(rpy));
+    //hrp::Matrix33 act_Rs(hrp::rotFromRpy(m_rpy.data.r*0.5, m_rpy.data.p*0.5, m_rpy.data.y*0.5));
+    m_robot->rootLink()->R = act_Rs * (senR.transpose() * m_robot->rootLink()->R);
+    m_robot->calcForwardKinematics();
+    act_base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
+    calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
+  } else {
+    for ( int i = 0; i < m_robot->numJoints(); i++ ) {
+      m_robot->joint(i)->q = qorg[i];
+    }
+    m_robot->rootLink()->p = current_root_p;
+    m_robot->rootLink()->R = current_root_R;
+    m_robot->calcForwardKinematics();
+  }
+
+  if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
     // Actual world frame =>
     // new ZMP calculation
     // Kajita's feedback law

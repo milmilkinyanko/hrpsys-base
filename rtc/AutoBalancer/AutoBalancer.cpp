@@ -588,6 +588,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if ( is_legged_robot ) {
       // For parameters
+      setActData2ST();
+      st->getActualParameters();
       getTargetParameters();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
@@ -753,7 +755,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
     }
     setABCData2ST();
-
     st->execStabilizer();
 
     if ( m_qRef.data.length() != 0 ) { // initialized
@@ -767,10 +768,24 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     return RTC::RTC_OK;
 }
 
-void AutoBalancer::setABCData2ST()
+void AutoBalancer::setActData2ST()
 {
   for ( int i = 0; i < m_robot->numJoints(); i++ ) {
     st->qCurrent[i] =  m_qCurrent.data[i];
+  }
+  for (size_t j = 0; j < st->wrenches.size(); j++) {
+    for (size_t i = 0; i < 6; i++) {
+      st->wrenches[j][i] = m_wrenches[j].data[i];
+    }
+  }
+  st->rpy(0) = m_rpy.data.r;
+  st->rpy(1) = m_rpy.data.p;
+  st->rpy(2) = m_rpy.data.y;
+}
+
+void AutoBalancer::setABCData2ST()
+{
+  for ( int i = 0; i < m_robot->numJoints(); i++ ) {
     st->qRef[i] =  m_robot->joint(i)->q;
     st->qRefSeq[i] =  m_qRefSeq.data[i];
   }
@@ -781,7 +796,6 @@ void AutoBalancer::setABCData2ST()
   }
   for (size_t j = 0; j < st->wrenches.size(); j++) {
     for (size_t i = 0; i < 6; i++) {
-      st->wrenches[j][i] = m_wrenches[j].data[i];
       st->ref_wrenches[j][i] = m_ref_force[j].data[i];
     }
   }
@@ -791,9 +805,6 @@ void AutoBalancer::setABCData2ST()
     st->limbCOPOffset[i](2) = m_limbCOPOffset[i].data.z;
     st->stikp[i].localCOPPos = st->stikp[i].localp + st->stikp[i].localR * hrp::Vector3(st->limbCOPOffset[i](0), 0, st->limbCOPOffset[i](2));
   }
-  st->rpy(0) = m_rpy.data.r;
-  st->rpy(1) = m_rpy.data.p;
-  st->rpy(2) = m_rpy.data.y;
   st->zmpRef = rel_ref_zmp;
   st->basePos = ref_basePos;
   st->baseRpy = baseRpy;
@@ -819,7 +830,8 @@ void AutoBalancer::getTargetParameters()
     coordinates tmp_fix_coords;
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
-      gg_solved = gg->proc_one_tick(ref_cog);
+      hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+      gg_solved = gg->proc_one_tick(act_cog);
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
       tmp_fix_coords = fix_leg_coords;
@@ -1314,6 +1326,7 @@ bool AutoBalancer::startWalking ()
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
     return false;
   }
+  hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   {
     Guard guard(m_mutex);
     fik->resetIKFailParam();
@@ -1331,10 +1344,10 @@ bool AutoBalancer::startWalking ()
     for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
         init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
     gg->set_default_zmp_offsets(default_zmp_offsets);
-    gg->initialize_gait_parameter(ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+    gg->initialize_gait_parameter(act_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(ref_cog) );
+  while ( !gg->proc_one_tick(act_cog) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
