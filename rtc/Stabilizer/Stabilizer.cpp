@@ -994,7 +994,7 @@ void Stabilizer::getActualParameters ()
                                              new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                              tmp_total_fz, dt,
                                              DEBUGP, std::string(m_profile.instance_name),
-                                             (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP));
+                                             (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP), is_contact_list);
         } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP) {
           szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
                                                         ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
@@ -1037,6 +1037,8 @@ void Stabilizer::getActualParameters ()
         hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
         //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
         hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        // early touch-down or late lift-off phase
+        if (tmp_total_fz < 1e-5 && !ref_contact_states[i] && act_contact_states[i]) ikp.ref_moment = ee_moment;
         // <= Actual world frame
         // Convert force & moment as foot origin coords relative
         ikp.ref_moment = foot_origin_rot.transpose() * ikp.ref_moment;
