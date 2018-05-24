@@ -56,6 +56,10 @@ public:
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
   void set_mat();
+  void set_act_x_k(const double pos, const double vel)
+  {
+    x_k(0) = pos;
+  }
   void set_pos (const double x) { x_k(0) = x; }
   void set_zmp (const double u) { u_k = u; }
   void set_offset (const double offset) { w_k_offset = offset; }
@@ -112,6 +116,11 @@ public:
   {
     for (size_t i = 0; i < dim; i++)
       controllers[i].set_offset(offset[i]);
+  }
+  void set_act_x_k (const hrp::Vector3& pos, const hrp::Vector3& vel)
+  {
+    for (size_t i = 0; i < dim; i++)
+      controllers[i].set_act_x_k(pos(i), vel(i));
   }
   // get function
   double get_dz() { return controllers[0].get_dz(); }

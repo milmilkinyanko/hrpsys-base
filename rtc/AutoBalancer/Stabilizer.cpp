@@ -489,8 +489,10 @@ void Stabilizer::getActualParametersForST ()
     hrp::Vector3 dcogvel=foot_origin_rot * (ref_cogvel - act_cogvel);
     hrp::Vector3 dzmp=foot_origin_rot * (ref_zmp - act_zmp);
     new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos;
-    for (size_t i = 0; i < 2; i++) {
-      new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
+    if (!is_walking) {
+      for (size_t i = 0; i < 2; i++) {
+        new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
+      }
     }
     if (DEBUGP) {
       // All state variables are foot_origin coords relative
@@ -602,7 +604,7 @@ void Stabilizer::getActualParametersForST ()
     }
 
     // foor modif
-    if (control_mode == MODE_ST) {
+    if (control_mode == MODE_ST && is_walking) {
       hrp::Vector3 f_diff(hrp::Vector3::Zero());
       std::vector<bool> large_swing_f_diff(3, false);
       // moment control
