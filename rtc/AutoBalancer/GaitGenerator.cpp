@@ -652,7 +652,7 @@ namespace rats
     emergency_flg = IDLING;
   };
 
-  bool gait_generator::proc_one_tick (const hrp::Vector3& cur_cog)
+  bool gait_generator::proc_one_tick (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
   {
     solved = false;
     /* update refzmp */
@@ -715,7 +715,7 @@ namespace rats
     // modify footsteps based on diff_cp
     if(modify_footsteps) modify_footsteps_for_recovery();
 
-    update_foot_guided_controller(solved, cur_cog);
+    update_foot_guided_controller(solved, cur_cog, cur_cogvel);
     // update_preview_controller(solved);
 
     rg.update_refzmp();
@@ -756,7 +756,7 @@ namespace rats
     }
   }
 
-  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog)
+  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
   {
     // set param
     solved = true;
@@ -765,6 +765,7 @@ namespace rats
     hrp::Vector3 ref_zmp(hrp::Vector3::Zero()), ref_dcm(hrp::Vector3::Zero()), acc;
     bool use_double_support(false);
     foot_guided_controller_ptr->set_dz(cur_cog(2) - rg.get_refzmp_cur()(2));
+    foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel);
     hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
     // decide ref zmp and ref dcm and remain count
     if (is_first_count) {

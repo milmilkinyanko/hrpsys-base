@@ -259,6 +259,7 @@ class AutoBalancer
   std::string getUseForceModeString ();
   void setActData2ST ();
   void setABCData2ST ();
+  bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -313,6 +314,8 @@ class AutoBalancer
   // Used for ref force balancing.
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
+
+  bool is_ik_converged;
 };
 
 

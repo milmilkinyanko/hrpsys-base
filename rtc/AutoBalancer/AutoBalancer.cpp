@@ -831,7 +831,8 @@ void AutoBalancer::getTargetParameters()
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
-      gg_solved = gg->proc_one_tick(act_cog);
+      hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
+      gg_solved = gg->proc_one_tick(act_cog, act_cogvel);
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
       tmp_fix_coords = fix_leg_coords;
@@ -1245,9 +1246,29 @@ void AutoBalancer::solveFullbodyIK ()
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
+  if (transition_interpolator->isEmpty() && !gg_is_walking && !is_ik_converged) {
+    is_ik_converged = true;
+    for (size_t i = 0; i < 2; i++) {
+      double lvlimit = -1 * 1e-3 * m_dt, uvlimit = 1 * 1e-3 * m_dt; // 1 [mm/s]
+      if(!vlimit(dif_cog(i), lvlimit, uvlimit)) is_ik_converged = false;
+    }
+  }
+
   // Solve IK
   fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
 }
+
+bool AutoBalancer::vlimit(double& ret, const double llimit_value, const double ulimit_value)
+{
+  if (ret > ulimit_value) {
+    ret = ulimit_value;
+    return false;
+  } else if (ret < llimit_value) {
+    ret = llimit_value;
+    return false;
+  }
+  return true;
+};
 
 
 /*
@@ -1327,6 +1348,7 @@ bool AutoBalancer::startWalking ()
     return false;
   }
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+  hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
   {
     Guard guard(m_mutex);
     fik->resetIKFailParam();
@@ -1347,10 +1369,11 @@ bool AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(act_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(act_cog) );
+  while ( !gg->proc_one_tick(act_cog, act_cogvel) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
+    is_ik_converged = false;
   }
   return true;
 }
@@ -2673,7 +2696,12 @@ bool AutoBalancer::getGoPosFootstepsSequence(const double& x, const double& y, c
 void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height)
 {
   hrp::Vector3 target_sbp = hrp::Vector3(0, 0, 0);
-  hrp::Vector3 tmpcog = m_robot->calcCM();
+  hrp::Vector3 tmpcog;
+  if (!gg_is_walking) {
+    tmpcog = m_robot->calcCM();
+  } else {
+    tmpcog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+  }
   if ( use_force == MODE_NO_FORCE ) {
     tmp_input_sbp = tmpcog + sbp_cog_offset;
   } else {
