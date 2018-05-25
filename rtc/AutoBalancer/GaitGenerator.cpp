@@ -636,6 +636,7 @@ namespace rats
       foot_guided_controller_ptr = NULL;
     }
     foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - rg.get_refzmp_cur()(2), cur_cog, gravitational_acceleration);
+    foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);

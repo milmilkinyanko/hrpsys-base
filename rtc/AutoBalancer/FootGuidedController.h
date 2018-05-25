@@ -30,19 +30,20 @@ protected:
   double mu; // friction coefficient
   double dt, g;
   double dz, xi, h, h_;
+  double act_vel_ratio; // how much act_vel is used (0.0 ~ 1.0)
 public:
   // constructor
   foot_guided_control_base() {}
   foot_guided_control_base(const double _dt,  const double _dz,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g),
+    : dt(_dt), dz(_dz), g(_g), act_vel_ratio(1.0),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
   }
   foot_guided_control_base(const double _dt,  const double _dz, const double init_xk,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g),
+    : dt(_dt), dz(_dz), g(_g), act_vel_ratio(1.0),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
@@ -59,6 +60,7 @@ public:
   void set_act_x_k(const double pos, const double vel)
   {
     x_k(0) = pos;
+    x_k(1) = act_vel_ratio * vel + (1.0 - act_vel_ratio) * x_k(1);
   }
   void set_pos (const double x) { x_k(0) = x; }
   void set_zmp (const double u) { u_k = u; }
@@ -67,6 +69,7 @@ public:
     dz = _dz;
     set_mat();
   };
+  void set_act_vel_ratio (const double ratio) { act_vel_ratio = ratio; }
   // get_function
   void get_pos (double& ret) { ret = x_k(0); }
   void get_vel (double& ret) { ret = x_k(1); }
@@ -121,6 +124,11 @@ public:
   {
     for (size_t i = 0; i < dim; i++)
       controllers[i].set_act_x_k(pos(i), vel(i));
+  }
+  void set_act_vel_ratio (const double ratio) {
+    for (size_t i = 0; i < dim; i++) {
+      controllers[i].set_act_vel_ratio(ratio);
+    }
   }
   // get function
   double get_dz() { return controllers[0].get_dz(); }
