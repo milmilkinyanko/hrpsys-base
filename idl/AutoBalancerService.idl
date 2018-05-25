@@ -309,6 +309,8 @@ module OpenHRP
       DblArray2 cp_check_margin;
       /// Margin time ratio for footstep modification before landing [s]
       double margin_time_ratio;
+      /// How much act_vel is used for walking pattern generation (0.0 ~ 1.0)
+      double act_vel_ratio;
     };
 
     /**
