@@ -1343,19 +1343,25 @@ void AutoBalancer::solveSimpleFullbodyIK ()
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
-  if (transition_interpolator->isEmpty() && !gg_is_walking && !is_ik_converged) {
-    is_ik_converged = true;
-    for (size_t i = 0; i < 2; i++) {
-      double lvlimit = -1 * 1e-3 * m_dt, uvlimit = 1 * 1e-3 * m_dt; // 1 [mm/s]
-      if(!vlimit(dif_cog(i), lvlimit, uvlimit)) is_ik_converged = false;
-    }
-  }
+  limit_cogvel(dif_cog);
 
   // Solve IK
   fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
   for (size_t i = 0; i < 2; i++) { // ik loop
     dif_cog = m_robot->calcCM() - ref_cog - dif_ref_act_cog;
+    limit_cogvel(dif_cog);
     fik->solveFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
+  }
+}
+
+void AutoBalancer::limit_cogvel (hrp::Vector3& dif)
+{
+  if (transition_interpolator->isEmpty() && !gg_is_walking && !is_ik_converged) {
+    is_ik_converged = true;
+    for (size_t i = 0; i < 2; i++) {
+      double lvlimit = -5 * 1e-3 * m_dt, uvlimit = 5 * 1e-3 * m_dt; // 5 [mm/s]
+      if(!vlimit(dif(i), lvlimit, uvlimit)) is_ik_converged = false;
+    }
   }
 }
 
