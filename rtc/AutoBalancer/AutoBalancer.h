@@ -319,6 +319,7 @@ class AutoBalancer
   hrp::Vector3 additional_force_applied_point_offset;
 
   bool is_ik_converged;
+  hrp::Vector3 dif_ref_act_cog;
 };
 
 
