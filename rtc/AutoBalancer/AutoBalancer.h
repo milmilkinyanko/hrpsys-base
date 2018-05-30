@@ -259,6 +259,7 @@ class AutoBalancer
   std::string getUseForceModeString ();
   void setActData2ST ();
   void setABCData2ST ();
+  void limit_cogvel (hrp::Vector3& dif);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
 
   // for gg
