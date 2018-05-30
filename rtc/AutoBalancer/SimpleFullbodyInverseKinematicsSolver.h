@@ -146,6 +146,15 @@ public:
             if (it->second.is_ik_enable) solveLimbIK (it->second, it->first, ratio_for_vel, is_transition);
         }
     };
+    void solveFullbodyIKLoop (const hrp::Vector3& _dif_cog, const bool is_transition) {
+      hrp::Vector3 dif_cog(ratio_for_vel*_dif_cog);
+      dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2);
+      m_robot->rootLink()->p = m_robot->rootLink()->p + -1 * move_base_gain * dif_cog;
+      m_robot->calcForwardKinematics();
+      for ( std::map<std::string, IKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if (it->second.is_ik_enable) solveLimbIK (it->second, it->first, ratio_for_vel, is_transition);
+      }
+    }
     // Solve limb IK
     bool solveLimbIK (IKparam& param, const std::string& limb_name, const double ratio_for_vel, const bool is_transition)
     {

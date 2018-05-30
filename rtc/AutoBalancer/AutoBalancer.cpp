@@ -1256,6 +1256,10 @@ void AutoBalancer::solveFullbodyIK ()
 
   // Solve IK
   fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
+  for (size_t i = 0; i < 2; i++) { // ik loop
+    dif_cog = m_robot->calcCM() - ref_cog - dif_ref_act_cog;
+    fik->solveFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
+  }
 }
 
 bool AutoBalancer::vlimit(double& ret, const double llimit_value, const double ulimit_value)
@@ -2701,8 +2705,10 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
   hrp::Vector3 tmpcog;
   if (!gg_is_walking) {
     tmpcog = m_robot->calcCM();
+    dif_ref_act_cog = hrp::Vector3::Zero();
   } else {
     tmpcog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+    dif_ref_act_cog = m_robot->calcCM() - tmpcog;
   }
   if ( use_force == MODE_NO_FORCE ) {
     tmp_input_sbp = tmpcog + sbp_cog_offset;
