@@ -765,8 +765,8 @@ namespace rats
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index()), remain_count(lcg.get_lcg_count()), step_count(cur_steps.front().step_time/dt);
     hrp::Vector3 ref_zmp(hrp::Vector3::Zero()), ref_dcm(hrp::Vector3::Zero()), acc;
     bool use_double_support(false);
+    bool is_start_or_end_phase(false);
     foot_guided_controller_ptr->set_dz(cur_cog(2) - rg.get_refzmp_cur()(2));
-    foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel);
     hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
     // decide ref zmp and ref dcm and remain count
     if (is_first_count) {
@@ -784,10 +784,12 @@ namespace rats
     // for start and stop
     if (step_index == 0 ) { // first double support phase
       ref_zmp = (ref_zmp + ref_dcm) / 2.0;
+      is_start_or_end_phase = true;
     } else if (step_index == step_num - 2) { // second to the last double support phase
       ref_dcm = (ref_zmp + ref_dcm) / 2.0;
     } else if (step_index == step_num - 1) { // last double support phase
       ref_zmp = ref_dcm = (ref_zmp + ref_dcm) / 2.0;
+      is_start_or_end_phase = true;
       remain_count = step_count - finalize_count;
       if (step_count > finalize_count) {
         finalize_count++;
@@ -796,6 +798,7 @@ namespace rats
         remain_count = 1;
       }
     }
+    foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
     if (use_double_support) {
       std::vector<hrp::Vector3> sfzos; // unused
       bool refzmp_exist_p = rg.get_current_refzmp(ref_zmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);

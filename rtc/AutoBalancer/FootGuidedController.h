@@ -57,10 +57,14 @@ public:
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
   void set_mat();
-  void set_act_x_k(const double pos, const double vel)
+  void set_act_x_k(const double pos, const double vel, const bool is_start_or_end_phase)
   {
     x_k(0) = pos;
-    x_k(1) = act_vel_ratio * vel + (1.0 - act_vel_ratio) * x_k(1);
+    if (is_start_or_end_phase) {
+      x_k(1) = 0.01 * vel + 0.99 * x_k(1); // too much oscillate in start or end phase
+    } else {
+      x_k(1) = act_vel_ratio * vel + (1.0 - act_vel_ratio) * x_k(1);
+    }
   }
   void set_pos (const double x) { x_k(0) = x; }
   void set_zmp (const double u) { u_k = u; }
@@ -120,10 +124,10 @@ public:
     for (size_t i = 0; i < dim; i++)
       controllers[i].set_offset(offset[i]);
   }
-  void set_act_x_k (const hrp::Vector3& pos, const hrp::Vector3& vel)
+  void set_act_x_k (const hrp::Vector3& pos, const hrp::Vector3& vel, const bool is_start_or_end_phase)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].set_act_x_k(pos(i), vel(i));
+      controllers[i].set_act_x_k(pos(i), vel(i), is_start_or_end_phase);
   }
   void set_act_vel_ratio (const double ratio) {
     for (size_t i = 0; i < dim; i++) {
