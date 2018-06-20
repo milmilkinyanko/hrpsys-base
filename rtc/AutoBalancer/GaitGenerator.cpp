@@ -844,7 +844,7 @@ namespace rats
     double stride_r = std::pow(cur_fs.worldcoords.pos(0), 2.0) + std::pow(cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1), 2.0);
     // front, rear, outside limitation
     double stride_r_limit = std::pow(std::max(limit[cur_fs.worldcoords.pos(0) >= 0 ? 0 : 3], limit[1] - limit[4]), 2.0);
-    if (stride_r > stride_r_limit && (cur_leg == LLEG ? 1 : -1) * cur_fs.worldcoords.pos(1) > footstep_param.leg_default_translate_pos[LLEG](1) - footstep_param.leg_default_translate_pos[RLEG](1)) {
+    if (stride_r > stride_r_limit) {
       cur_fs.worldcoords.pos(0) *= sqrt(stride_r_limit / stride_r);
       cur_fs.worldcoords.pos(1) = footstep_param.leg_default_translate_pos[cur_leg](1) - footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) +
                                   sqrt(stride_r_limit / stride_r) * (cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1));
