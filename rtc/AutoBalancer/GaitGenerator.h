@@ -1055,7 +1055,8 @@ namespace rats
     bool use_inside_step_limitation;
     std::map<leg_type, std::string> leg_type_map;
     coordinates initial_foot_mid_coords;
-    bool solved, is_first_count;
+    bool solved, is_first_count, is_preview;
+    size_t remain_count;
     double leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps;
     hrp::Vector3 diff_cp, modified_d_footstep;
@@ -1087,7 +1088,7 @@ namespace rats
       }
       _footstep_nodes_list.push_back(sns);
     };
-    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl);
+    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero());
     void calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const;
     void calc_next_coords_velocity_mode (std::vector< std::vector<step_node> >& ret_list, const size_t idx, const size_t future_step_num = 3);
     void append_footstep_list_velocity_mode ();
@@ -1115,7 +1116,7 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL) {
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
@@ -1142,8 +1143,10 @@ namespace rats
     bool proc_one_tick (const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel);
+    void set_first_count_flag ();
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void modify_footsteps_for_recovery ();
+    void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
     {
         std::vector<step_node> tmp_sns;
