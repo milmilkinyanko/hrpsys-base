@@ -148,7 +148,7 @@ public:
     };
     void solveFullbodyIKLoop (const hrp::Vector3& _dif_cog, const bool is_transition) {
       hrp::Vector3 dif_cog(ratio_for_vel*_dif_cog);
-      dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2);
+      dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2) - d_root_height;
       m_robot->rootLink()->p = m_robot->rootLink()->p + -1 * move_base_gain * dif_cog;
       m_robot->calcForwardKinematics();
       for ( std::map<std::string, IKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
