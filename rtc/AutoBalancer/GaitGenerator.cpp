@@ -719,7 +719,10 @@ namespace rats
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel);
-      // modify_footsteps_for_foot_guided(cur_cog, cur_cogvel); // TMP
+      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2 &&
+          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio))) {
+        modify_footsteps_for_foot_guided(cur_cog, cur_cogvel); // TMP
+      }
       set_first_count_flag();
     }
 
@@ -765,11 +768,12 @@ namespace rats
   {
     // set param
     solved = true;
-    std::vector<step_node> cur_steps(lcg.get_support_leg_steps()), dist_steps(lcg.get_swing_leg_dst_steps());
+    std::vector<step_node> cur_steps(lcg.get_support_leg_steps()), dist_steps(footstep_nodes_list[lcg.get_footstep_index()]);
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index()), step_count(cur_steps.front().step_time/dt);
-    hrp::Vector3 ref_zmp(hrp::Vector3::Zero()), ref_dcm(hrp::Vector3::Zero()), acc;
+    hrp::Vector3 ref_dcm(hrp::Vector3::Zero()), acc;
     bool use_double_support(false);
     bool is_start_or_end_phase(false);
+    fg_ref_zmp = hrp::Vector3::Zero();
     remain_count = lcg.get_lcg_count();
     foot_guided_controller_ptr->set_dz(cur_cog(2) - rg.get_refzmp_cur()(2));
     hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
@@ -779,21 +783,21 @@ namespace rats
       dist_steps = footstep_nodes_list[step_index];
     }
     for (std::vector<step_node>::iterator it = cur_steps.begin(); it != cur_steps.end(); it++) {
-      ref_zmp += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r); // ref_zmp has height here
+      fg_ref_zmp += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r); // ref_zmp has height here
     }
-    ref_zmp /= cur_steps.size();
+    fg_ref_zmp /= cur_steps.size();
     for (std::vector<step_node>::iterator it = dist_steps.begin(); it != dist_steps.end(); it++) {
       ref_dcm += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
     }
     ref_dcm /= dist_steps.size();
     // for start and stop
     if (step_index == 0 ) { // first double support phase
-      ref_zmp = (ref_zmp + ref_dcm) / 2.0;
+      fg_ref_zmp = (fg_ref_zmp + ref_dcm) / 2.0;
       is_start_or_end_phase = true;
     } else if (step_index == step_num - 2) { // second to the last double support phase
-      ref_dcm = (ref_zmp + ref_dcm) / 2.0;
+      ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
     } else if (step_index == step_num - 1) { // last double support phase
-      ref_zmp = ref_dcm = (ref_zmp + ref_dcm) / 2.0;
+      fg_ref_zmp = ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
       is_start_or_end_phase = true;
       remain_count = step_count - finalize_count;
       if (step_count > finalize_count) {
@@ -806,16 +810,16 @@ namespace rats
     foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
     if (use_double_support) {
       std::vector<hrp::Vector3> sfzos; // unused
-      bool refzmp_exist_p = rg.get_current_refzmp(ref_zmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
-      ref_zmp += dz;
+      bool refzmp_exist_p = rg.get_current_refzmp(fg_ref_zmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
+      fg_ref_zmp += dz;
       if (!refzmp_exist_p) {
-        ref_zmp = prev_que_rzmp;
+        fg_ref_zmp = prev_que_rzmp;
       } else {
-        prev_que_rzmp = ref_zmp;
+        prev_que_rzmp = fg_ref_zmp;
       }
     }
     // calc zmp and cog
-    foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, ref_zmp);
+    foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp);
     foot_guided_controller_ptr->get_acc(acc);
     foot_guided_controller_ptr->update_state(cog);
     // convert zmp -> refzmp
@@ -921,10 +925,35 @@ namespace rats
 
   void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
   {
+    double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
+    hrp::Vector3 cur_cp = cur_cog + cur_cogvel / omega - fg_ref_zmp;
+    bool is_modify = false;
+    double support_r = 0.05;
+    double remain_time = remain_count * dt;
+    hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+    hrp::Vector3 next_step_pos = orig_footstep_pos - fg_ref_zmp;
+    hrp::Vector3 d_footstep = hrp::Vector3::Zero();
+    if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0)) {
+      modified_d_footstep = hrp::Vector3::Zero(); // for go-velocity
+    }
+    if ((next_step_pos.head(2) - std::exp(omega * remain_time) * cur_cp.head(2)).norm() > ((std::exp(omega * remain_time) - 1) * support_r)) {
+      d_footstep = ((std::exp(omega * remain_time) - 1) * support_r) / (next_step_pos.head(2) - std::exp(omega * remain_time) * cur_cp.head(2)).norm() * (next_step_pos - std::exp(omega * remain_time) * cur_cp) + std::exp(omega * remain_time) * cur_cp - next_step_pos;
+      d_footstep(2) = 0.0;
+      is_modify = true;
+    }
+    if (is_modify) {
+      footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+      limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
+      d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
+      for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+        footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
+      }
+    }
     overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
     // overwrite zmp
     overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
     overwrite_footstep_nodes_list.clear();
+    modified_d_footstep += d_footstep;
   }
 
   /* generate vector of step_node from :go-pos params
