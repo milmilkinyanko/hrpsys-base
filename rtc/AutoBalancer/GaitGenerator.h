@@ -26,6 +26,7 @@ namespace rats
     enum orbit_type {SHUFFLING, CYCLOID, RECTANGLE, STAIR, CYCLOIDDELAY, CYCLOIDDELAYKICK, CROSS};
     enum leg_type {RLEG, LLEG, RARM, LARM, BOTH, ALL};
     enum stride_limitation_type {SQUARE, CIRCLE};
+    enum swing_phase_type {LIFTOFF, TOUCHDOWN};
     std::string leg_type_to_leg_type_string (const leg_type l_r);
 
     struct step_node
@@ -420,7 +421,8 @@ namespace rats
       double final_distance_weight;
       double time_offset_xy2z; // [s]
       size_t one_step_count, current_count, double_support_count_before, double_support_count_after; // time/dt
-      virtual double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height) = 0;
+      swing_phase_type spt;
+      virtual double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current) = 0;
     public:
       delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0) {};
       ~delay_hoffarbib_trajectory_generator() { };
@@ -434,6 +436,13 @@ namespace rats
         current_count = 0;
         double_support_count_before = (default_double_support_ratio_before*one_step_count);
         double_support_count_after = (default_double_support_ratio_after*one_step_count);
+        spt = LIFTOFF;
+      };
+      void reset_one_step_count (const size_t _one_step_len, const double default_double_support_ratio_before, const double default_double_support_ratio_after)
+      {
+        one_step_count = _one_step_len;
+        double_support_count_before = (default_double_support_ratio_before*one_step_count);
+        double_support_count_after = (default_double_support_ratio_after*one_step_count);
       };
       void reset_all (const double _dt, const size_t _one_step_len,
                       const double default_double_support_ratio_before, const double default_double_support_ratio_after,
@@ -445,7 +454,7 @@ namespace rats
           set_swing_trajectory_final_distance_weight(_final_distance_weight);
           set_swing_trajectory_time_offset_xy2z(_time_offset_xy2z);
       };
-      void get_trajectory_point (hrp::Vector3& ret, const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      void get_trajectory_point (hrp::Vector3& ret, const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current = hrp::Vector3::Zero()) // TODO : support only rectangle
       {
         if ( current_count <= double_support_count_before ) { // first double support phase
           pos = start;
@@ -459,29 +468,20 @@ namespace rats
         if ( double_support_count_before <= current_count && current_count < one_step_count - double_support_count_after ) { // swing phase
           size_t swing_remain_count = one_step_count - current_count - double_support_count_after;
           size_t swing_one_step_count = one_step_count - double_support_count_before - double_support_count_after;
-          double final_path_distance_ratio = calc_antecedent_path(start, goal, height);
+          double final_path_distance_ratio = calc_antecedent_path(start, goal, height, current);
           size_t tmp_time_offset_count = time_offset/dt;
           //size_t final_path_count = 0; // Revert to previous version
           size_t final_path_count = final_path_distance_ratio * swing_one_step_count;
           if (final_path_count>static_cast<size_t>(time_offset_xy2z/dt)) final_path_count = static_cast<size_t>(time_offset_xy2z/dt);
-          // XY interpolation
-          if (swing_remain_count > final_path_count+tmp_time_offset_count) { // antecedent path is still interpolating
-            hrp::Vector3 tmpgoal = interpolate_antecedent_path((swing_one_step_count - swing_remain_count) / static_cast<double>(swing_one_step_count - (final_path_count+tmp_time_offset_count)));
-            for (size_t i = 0; i < 2; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), time_offset, tmpgoal(i));
-          } else if (swing_remain_count > final_path_count) { // antecedent path already reached to goal
-            double tmprt = (swing_remain_count-final_path_count)*dt;
-            for (size_t i = 0; i < 2; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), tmprt, goal(i));
-          } else {
-            for (size_t i = 0; i < 2; i++) pos(i) = goal(i);
-          }
-          // Z interpolation
+          // XYZ interpolation
+          if (static_cast<double>(swing_remain_count) / static_cast<double>(swing_one_step_count) <= 0.5 && spt == LIFTOFF) spt = TOUCHDOWN;
           if (swing_remain_count > tmp_time_offset_count) { // antecedent path is still interpolating
-            hrp::Vector3 tmpgoal = interpolate_antecedent_path((swing_one_step_count - swing_remain_count) / static_cast<double>(swing_one_step_count - tmp_time_offset_count));
-            hoffarbib_interpolation (pos(2), vel(2), acc(2), time_offset, tmpgoal(2));
+            hrp::Vector3 tmpgoal = interpolate_antecedent_path(static_cast<double>(tmp_time_offset_count) / static_cast<double>(swing_remain_count));
+            for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), time_offset, tmpgoal(i));
           } else if (swing_remain_count > 0) { // antecedent path already reached to goal
-            hoffarbib_interpolation (pos(2), vel(2), acc(2), swing_remain_count*dt, goal(2));
+            for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), swing_remain_count*dt, goal(i));
           } else {
-            pos(2) = goal(2);
+            pos = goal;
           }
         }
         ret = pos;
@@ -525,7 +525,7 @@ namespace rats
         }
         return distance_vec.back()/total_path_length;
       };
-      hrp::Vector3 interpolate_antecedent_path (const double tmp_ratio) const
+      hrp::Vector3 interpolate_antecedent_path (const double tmp_ratio)
       {
         if ( total_path_length < 1e-5 ) { // if total path is zero, return goal point.
           return point_vec.back();
@@ -546,13 +546,22 @@ namespace rats
 
     class rectangle_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
     {
-      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> rectangle_path;
         double max_height = std::max(start(2), goal(2))+height;
-        rectangle_path.push_back(start);
-        rectangle_path.push_back(hrp::Vector3(start(0), start(1), max_height));
-        rectangle_path.push_back(hrp::Vector3(goal(0), goal(1), max_height));
+        rectangle_path.push_back(current);
+        switch (spt) {
+        case LIFTOFF:
+          rectangle_path.push_back(hrp::Vector3(current(0), current(1), max_height));
+          rectangle_path.push_back(hrp::Vector3(goal(0), goal(1), max_height));
+          break;
+        case TOUCHDOWN:
+          rectangle_path.push_back(hrp::Vector3(goal(0), goal(1), current(2)));
+          break;
+        default:
+          break;
+        }
         rectangle_path.push_back(goal);
         return calc_antecedent_path_base(rectangle_path);
       };
@@ -561,7 +570,7 @@ namespace rats
     class stair_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
     {
       hrp::Vector3 way_point_offset;
-      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> path;
         double max_height = std::max(start(2), goal(2))+height;
@@ -594,7 +603,7 @@ namespace rats
 
     class cycloid_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
     {
-      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> cycloid_path;
         hrp::Vector3 tmpv, via_goal(goal);
@@ -626,7 +635,7 @@ namespace rats
       void set_cycloid_delay_kick_point_offset (const hrp::Vector3 _offset) { kick_point_offset = _offset; };
       void set_start_rot (const hrp::Matrix33 _offset) { start_rot = _offset; };
       hrp::Vector3 get_cycloid_delay_kick_point_offset () const { return kick_point_offset; };
-      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> cycloid_path;
         hrp::Vector3 tmpv, via_goal(goal);
@@ -661,7 +670,7 @@ namespace rats
       ~cross_delay_hoffarbib_trajectory_generator () {};
       void set_swing_leg (leg_type _lr) { swing_leg = _lr; };
       hrp::Vector3 way_point_offset;
-      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height)
+      double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> path;
         double max_height = std::max(start(2), goal(2))+height;
@@ -693,7 +702,7 @@ namespace rats
       // Support leg coordinates.
       std::vector<step_node> support_leg_steps;
       // Swing leg coordinates is interpolated from swing_leg_src_coords to swing_leg_dst_coords during swing phase.
-      std::vector<step_node> swing_leg_steps, swing_leg_src_steps, swing_leg_dst_steps;
+      std::vector<step_node> swing_leg_steps, swing_leg_src_steps, swing_leg_dst_steps, current_swing_leg_steps;
       double default_step_height, default_top_ratio, current_step_height, swing_ratio, dt, current_toe_angle, current_heel_angle;
       double time_offset, final_distance_weight, time_offset_xy2z;
       std::vector<double> current_swing_time;
@@ -728,7 +737,7 @@ namespace rats
       void cycloid_midcoords (coordinates& ret, const coordinates& start,
                               const coordinates& goal, const double height) const;
       void rectangle_midcoords (coordinates& ret, const coordinates& start,
-                                const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx);
+                                const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx, const coordinates& current_coords);
       void stair_midcoords (coordinates& ret, const coordinates& start,
                             const coordinates& goal, const double height);
       void cycloid_delay_midcoords (coordinates& ret, const coordinates& start,
@@ -864,6 +873,7 @@ namespace rats
         /* swing_leg_steps.clear(); */
         swing_leg_dst_steps = _swing_leg_dst_steps;
         swing_leg_src_steps = _swing_leg_src_steps;
+        current_swing_leg_steps = _swing_leg_src_steps;
         support_leg_steps = _support_leg_steps;
         support_leg_steps_list.push_back(support_leg_steps);
         one_step_count = lcg_count = _one_step_count;
@@ -960,6 +970,12 @@ namespace rats
       };
       size_t get_footstep_index() const { return footstep_index; };
       size_t get_lcg_count() const { return lcg_count; };
+      void set_lcg_count (const size_t cnt) { lcg_count = cnt; };
+      void set_one_step_count (const size_t cnt) {one_step_count = cnt; };
+      void reset_one_step_count (const size_t cnt, const double before, const double after) {
+        for (size_t i = 0; i < rdtg.size(); i++)
+          rdtg[i].reset_one_step_count(cnt, before, after);
+      };
       double get_current_swing_time(const size_t idx) const { return current_swing_time.at(idx); };
       const std::vector<step_node>& get_swing_leg_steps() const { return swing_leg_steps; };
       const std::vector<step_node>& get_support_leg_steps() const { return support_leg_steps; };
@@ -1065,6 +1081,7 @@ namespace rats
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio;
     hrp::Vector3 fg_ref_zmp;
+    bool updated_vel_footsteps;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1118,7 +1135,7 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false) {
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
