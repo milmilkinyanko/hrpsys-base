@@ -727,7 +727,8 @@ namespace rats
     else { // foot guided
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel);
       if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2 &&
-          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio))) {
+          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
+          lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))) {
         modify_footsteps_for_foot_guided(cur_cog, cur_cogvel); // TMP
       }
       set_first_count_flag();
@@ -936,10 +937,28 @@ namespace rats
     hrp::Vector3 cur_cp = cur_cog + cur_cogvel / omega - fg_ref_zmp;
     bool is_modify = false;
     double support_r = 0.05;
-    double remain_time = remain_count * dt;
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
     hrp::Vector3 next_step_pos = orig_footstep_pos - fg_ref_zmp;
     hrp::Vector3 d_footstep = hrp::Vector3::Zero();
+    double R_fl = 0.45, l_m = 0.01, min_time_mgn = 0.3, min_time = 0.5;
+    double new_time = 1/omega * std::log((R_fl - support_r - l_m)/(cur_cp.head(2).norm() - support_r));
+    if (std::isfinite(new_time)) {
+      double tmp_dt = new_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+      if (tmp_dt < 0) {
+        if (new_time < min_time) {
+          tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+        }
+        if (remain_count*dt + tmp_dt < min_time_mgn) {
+          tmp_dt = min_time_mgn - remain_count*dt;
+        }
+        remain_count += tmp_dt / dt;
+        footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
+        lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
+        lcg.set_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt));
+        lcg.reset_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt), default_double_support_ratio_before, default_double_support_ratio_after);
+      }
+    }
+    double remain_time = remain_count * dt;
     if ((next_step_pos.head(2) - std::exp(omega * remain_time) * cur_cp.head(2)).norm() > ((std::exp(omega * remain_time) - 1) * support_r)) {
       d_footstep = ((std::exp(omega * remain_time) - 1) * support_r) / (next_step_pos.head(2) - std::exp(omega * remain_time) * cur_cp.head(2)).norm() * (next_step_pos - std::exp(omega * remain_time) * cur_cp) + std::exp(omega * remain_time) * cur_cp - next_step_pos;
       d_footstep(2) = 0.0;
@@ -948,6 +967,7 @@ namespace rats
     if (is_modify) {
       footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
       limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
+      footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
       d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
       for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
         footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
