@@ -949,7 +949,11 @@ namespace rats
           tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
         }
         if (remain_count*dt + tmp_dt < min_time_mgn) {
-          tmp_dt = min_time_mgn - remain_count*dt;
+            if (remain_count*dt < min_time_mgn) {
+              tmp_dt = 0.0;
+            } else {
+              tmp_dt = min_time_mgn - remain_count*dt;
+            }
         }
         remain_count += tmp_dt / dt;
         footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
