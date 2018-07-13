@@ -778,7 +778,7 @@ namespace rats
     solved = true;
     std::vector<step_node> cur_steps(lcg.get_support_leg_steps()), dist_steps(footstep_nodes_list[lcg.get_footstep_index()]);
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index()), step_count(cur_steps.front().step_time/dt);
-    hrp::Vector3 ref_dcm(hrp::Vector3::Zero()), acc;
+    hrp::Vector3 ref_dcm(hrp::Vector3::Zero());
     bool use_double_support(false);
     bool is_start_or_end_phase(false);
     fg_ref_zmp = hrp::Vector3::Zero();
@@ -828,7 +828,6 @@ namespace rats
     }
     // calc zmp and cog
     foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp);
-    foot_guided_controller_ptr->get_acc(acc);
     foot_guided_controller_ptr->update_state(cog);
     // convert zmp -> refzmp
     refzmp = zmp - dz;
