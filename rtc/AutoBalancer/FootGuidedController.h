@@ -134,6 +134,11 @@ public:
       controllers[i].set_act_vel_ratio(ratio);
     }
   }
+  void set_zmp (const hrp::Vector3& zmp) {
+    for (size_t i = 0; i < dim - 1; i++) {
+      controllers[i].set_zmp(zmp(i));
+    }
+  }
   // get function
   double get_dz() { return controllers[0].get_dz(); }
   void get_acc(hrp::Vector3& ret) {

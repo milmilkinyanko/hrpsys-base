@@ -826,8 +826,15 @@ namespace rats
         prev_que_rzmp = fg_ref_zmp;
       }
     }
-    // calc zmp and cog
+    // calc zmp
     foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp);
+    // trumcate zmp (assume RLEG, LLEG)
+    Eigen::Vector2d tmp_zmp(zmp.head(2));
+    if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
+      zmp.head(2) = tmp_zmp;
+    }
+    foot_guided_controller_ptr->set_zmp(zmp);
+    // calc cog
     foot_guided_controller_ptr->update_state(cog);
     // convert zmp -> refzmp
     refzmp = zmp - dz;
