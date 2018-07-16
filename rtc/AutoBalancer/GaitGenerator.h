@@ -1038,6 +1038,7 @@ namespace rats
 
     enum velocity_mode_flag { VEL_IDLING, VEL_DOING, VEL_ENDING };
     enum emergency_flag { IDLING, EMERGENCY_STOP, STOPPING };
+    enum projected_point_region {LEFT, MIDDLE, RIGHT};
 
     /* member variables for gait_generator */
     // Footstep list to be executed
@@ -1081,6 +1082,8 @@ namespace rats
     double act_vel_ratio;
     hrp::Vector3 fg_ref_zmp;
     bool updated_vel_footsteps;
+    std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
+    std::vector<Eigen::Vector2d> convex_hull;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1233,6 +1236,119 @@ namespace rats
         emergency_flg = EMERGENCY_STOP;
       }
     };
+    double calcCrossProduct(const Eigen::Vector2d& a, const Eigen::Vector2d& b, const Eigen::Vector2d& o)
+    {
+      return (a(0) - o(0)) * (b(1) - o(1)) - (a(1) - o(1)) * (b(0) - o(0));
+    };
+    projected_point_region calcProjectedPoint(Eigen::Vector2d& ret, const Eigen::Vector2d& target, const Eigen::Vector2d& a, const Eigen::Vector2d& b)
+    {
+      Eigen::Vector2d v1 = target - b;
+      Eigen::Vector2d v2 = a - b;
+      double v2_norm = v2.norm();
+      if ( v2_norm == 0 ) {
+        ret = a;
+        return LEFT;
+      } else {
+        double ratio = v1.dot(v2) / (v2_norm * v2_norm);
+        if (ratio < 0){
+          ret = b;
+          return RIGHT;
+        } else if (ratio > 1){
+          ret = a;
+          return LEFT;
+        } else {
+          ret = b + ratio * v2;
+          return MIDDLE;
+        }
+      }
+    };
+    bool is_inside_support_polygon (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    {
+      // set any inner point(ip) and binary search two vertices(convex_hull[v_a], convex_hull[v_b]) between which p is.
+      p -= offset.head(2);
+      size_t n_ch = convex_hull.size();
+      Eigen::Vector2d ip = (convex_hull[0] + convex_hull[n_ch/3] + convex_hull[2*n_ch/3]) / 3.0;
+      size_t v_a = 0, v_b = n_ch;
+      while (v_a + 1 < v_b) {
+        size_t v_c = (v_a + v_b) / 2;
+        if (calcCrossProduct(convex_hull[v_a], convex_hull[v_c], ip) > 0) {
+          if (calcCrossProduct(convex_hull[v_a], p, ip) > 0 && calcCrossProduct(convex_hull[v_c], p, ip) < 0) v_b = v_c;
+          else v_a = v_c;
+        } else {
+          if (calcCrossProduct(convex_hull[v_a], p, ip) < 0 && calcCrossProduct(convex_hull[v_c], p, ip) > 0) v_a = v_c;
+          else v_b = v_c;
+        }
+      }
+      v_b %= n_ch;
+      if (calcCrossProduct(convex_hull[v_a], convex_hull[v_b], p) >= 0) {
+        p += offset.head(2);
+        return true;
+      } else {
+        if (truncate_p) {
+          if (!calc_closest_boundary_point(p, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+        }
+        p += offset.head(2);
+        return false;
+      }
+    };
+    // Compare Vector2d for sorting lexicographically
+    static bool compare_eigen2d(const Eigen::Vector2d& lv, const Eigen::Vector2d& rv)
+    {
+      return lv(0) < rv(0) || (lv(0) == rv(0) && lv(1) < rv(1));
+    };
+    // Calculate 2D convex hull based on Andrew's algorithm
+    // Assume that the order of vs, ee, and cs is the same
+    void calc_convex_hull (const std::vector<std::vector<Eigen::Vector2d> >& vs, const std::vector<bool>& cs, const std::vector<hrp::Vector3>& ee_pos, const std::vector <hrp::Matrix33>& ee_rot)
+    {
+      // transform coordinate
+      std::vector<Eigen::Vector2d>  tvs;
+      hrp::Vector3 tpos;
+      tvs.reserve(cs.size()*vs[0].size());
+      for (size_t i = 0; i < cs.size(); i++) {
+        if (cs[i]) {
+          for (size_t j = 0; j < vs[i].size(); j++) {
+            tpos = ee_pos[i] + ee_rot[i] * hrp::Vector3(vs[i][j](0), vs[i][j](1), 0.0);
+            tvs.push_back(tpos.head(2));
+          }
+        }
+      }
+      // calculate convex hull
+      int n_tvs = tvs.size(), n_ch = 0;
+      convex_hull.resize(2*n_tvs);
+      std::sort(tvs.begin(), tvs.end(), compare_eigen2d);
+      for (int i = 0; i < n_tvs; convex_hull[n_ch++] = tvs[i++])
+        while (n_ch >= 2 && calcCrossProduct(convex_hull[n_ch-1], tvs[i], convex_hull[n_ch-2]) <= 0) n_ch--;
+      for (int i = n_tvs-2, j = n_ch+1; i >= 0; convex_hull[n_ch++] = tvs[i--])
+        while (n_ch >= j && calcCrossProduct(convex_hull[n_ch-1], tvs[i], convex_hull[n_ch-2]) <= 0) n_ch--;
+      convex_hull.resize(n_ch-1);
+    };
+    // Calculate closest boundary point on the convex hull
+    bool calc_closest_boundary_point (Eigen::Vector2d& p, size_t& right_idx, size_t& left_idx) {
+      size_t n_ch = convex_hull.size();
+      Eigen::Vector2d cur_closest_point;
+      for (size_t i; i < n_ch; i++) {
+        switch(calcProjectedPoint(cur_closest_point, p, convex_hull[left_idx], convex_hull[right_idx])) {
+        case MIDDLE:
+          p = cur_closest_point;
+          return true;
+        case LEFT:
+          right_idx = left_idx;
+          left_idx = (left_idx + 1) % n_ch;
+          if ((p - convex_hull[right_idx]).dot(convex_hull[left_idx] - convex_hull[right_idx]) <= 0) {
+            p = cur_closest_point;
+            return true;
+          }
+        case RIGHT:
+          left_idx = right_idx;
+          right_idx = (right_idx - 1) % n_ch;
+          if ((p - convex_hull[left_idx]).dot(convex_hull[right_idx] - convex_hull[left_idx]) <= 0) {
+            p = cur_closest_point;
+            return true;
+          }
+        }
+      }
+      return false;
+    };
     /* parameter setting */
     void set_default_step_time (const double _default_step_time) { default_step_time = _default_step_time; };
     void set_default_double_support_ratio_before (const double _default_double_support_ratio_before) { default_double_support_ratio_before = _default_double_support_ratio_before; };
@@ -1339,6 +1455,31 @@ namespace rats
     void set_toe_check_thre (const double _a) { thtc.set_toe_check_thre(_a); };
     void set_heel_check_thre (const double _a) { thtc.set_heel_check_thre(_a); };
     void set_act_vel_ratio (const double ratio) { act_vel_ratio = ratio; };
+    void set_vertices (const std::vector<std::vector<Eigen::Vector2d> >& vs) { foot_vertices = vs; };
+    void get_vertices (std::vector<std::vector<Eigen::Vector2d> >& vs) { vs = foot_vertices; };
+    void set_vertices_from_leg_margin ()
+    {
+      std::vector<std::vector<Eigen::Vector2d> > vec;
+      // RLEG
+      {
+        std::vector<Eigen::Vector2d> tvec;
+        tvec.push_back(Eigen::Vector2d(leg_margin[0], leg_margin[3]));
+        tvec.push_back(Eigen::Vector2d(leg_margin[0], -1*leg_margin[2]));
+        tvec.push_back(Eigen::Vector2d(-1*leg_margin[1], -1*leg_margin[2]));
+        tvec.push_back(Eigen::Vector2d(-1*leg_margin[1], leg_margin[3]));
+        vec.push_back(tvec);
+      }
+      // LLEG
+      {
+        std::vector<Eigen::Vector2d> tvec;
+        tvec.push_back(Eigen::Vector2d(leg_margin[0], leg_margin[2]));
+        tvec.push_back(Eigen::Vector2d(leg_margin[0], -1*leg_margin[3]));
+        tvec.push_back(Eigen::Vector2d(-1*leg_margin[1], -1*leg_margin[3]));
+        tvec.push_back(Eigen::Vector2d(-1*leg_margin[1], leg_margin[2]));
+        vec.push_back(tvec);
+      }
+      set_vertices(vec);
+    };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {

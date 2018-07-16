@@ -828,6 +828,20 @@ void AutoBalancer::getTargetParameters()
     interpolateLegNamesAndZMPOffsets();
     // Calculate tmp_fix_coords and something
     coordinates tmp_fix_coords;
+    // calc convex_hull // assume 2 legs
+    {
+      std::vector<bool> tmp_contact_states(2);
+      std::vector<hrp::Vector3> tmp_ee_pos(2);
+      std::vector <hrp::Matrix33> tmp_ee_rot(2);
+      for (size_t i = 0; i < 2; i++) {
+        ABCIKparam& tmpikp = ikp[leg_names[i]];
+        tmp_ee_pos[i] = tmpikp.target_p0;
+        tmp_ee_rot[i] = tmpikp.target_r0;
+        tmp_contact_states[i] = m_contactStates.data[i];
+      }
+      gg->get_vertices(support_polygon_vertices);
+      gg->calc_convex_hull(support_polygon_vertices, tmp_contact_states, tmp_ee_pos, tmp_ee_rot);
+    }
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
@@ -1729,6 +1743,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_optional_go_pos_finalize_footstep_num(i_param.optional_go_pos_finalize_footstep_num);
   gg->set_overwritable_footstep_index_offset(i_param.overwritable_footstep_index_offset);
   gg->set_leg_margin(i_param.leg_margin);
+  gg->set_vertices_from_leg_margin();
   gg->set_stride_limitation_for_circle_type(i_param.stride_limitation_for_circle_type);
   gg->set_overwritable_stride_limitation(i_param.overwritable_stride_limitation);
   gg->set_use_stride_limitation(i_param.use_stride_limitation);
