@@ -37,12 +37,18 @@ void foot_guided_control_base::set_mat()
 //   truncate_u();
 // }
 
-void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp)
+void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double final_ref_zmp, const size_t double_N)
 {
   w_k = Phi * x_k;
-  double dxsp = ref_dcm - ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, T = N * dt;
-  T = std::max(50e-3, T); // lower limit, refer ; Bipedal walking control based on capture point dynamics
-  u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
+  double T = N * dt;
+  T = std::max(2e-3, T); // lower limit, refer ; Bipedal walking control based on capture point dynamics
+  if (is_double) {
+    double dxsp = ref_dcm - final_ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, a = (final_ref_zmp - start_ref_zmp) / (double_N * dt);
+    u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - 1)) / (1 - std::exp(-2 * xi * T));
+  } else {
+    double dxsp = ref_dcm - ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset;
+    u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
+  }
 }
 
 
@@ -62,9 +68,9 @@ void foot_guided_control_base::calc_x_k()
   x_k = A * x_k + b * u_k;
 }
 
-void foot_guided_control_base::update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp)
+void foot_guided_control_base::update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double final_ref_zmp, const size_t double_N)
 {
-  calc_u(N, ref_dcm, ref_zmp);
+  calc_u(N, ref_dcm, ref_zmp, is_double, start_ref_zmp, final_ref_zmp, double_N);
   zmp = u_k;
 }
 
@@ -74,8 +80,8 @@ void foot_guided_control_base::update_state(double& pos)
   pos = x_k(0);
 }
 
-void foot_guided_control_base::update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp)
-{
-  update_control(zmp, N, ref_dcm, ref_zmp);
-  update_state(pos);
-}
+// void foot_guided_control_base::update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp)
+// {
+//   update_control(zmp, N, ref_dcm, ref_zmp);
+//   update_state(pos);
+// }
