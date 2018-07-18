@@ -1072,7 +1072,7 @@ namespace rats
     bool use_inside_step_limitation;
     std::map<leg_type, std::string> leg_type_map;
     coordinates initial_foot_mid_coords;
-    bool solved, is_first_count, is_preview;
+    bool solved, is_first_count, is_preview, is_set_first_count;
     size_t remain_count;
     double leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps;
@@ -1080,7 +1080,7 @@ namespace rats
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio;
-    hrp::Vector3 fg_ref_zmp;
+    hrp::Vector3 fg_ref_zmp, fg_start_ref_zmp;
     bool updated_vel_footsteps;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
