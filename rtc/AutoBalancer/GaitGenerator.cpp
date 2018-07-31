@@ -777,12 +777,13 @@ namespace rats
   {
     // set param
     solved = true;
-    std::vector<step_node> cur_steps(lcg.get_support_leg_steps()), dist_steps(footstep_nodes_list[lcg.get_footstep_index()]);
-    size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index()), step_count(cur_steps.front().step_time/dt);
-    hrp::Vector3 ref_dcm(hrp::Vector3::Zero()), final_ref_zmp;
-    bool use_double_support(true);
-    bool is_start_or_end_phase(false), is_start_phase(false), is_double_support_phase(false), is_end2_phase(false);
-    double double_support_ratio = default_double_support_ratio_before + default_double_support_ratio_after;
+    size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index());
+    std::vector<step_node> cur_steps(lcg.get_support_leg_steps()), dist_steps(footstep_nodes_list[step_index]), next_dist_steps(footstep_nodes_list[step_index+1 >= step_num ? step_index : step_index+1]);
+    size_t step_count(cur_steps.front().step_time/dt), double_remain_count;
+    hrp::Vector3 ref_dcm(hrp::Vector3::Zero()), next_ref_dcm(hrp::Vector3::Zero()), tmp_start_ref_zmp, tmp_goal_ref_zmp;
+    bool use_double_support(true), is_second_ver(true);
+    bool is_start_or_end_phase(false), is_start_phase(false), is_end2_phase(false);
+    double double_support_ratio(default_double_support_ratio_before + default_double_support_ratio_after);
     fg_ref_zmp = hrp::Vector3::Zero();
     remain_count = lcg.get_lcg_count();
     foot_guided_controller_ptr->set_dz(cur_cog(2) - rg.get_refzmp_cur()(2));
@@ -802,15 +803,36 @@ namespace rats
       ref_dcm += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
     }
     ref_dcm /= dist_steps.size();
-    final_ref_zmp = fg_ref_zmp;
+    for (std::vector<step_node>::iterator it = next_dist_steps.begin(); it != next_dist_steps.end(); it++) {
+      next_ref_dcm += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
+    }
+    next_ref_dcm /= next_dist_steps.size();
     // for start and stop
     if (step_index == 0 ) { // first double support phase
       fg_ref_zmp = (fg_ref_zmp + ref_dcm) / 2.0;
       is_start_phase = is_start_or_end_phase = true;
+      is_double_support_phase = false;
+      if (is_second_ver) {
+        double_support_ratio = default_double_support_ratio_after;
+        prev_start_ref_zmp = fg_ref_zmp;
+      }
+    } else if (step_index == 1) {
+      if (!is_second_ver) {
+        if (remain_count >= step_count * default_double_support_ratio_after) double_support_ratio = default_double_support_ratio_before;
+      } else {
+        if (remain_count > step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset) double_support_ratio = default_double_support_ratio_after;
+      }
     } else if (step_index == step_num - 2) { // second to the last double support phase
       ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
       is_end2_phase = true;
+      if (!is_second_ver) {
+        if (remain_count  <step_count * default_double_support_ratio_after) double_support_ratio = default_double_support_ratio_after;
+      } else {
+        if (remain_count < step_count * (1 - default_double_support_ratio_before) + 3 - double_remain_count_offset) double_support_ratio = default_double_support_ratio_after;
+      }
     } else if (step_index == step_num - 1) { // last double support phase
+      if (is_second_ver) double_support_ratio = 0.0;
+      else double_support_ratio = default_double_support_ratio_after;
       fg_ref_zmp = ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
       is_start_or_end_phase = true;
       remain_count = step_count - finalize_count;
@@ -820,30 +842,78 @@ namespace rats
         solved = false;
       }
     }
+    if (!is_second_ver) fg_goal_ref_zmp = fg_ref_zmp;
+    double_remain_count = remain_count;
+    if (!is_double_support_phase) prev_start_ref_zmp = fg_ref_zmp;
+    if (is_second_ver) fg_start_ref_zmp = prev_start_ref_zmp;
+
     foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
+
     if (use_double_support) {
       if (!is_start_phase) {
-        if (remain_count >= step_count * (1 - default_double_support_ratio_before)) {
-          remain_count -= step_count * (1 - default_double_support_ratio_before);
-          is_double_support_phase = true;
-          if (!is_start_or_end_phase) ref_dcm = final_ref_zmp;
-        } else if (!is_start_or_end_phase) {
-          if (remain_count <= step_count * default_double_support_ratio_after) {
-            if (remain_count == 0) is_set_first_count = true;
-            remain_count += step_count * default_double_support_ratio_after + 2;
-            is_double_support_phase = true;
-            final_ref_zmp = ref_dcm;
-            fg_start_ref_zmp = fg_ref_zmp;
+        if (remain_count >= static_cast<size_t>(step_count * (1 - default_double_support_ratio_before))) {
+          if (!is_start_or_end_phase) {
+            if (is_second_ver) {
+              if (static_cast<double>(remain_count) - (step_count * (1 - default_double_support_ratio_before) + 1) < 0.0) remain_count = (is_end2_phase ? step_count - static_cast<size_t>(step_count*default_double_support_ratio_before) : step_count);
+              else remain_count -= static_cast<size_t>(step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset);
+              if (remain_count == 0) {
+                remain_count = (is_end2_phase ? step_count - static_cast<size_t>(step_count*default_double_support_ratio_before) + 1: step_count + 1);
+                is_set_first_count = true;
+              }
+            } else remain_count -= static_cast<size_t>(step_count * (default_double_support_ratio_before));
+            if (static_cast<double>(double_remain_count) - (step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset) < 0.0) double_remain_count = static_cast<size_t>(step_count - step_count * double_support_ratio) - (is_end2_phase ? static_cast<size_t>(step_count * default_double_support_ratio_before) : double_remain_count_offset - 2);
+            else {
+              if (!is_start_or_end_phase) double_remain_count -= static_cast<size_t>(step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset);
+            }
+            if (is_second_ver && double_remain_count == 0) double_remain_count = static_cast<size_t>(step_count - step_count * double_support_ratio) - (is_end2_phase? static_cast<size_t>(step_count * default_double_support_ratio_before) - 2 + double_remain_count_offset: double_remain_count_offset - 4 + double_remain_count_offset);
           } else {
-            remain_count -= step_count * default_double_support_ratio_after;
-            if (!is_start_or_end_phase && !is_end2_phase) ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
-            // if (!is_start_or_end_phase && !is_end2_phase) ref_dcm = (0.4 * fg_ref_zmp + (1.0 - 0.4) * ref_dcm);
+            if (double_remain_count == step_count) {
+              if (!is_second_ver) double_remain_count = 0;
+            }
+          }
+        } else if (!is_start_or_end_phase) {
+          if (remain_count <= static_cast<size_t>(step_count * default_double_support_ratio_after)) {
+            if (remain_count == 0) is_set_first_count = true;
+            if (is_second_ver) {
+              if (!is_end2_phase) remain_count += static_cast<size_t>(step_count * default_double_support_ratio_after + 1);
+              else remain_count += 1;
+            } else {
+              remain_count += static_cast<size_t>(step_count * (1 - default_double_support_ratio_after) + 2);
+              if (is_first_double_after) {
+                double_remain_count_offset = remain_count - step_count;
+                remain_count = 0;
+                is_first_double_after = false;
+              } else {
+                if (is_end2_phase) remain_count += static_cast<size_t>(step_count * default_double_support_ratio_after);
+              }
+            }
+            if (!is_end2_phase) double_remain_count += static_cast<size_t>(step_count * default_double_support_ratio_after + 1);
+            else double_remain_count += 1;
+            if (is_second_ver && is_first_double_after) {
+              is_first_double_after = false;
+              double_remain_count = 0;
+            } else if (remain_count == 0) double_remain_count = 0;
+            if (!is_second_ver) {
+              fg_goal_ref_zmp = ref_dcm;
+              fg_start_ref_zmp = fg_ref_zmp;
+            }
+            if (step_index < step_num - 3) ref_dcm = next_ref_dcm;
+            else if (step_index == step_num - 3) ref_dcm = (next_ref_dcm + ref_dcm) / 2.0;
+          } else {
+            double_remain_count = static_cast<size_t>(remain_count - step_count * default_double_support_ratio_after + 2 - double_remain_count_offset);
+            if (is_second_ver) {
+              if (!is_end2_phase) remain_count += static_cast<size_t>(step_count * default_double_support_ratio_before + 1);
+              else remain_count += 1;
+            } else remain_count -= static_cast<size_t>(step_count * default_double_support_ratio_after);
+            is_first_double_after = true;
           }
         }
       } else {
-        fg_start_ref_zmp = fg_ref_zmp;
-        // ref_dcm = (double_support_ratio*2.0 * fg_ref_zmp + (1.0 - double_support_ratio) * ref_dcm);
-        ref_dcm = fg_ref_zmp;
+        if (remain_count == static_cast<size_t>(step_count * default_double_support_ratio_after)) {
+          double_remain_count_offset = remain_count + static_cast<size_t>(step_count * (1 - default_double_support_ratio_after) + 2) - step_count;
+        }
+        if (is_second_ver) remain_count += static_cast<size_t>(step_count * default_double_support_ratio_after + 1);
+        else fg_start_ref_zmp = fg_ref_zmp;
       }
       std::vector<hrp::Vector3> sfzos; // unused
       bool refzmp_exist_p = rg.get_current_refzmp(fg_ref_zmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
@@ -853,10 +923,17 @@ namespace rats
       } else {
         prev_que_rzmp = fg_ref_zmp;
       }
+
+      if (remain_count == 0 && !is_second_ver) ref_dcm = prev_ref_dcm;
+      else if ((is_double_support_phase || double_remain_count == 0) && is_second_ver) ref_dcm = prev_ref_dcm;
+      if (is_second_ver) {
+        fg_goal_ref_zmp = ref_dcm;
+        if (!is_double_support_phase) double_remain_count += 1;
+      }
     }
 
     // calc zmp
-    foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, final_ref_zmp, step_count * double_support_ratio);
+    foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, step_count * double_support_ratio);
     // trumcate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
     if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
@@ -867,6 +944,12 @@ namespace rats
     foot_guided_controller_ptr->update_state(cog);
     // convert zmp -> refzmp
     refzmp = zmp - dz;
+    prev_ref_dcm = ref_dcm;
+    if (!is_second_ver) {
+      if (double_remain_count == 0) is_double_support_phase = !is_double_support_phase;
+    } else {
+      if ((!is_double_support_phase && double_remain_count == 1) || (is_double_support_phase && double_remain_count == 1)) is_double_support_phase = !is_double_support_phase;
+    }
   }
 
   void gait_generator::set_first_count_flag ()
