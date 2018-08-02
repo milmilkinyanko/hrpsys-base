@@ -949,6 +949,12 @@ namespace rats
     } else {
       if ((!is_double_support_phase && double_remain_count == 1) || (is_double_support_phase && double_remain_count == 1)) is_double_support_phase = !is_double_support_phase;
     }
+
+    tmp[0] = fg_ref_zmp(0);
+    tmp[1] = fg_ref_zmp(1);
+    tmp[2] = ref_dcm(1);
+    tmp[3] = remain_count/1000.0;
+    tmp[4] = double_remain_count/1000.0;
   }
 
   void gait_generator::set_first_count_flag ()
