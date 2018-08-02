@@ -1084,6 +1084,7 @@ namespace rats
     bool updated_vel_footsteps;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
+    size_t fg_step_count;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
