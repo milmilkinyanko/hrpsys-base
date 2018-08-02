@@ -895,6 +895,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'contactStates')
             self.connectLoggerPort(self.abc, 'controlSwingSupportTime')
             self.connectLoggerPort(self.abc, 'cogOut')
+            self.connectLoggerPort(self.abc, 'tmp')
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')

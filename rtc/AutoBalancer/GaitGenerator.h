@@ -1085,6 +1085,7 @@ namespace rats
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count;
+    double tmp[6];
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1709,6 +1710,7 @@ namespace rats
         return std::find(tmp.begin(), tmp.end(), lt) != tmp.end();
     };
     double get_act_vel_ratio () { return act_vel_ratio; };
+    double get_tmp (const size_t idx) {return tmp[idx];}
 #ifdef FOR_TESTGAITGENERATOR
     size_t get_one_step_count() const { return lcg.get_one_step_count(); };
     void get_footstep_nodes_list (std::vector< std::vector<step_node> > & fsl) const

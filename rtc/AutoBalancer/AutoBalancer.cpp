@@ -72,6 +72,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_basePosOut("basePosOut", m_basePos),
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_baseTformOut("baseTformOut", m_baseTform),
+      m_tmpOut("tmp", m_tmp),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
       m_contactStatesOut("contactStates", m_contactStates),
@@ -122,6 +123,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("basePosOut", m_basePosOut);
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
+    addOutPort("tmpOut", m_tmpOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
     addOutPort("contactStates", m_contactStatesOut);
@@ -169,6 +171,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
+    m_tmp.data.length(6);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -719,6 +722,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
+
+      m_tmp.data[0] = gg->get_tmp(0);
+      m_tmp.data[1] = gg->get_tmp(1);
+      m_tmp.data[2] = gg->get_tmp(2);
+      m_tmp.data[3] = gg->get_tmp(3);
+      m_tmp.data[4] = gg->get_tmp(4);
+      m_tmp.data[5] = 0.0;
+      m_tmp.tm = m_qRef.tm;
+      m_tmpOut.write();
 
       // reference acceleration
       hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
