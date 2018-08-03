@@ -850,7 +850,7 @@ namespace rats
         if (remain_count >= static_cast<size_t>(fg_step_count * (1 - default_double_support_ratio_before))) {
           if (!is_start_or_end_phase) {
             if (is_second_ver) {
-              if (static_cast<double>(remain_count) - (fg_step_count * (1 - default_double_support_ratio_before) + 1) < 0.0) remain_count = (is_end2_phase ? fg_step_count - static_cast<size_t>(fg_step_count*default_double_support_ratio_before) : fg_step_count);
+              if (std::ceil(static_cast<double>(remain_count) - (fg_step_count * (1 - default_double_support_ratio_before) + 1)) < 0.0) remain_count = (is_end2_phase ? fg_step_count - static_cast<size_t>(fg_step_count*default_double_support_ratio_before) : fg_step_count);
               else remain_count -= static_cast<size_t>(fg_step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset);
               if (remain_count == 0) {
                 remain_count = (is_end2_phase ? fg_step_count - static_cast<size_t>(fg_step_count*default_double_support_ratio_before) + 1: fg_step_count + 1);
