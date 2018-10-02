@@ -51,9 +51,11 @@ interpolator::~interpolator()
 
 void interpolator::clear()
 {
-  while (!isEmpty()){
-    pop();
-  }
+  q.clear();
+  dq.clear();
+  ddq.clear();
+  length = 0;
+  remain_t = 0;
 }
 
 // 1dof interpolator
