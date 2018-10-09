@@ -311,6 +311,12 @@ module OpenHRP
       double margin_time_ratio;
       /// How much act_vel is used for walking pattern generation (0.0 ~ 1.0)
       double act_vel_ratio;
+      /// overwritable min time until landing for fg[s]
+      double min_time_mgn;
+      /// overwritable min step time for fg[s]
+      double min_time;
+      /// foot side margin for fg foot step modification[s]
+      double foot_side_mgn;
     };
 
     /**

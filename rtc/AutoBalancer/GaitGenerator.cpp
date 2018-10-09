@@ -958,8 +958,11 @@ namespace rats
     tmp[0] = fg_ref_zmp(0);
     tmp[1] = fg_ref_zmp(1);
     tmp[2] = ref_dcm(1);
-    tmp[3] = remain_count/1000.0;
-    tmp[4] = double_remain_count/1000.0;
+    tmp[3] = double_remain_count/1000.0;
+    double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
+    hrp::Vector3 cur_cp = cur_cog + cur_cogvel / omega;
+    tmp[4] = cur_cp(0);
+    tmp[5] = cur_cp(1);
   }
 
   void gait_generator::set_first_count_flag ()
@@ -1073,7 +1076,7 @@ namespace rats
 
     // step timing modification
     if (false) {
-      double R_fl = 0.45, l_m = 0.01, min_time_mgn = 0.3, min_time = 0.5;
+      double R_fl = 0.45, l_m = 0.01;
       double support_r = 0.07;
       double new_remain_time = 1/omega * std::log((R_fl - support_r - l_m)/(cur_cp.head(2).norm() - support_r));
       if (std::isfinite(new_remain_time)) {
@@ -1099,7 +1102,7 @@ namespace rats
       }
     } else {
       double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
-      double R_fl = overwritable_stride_limitation[0], l_m = 0.0, min_time_mgn = 0.2, min_time = 0.5;
+      double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
       double support_r = std::min(std::min(leg_margin[0], leg_margin[1]), std::min(leg_margin[3], leg_margin[4]));
       double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
       double tmp_dt = 0.0;
@@ -1175,10 +1178,10 @@ namespace rats
       } else if (tmp_zmp(0) < - leg_margin[1]) { // rear
         d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * leg_margin[1] - next_step_pos(0);
         is_modify = true;
-      } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2]) { // outside
+      } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2] + foot_side_mgn) { // outside
         d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * leg_margin[2] - next_step_pos(1);
         is_modify = true;
-      } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3]) { // inside
+      } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3] + foot_side_mgn) { // inside
         d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * leg_margin[3] - next_step_pos(1);
         is_modify = true;
       }

@@ -739,7 +739,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_tmp.data[2] = gg->get_tmp(2);
       m_tmp.data[3] = gg->get_tmp(3);
       m_tmp.data[4] = gg->get_tmp(4);
-      m_tmp.data[5] = 0.0;
+      m_tmp.data[5] = gg->get_tmp(5);
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
 
@@ -1858,6 +1858,9 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_use_stride_limitation(i_param.use_stride_limitation);
   gg->set_footstep_modification_gain(i_param.footstep_modification_gain);
   gg->set_modify_footsteps(i_param.modify_footsteps);
+  gg->set_min_time_mgn(i_param.min_time_mgn);
+  gg->set_min_time(i_param.min_time);
+  gg->set_foot_side_mgn(i_param.foot_side_mgn);
   gg->set_cp_check_margin(i_param.cp_check_margin);
   gg->set_margin_time_ratio(i_param.margin_time_ratio);
   if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::SQUARE) {
@@ -1951,6 +1954,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.use_stride_limitation = gg->get_use_stride_limitation();
   i_param.footstep_modification_gain = gg->get_footstep_modification_gain();
   i_param.modify_footsteps = gg->get_modify_footsteps();
+  i_param.min_time_mgn = gg->get_min_time_mgn();
+  i_param.min_time = gg->get_min_time();
+  i_param.foot_side_mgn = gg->get_foot_side_mgn();
   for (size_t i=0; i<2; i++) {
     i_param.cp_check_margin[i] = gg->get_cp_check_margin(i);
   }
