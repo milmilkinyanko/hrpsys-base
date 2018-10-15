@@ -750,6 +750,7 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
     } else if (is_emergency) {
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
+      control_mode = MODE_IDLE;
     }
   }
 
@@ -1348,8 +1349,9 @@ void Stabilizer::calcStateForEmergencySignal()
   bool is_cp_outside = false;
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     Eigen::Vector2d tmp_cp = act_cp.head(2);
-    szd->get_margined_vertices(margined_support_polygon_vetices);
-    szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
+    std::vector<bool> tmp_cs(2,true);
+    szd->get_vertices(support_polygon_vetices);
+    szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
     if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     if (DEBUGP) {
       std::cerr << "[" << m_profile.instance_name << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "

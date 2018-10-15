@@ -466,11 +466,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
-        // if (!is_stop_mode) {
-        //     std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
-        //     is_stop_mode = true;
-        //     gg->emergency_stop();
-        // }
+        if (!is_stop_mode) {
+            std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
+            is_stop_mode = true;
+            gg->emergency_stop();
+        }
     }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
@@ -1274,38 +1274,43 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
 
 bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& vth)
 {
-  gg->set_all_limbs(leg_names);
-  bool ret = true;
-  if (gg_is_walking && gg_solved) {
-    gg->set_velocity_param(vx, vy, vth);
-  } else {
-    coordinates ref_coords;
-    ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;
-    mid_rot(ref_coords.rot, 0.5, ikp["rleg"].target_r0, ikp["lleg"].target_r0);
-    std::vector<leg_type> current_legs;
-    switch(gait_type) {
-    case BIPED:
+  if (!is_stop_mode) {
+    gg->set_all_limbs(leg_names);
+    bool ret = true;
+    if (gg_is_walking && gg_solved) {
+      gg->set_velocity_param(vx, vy, vth);
+    } else {
+      coordinates ref_coords;
+      ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;
+      mid_rot(ref_coords.rot, 0.5, ikp["rleg"].target_r0, ikp["lleg"].target_r0);
+      std::vector<leg_type> current_legs;
+      switch(gait_type) {
+      case BIPED:
         current_legs.assign (1, vy > 0 ? RLEG : LLEG);
         break;
-    case TROT:
+      case TROT:
         current_legs = (vy > 0 ? boost::assign::list_of(RLEG)(LARM) : boost::assign::list_of(LLEG)(RARM)).convert_to_container < std::vector<leg_type> > ();
         break;
-    case PACE:
+      case PACE:
         current_legs = (vy > 0 ? boost::assign::list_of(RLEG)(RARM) : boost::assign::list_of(LLEG)(LARM)).convert_to_container < std::vector<leg_type> > ();
         break;
-    case CRAWL:
+      case CRAWL:
         std::cerr << "[" << m_profile.instance_name << "] crawl walk[" << gait_type << "] is not implemented yet." << std::endl;
         return false;
-    case GALLOP:
+      case GALLOP:
         /* at least one leg shoud be in contact */
         std::cerr << "[" << m_profile.instance_name << "] gallop walk[" << gait_type << "] is not implemented yet." << std::endl;
         return false;
-    default: break;
+      default: break;
+      }
+      gg->initialize_velocity_mode(ref_coords, vx, vy, vth, current_legs);
+      ret = startWalking();
     }
-    gg->initialize_velocity_mode(ref_coords, vx, vy, vth, current_legs);
-    ret = startWalking();
+    return ret;
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot goVelocity while stopping mode." << std::endl;
+    return false;
   }
-  return ret;
 }
 
 bool AutoBalancer::goStop ()

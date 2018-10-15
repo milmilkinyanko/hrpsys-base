@@ -20,6 +20,13 @@
 
 typedef coil::Guard<coil::Mutex> Guard;
 
+#ifndef deg2rad
+#define deg2rad(x) ((x) * M_PI / 180.0)
+#endif
+#ifndef rad2deg
+#define rad2deg(rad) (rad * 180 / M_PI)
+#endif
+
 // Module specification
 // <rtc-template block="module_spec">
 static const char* emergencystopper_spec[] =
@@ -292,11 +299,12 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             m_input_posture_queue.pop();
         }
         if (!is_stop_mode) {
+            double tmpq[] = {-2.089651e-09, -4.241150e-06, -1.26054, 2.52092, -1.26036, 4.345870e-06, 2.088983e-09, 4.241150e-06, -1.26055, 2.52092, -1.26036, -4.345870e-06};
             for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
                 if (recover_time > 0) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_stop_posture[i] = m_q.data[i];
                 } else {
-                    m_stop_posture[i] = m_input_posture_queue.front()[i];
+                    m_stop_posture[i] = tmpq[i];
                 }
             }
         }
