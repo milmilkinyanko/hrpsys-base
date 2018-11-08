@@ -102,6 +102,9 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   RTC::Properties& prop = getProperties();
   double dt = 0.0;
   coil::stringTo(dt, prop["dt"].c_str());
+  int periodic_rate = 0;
+  coil::stringTo(periodic_rate, prop["exec_cxt.periodic.rate"].c_str());
+  dt = 1.0/periodic_rate;
   if (!dt) {
       std::cerr << m_profile.instance_name << ": joint command velocity check is disabled" << std::endl;
   }
