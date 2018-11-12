@@ -731,13 +731,7 @@ namespace rats
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel);
-      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2 &&
-          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
-          lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
-          ) {
-        modify_footsteps_for_foot_guided(cur_cog, cur_cogvel); // TMP
-      }
-      // set_first_count_flag();
+      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel);
     }
 
     rg.update_refzmp();
@@ -1074,47 +1068,55 @@ namespace rats
     hrp::Vector3 cur_cp = cur_footstep_rot.transpose() * (cur_cog + cur_cogvel / omega - cur_footstep_pos);
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
 
-    // step timing modification
-    if (false) {
-      double R_fl = 0.45, l_m = 0.01;
-      double support_r = 0.07;
-      double new_remain_time = 1/omega * std::log((R_fl - support_r - l_m)/(cur_cp.head(2).norm() - support_r));
-      if (std::isfinite(new_remain_time)) {
-        double tmp_dt = new_remain_time - remain_count*dt;
-        if (tmp_dt < 0) {
-          if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
-            tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
-          }
-          if (remain_count*dt + tmp_dt < min_time_mgn) {
-            if (remain_count*dt < min_time_mgn) {
-              tmp_dt = 0.0;
+    if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
+        lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
+        ) {
+      // step timing modification
+      {
+        double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
+        double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
+        double support_r = std::min(std::min(leg_margin[0], leg_margin[1]), std::min(leg_margin[3], leg_margin[4]));
+        double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
+        double tmp_dt = 0.0;
+        bool is_change_time = false;
+        double new_remain_time;
+        // outside check
+        {
+          new_remain_time = std::log(( tmp + std::sqrt(tmp * tmp - tmp2 * (tmp_off * tmp_off - R_fl * R_fl + 2 * R_fl * support_r - support_r * support_r)) ) / tmp2) / omega;
+          if (std::isfinite(new_remain_time)) {
+            tmp_dt = new_remain_time - remain_count*dt;
+            if (tmp_dt < 0) {
+              if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
+                tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+              }
+              if (remain_count*dt + tmp_dt < min_time_mgn) {
+                if (remain_count*dt < min_time_mgn) {
+                  tmp_dt = 0.0;
+                } else {
+                  tmp_dt = min_time_mgn - remain_count*dt;
+                }
+              }
+              is_change_time = true;
             } else {
-              tmp_dt = min_time_mgn - remain_count*dt;
+              tmp_dt = 0.0;
             }
           }
-          remain_count += tmp_dt / dt;
-          footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
-          lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
-          lcg.set_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt));
-          lcg.reset_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt), default_double_support_ratio_before, default_double_support_ratio_after);
-          modified_d_step_time += tmp_dt;
         }
-      }
-    } else {
-      double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
-      double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
-      double support_r = std::min(std::min(leg_margin[0], leg_margin[1]), std::min(leg_margin[3], leg_margin[4]));
-      double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
-      double tmp_dt = 0.0;
-      bool is_change_time = false;
-      double new_remain_time;
-
-      // outside check
-      {
-        new_remain_time = std::log(( tmp + std::sqrt(tmp * tmp - tmp2 * (tmp_off * tmp_off - R_fl * R_fl + 2 * R_fl * support_r - support_r * support_r)) ) / tmp2) / omega;
-        if (std::isfinite(new_remain_time)) {
-          tmp_dt = new_remain_time - remain_count*dt;
-          if (tmp_dt < 0) {
+        // inside check
+        {
+          double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
+          double tmp_remain_time = remain_count * dt + tmp_dt;
+          double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * leg_margin[2];
+          if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
+            new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
+            if (std::isfinite(new_remain_time)) {
+              is_change_time = true;
+              was_enlarged_time = true;
+              tmp_dt = new_remain_time - remain_count*dt;
+            }
+          } else if (was_enlarged_time) {
+            new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
+            tmp_dt = new_remain_time - remain_count*dt;
             if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
               tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
             }
@@ -1126,82 +1128,82 @@ namespace rats
               }
             }
             is_change_time = true;
-          } else {
-            tmp_dt = 0.0;
           }
         }
+        if (is_change_time) {
+          remain_count += tmp_dt / dt;
+          footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
+          lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
+          lcg.set_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt));
+          lcg.reset_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt), default_double_support_ratio_before, default_double_support_ratio_after);
+          modified_d_step_time += tmp_dt;
+        }
       }
-      // inside check
+      // footstep modification
       {
-        double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
-        double tmp_remain_time = remain_count * dt + tmp_dt;
-        double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * leg_margin[2];
-        if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
-          new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
-          if (std::isfinite(new_remain_time)) {
-            is_change_time = true;
-            was_enlarged_time = true;
-            tmp_dt = new_remain_time - remain_count*dt;
-          }
-        } else if (was_enlarged_time) {
-          new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
-          tmp_dt = new_remain_time - remain_count*dt;
-          if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
-            tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
-          }
-          if (remain_count*dt + tmp_dt < min_time_mgn) {
-            if (remain_count*dt < min_time_mgn) {
-              tmp_dt = 0.0;
-            } else {
-              tmp_dt = min_time_mgn - remain_count*dt;
-            }
-          }
-          is_change_time = true;
+        double remain_time = remain_count * dt;
+        hrp::Vector3 tmp_zmp = - (next_step_pos - std::exp(omega * remain_time) * cur_cp) / (std::exp(omega * remain_time) - 1);
+        if (tmp_zmp(0) > leg_margin[0]) { // front
+          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * leg_margin[0] - next_step_pos(0);
+          is_modify = true;
+        } else if (tmp_zmp(0) < - leg_margin[1]) { // rear
+          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * leg_margin[1] - next_step_pos(0);
+          is_modify = true;
+        } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2] + foot_side_mgn) { // outside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * leg_margin[2] - next_step_pos(1);
+          is_modify = true;
+        } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3] + foot_side_mgn) { // inside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * leg_margin[3] - next_step_pos(1);
+          is_modify = true;
         }
-      }
-      if (is_change_time) {
-        remain_count += tmp_dt / dt;
-        footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
-        lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
-        lcg.set_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt));
-        lcg.reset_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt), default_double_support_ratio_before, default_double_support_ratio_after);
-        modified_d_step_time += tmp_dt;
+        d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
+        d_footstep(2) = 0.0;
+        if (is_modify) {
+          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+          limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
+          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
+          d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
+          for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
+            footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
+          }
+        }
+        overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
+        // overwrite zmp
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
+        overwrite_footstep_nodes_list.clear();
+        modified_d_footstep += d_footstep;
       }
     }
-    // footstep modification
-    {
+    // calculate angular momentum
+    use_roll_flywheel = use_pitch_flywheel = false;
+    if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
+        lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
+        ) {
+      hrp::Vector3 modified_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+      hrp::Vector3 modified_next_step_pos =  cur_footstep_rot.transpose() * (modified_footstep_pos - cur_footstep_pos);
       double remain_time = remain_count * dt;
-      hrp::Vector3 tmp_zmp = - (next_step_pos - std::exp(omega * remain_time) * cur_cp) / (std::exp(omega * remain_time) - 1);
+      hrp::Vector3 tmp_zmp = - (modified_next_step_pos - std::exp(omega * remain_time) * cur_cp) / (std::exp(omega * remain_time) - 1);
+      hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
+
       if (tmp_zmp(0) > leg_margin[0]) { // front
-        d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * leg_margin[0] - next_step_pos(0);
-        is_modify = true;
+        short_of_zmp(0) = tmp_zmp(0) - leg_margin[0];
+        use_pitch_flywheel = true;
+        // std::cerr << "front " << short_of_zmp(0) << std::endl;
       } else if (tmp_zmp(0) < - leg_margin[1]) { // rear
-        d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * leg_margin[1] - next_step_pos(0);
-        is_modify = true;
+        short_of_zmp(0) = tmp_zmp(0) + leg_margin[1];
+        use_pitch_flywheel = true;
+        // std::cerr << "rear " << short_of_zmp(0)<< std::endl;
       } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2] + foot_side_mgn) { // outside
-        d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * leg_margin[2] - next_step_pos(1);
-        is_modify = true;
+        short_of_zmp(1) = (cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) - leg_margin[2] - foot_side_mgn;
+        use_roll_flywheel = true;
+        // std::cerr << "outside " << short_of_zmp(1) << std::endl;
       } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3] + foot_side_mgn) { // inside
-        d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * leg_margin[3] - next_step_pos(1);
-        is_modify = true;
+        short_of_zmp(1) = (cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) + leg_margin[3] + foot_side_mgn;
+        use_roll_flywheel = true;
+        // std::cerr << "inside " << short_of_zmp(1) << std::endl;
       }
-      d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
-      d_footstep(2) = 0.0;
+      flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
     }
-    if (is_modify) {
-      footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
-      limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
-      footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
-      d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
-      for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
-        footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
-      }
-    }
-    overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
-    // overwrite zmp
-    overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
-    overwrite_footstep_nodes_list.clear();
-    modified_d_footstep += d_footstep;
   }
 
   /* generate vector of step_node from :go-pos params

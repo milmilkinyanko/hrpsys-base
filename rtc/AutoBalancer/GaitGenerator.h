@@ -1082,11 +1082,12 @@ namespace rats
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio, double_remain_count_offset;
-    hrp::Vector3 fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm;
-    bool updated_vel_footsteps;
+    hrp::Vector3 fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau;
+    bool updated_vel_footsteps, use_roll_flywheel, use_pitch_flywheel;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count;
+    double total_mass;
     double tmp[6];
 
     /* preview controller parameters */
@@ -1140,8 +1141,8 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), foot_side_mgn(0.015), min_time_mgn(0.2), min_time(0.5) {
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false),
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), foot_side_mgn(0.015), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
@@ -1464,6 +1465,7 @@ namespace rats
     void set_act_vel_ratio (const double ratio) { act_vel_ratio = ratio; };
     void set_vertices (const std::vector<std::vector<Eigen::Vector2d> >& vs) { foot_vertices = vs; };
     void get_vertices (std::vector<std::vector<Eigen::Vector2d> >& vs) { vs = foot_vertices; };
+    void set_total_mass (const double _m) { total_mass = _m; };
     void set_vertices_from_leg_margin ()
     {
       std::vector<std::vector<Eigen::Vector2d> > vec;
@@ -1633,6 +1635,9 @@ namespace rats
     double get_default_double_support_static_ratio_after () const { return default_double_support_static_ratio_after; };
     double get_default_double_support_ratio_swing_before () const {return default_double_support_ratio_swing_before; };
     double get_default_double_support_ratio_swing_after () const {return default_double_support_ratio_swing_after; };
+    hrp::Vector3 get_flywheel_tau () const { return flywheel_tau; };
+    bool get_use_roll_flywheel () const { return use_roll_flywheel; };
+    bool get_use_pitch_flywheel () const { return use_pitch_flywheel; };
     std::vector< std::vector<step_node> > get_remaining_footstep_nodes_list () const
     {
         std::vector< std::vector<step_node> > fsnl;
