@@ -298,6 +298,7 @@ class AutoBalancer
   interpolator *transition_interpolator;
   interpolator *adjust_footstep_interpolator;
   interpolator *leg_names_interpolator;
+  interpolator *angular_momentum_interpolator;
   hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
   hrp::Matrix33 input_baseRot, ref_baseRot;
 

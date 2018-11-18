@@ -1061,7 +1061,7 @@ namespace rats
     double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
     bool is_modify = false;
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-    hrp::Vector3 d_footstep = hrp::Vector3::Zero();
+    hrp::Vector3 d_footstep = hrp::Vector3::Zero(), short_of_footstep = hrp::Vector3::Zero();
     hrp::Vector3 cur_footstep_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
     hrp::Matrix33 cur_footstep_rot = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot;
     leg_type cur_leg = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
@@ -1069,7 +1069,8 @@ namespace rats
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
 
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
-        lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
+        lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before)) &&
+        !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && act_contact_states[0] && act_contact_states[1])
         ) {
       // step timing modification
       {
@@ -1160,9 +1161,11 @@ namespace rats
         d_footstep(2) = 0.0;
         if (is_modify) {
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+          short_of_footstep = d_footstep;
           limit_stride(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
+          short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
           }
@@ -1179,28 +1182,15 @@ namespace rats
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
         lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
         ) {
-      hrp::Vector3 modified_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-      hrp::Vector3 modified_next_step_pos =  cur_footstep_rot.transpose() * (modified_footstep_pos - cur_footstep_pos);
-      double remain_time = remain_count * dt;
-      hrp::Vector3 tmp_zmp = - (modified_next_step_pos - std::exp(omega * remain_time) * cur_cp) / (std::exp(omega * remain_time) - 1);
       hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
-
-      if (tmp_zmp(0) > leg_margin[0]) { // front
-        short_of_zmp(0) = tmp_zmp(0) - leg_margin[0];
-        use_pitch_flywheel = true;
-        // std::cerr << "front " << short_of_zmp(0) << std::endl;
-      } else if (tmp_zmp(0) < - leg_margin[1]) { // rear
-        short_of_zmp(0) = tmp_zmp(0) + leg_margin[1];
-        use_pitch_flywheel = true;
-        // std::cerr << "rear " << short_of_zmp(0)<< std::endl;
-      } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2] + foot_side_mgn) { // outside
-        short_of_zmp(1) = (cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) - leg_margin[2] - foot_side_mgn;
-        use_roll_flywheel = true;
-        // std::cerr << "outside " << short_of_zmp(1) << std::endl;
-      } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3] + foot_side_mgn) { // inside
-        short_of_zmp(1) = (cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) + leg_margin[3] + foot_side_mgn;
-        use_roll_flywheel = true;
-        // std::cerr << "inside " << short_of_zmp(1) << std::endl;
+      double remain_time = remain_count * dt;
+      short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;
+      for (size_t i = 0; i < 2; i++) {
+        if(std::fabs(short_of_footstep(i)) > 1e-2) { // > 1cm
+          if (i == 0) use_pitch_flywheel = true;
+          else use_roll_flywheel = true;
+          short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
+        }
       }
       flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
     }
