@@ -1292,7 +1292,8 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,1e-6,1e-6,1e-6;// don't let base rot free (numerical error problem) 最小1e-6?
+        tmp.constraint_weight << 0,0,0,1e-6,1e-6,1e-6; // JAXON
+        // tmp.constraint_weight << 0,0,0,1e-4,1e-4,1; // CHIDORI
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight << 0,0,0,1,1,1;//transition中に回転フリーは危ない
         ik_tgt_list.push_back(tmp);
     }{
@@ -1338,11 +1339,13 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = ref_cog;// COM height will not be constraint
         hrp::Vector3 tmp_tau = gg->get_flywheel_tau();
-        // tmp_tau = st->vlimit(tmp_tau, -800, 800);
+        // tmp_tau = st->vlimit(tmp_tau, -1000, 1000);
         tmp.targetRpy = hrp::Vector3::Zero();
+
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(1);//reference angular momentum
-        tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0;// consider angular momentum (JAXON)
+        tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0; // consider angular momentum (JAXON)
+        // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1e-3 : 1e-4),(gg->get_use_pitch_flywheel() ? 1e-3 : 1e-4),0; // consider angular momentum (CHIDORI)
 
         double initial_ratio = 0.0, goal_ratio = 2e-7, interpolator_time = 2.0;
         if(fik->q_ref_constraint_weight.rows()>12+21) { //上半身関節角のq_refへの緩い拘束(JAXON)
@@ -1350,7 +1353,6 @@ void AutoBalancer::solveFullbodyIK ()
             fik->q_ref_constraint_weight.segment(12,21).fill(initial_ratio);
             angular_momentum_interpolator->set(&initial_ratio);
             angular_momentum_interpolator->setGoal(&goal_ratio, interpolator_time, true);
-            // if (fabs(tmp_tau(0)) > 100) std::cerr << "torque :" << tmp_tau.transpose() << " momentum : "<< tmp.targetRpy(0)  << std::endl;
           } else {
             double tmp_ratio;
             if (angular_momentum_interpolator->isEmpty()) tmp_ratio = goal_ratio;
