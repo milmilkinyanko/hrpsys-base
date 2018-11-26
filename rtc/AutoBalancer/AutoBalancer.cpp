@@ -470,6 +470,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
             std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
             is_stop_mode = true;
             gg->emergency_stop();
+            control_mode = MODE_IDLE;
         }
     }
     if (m_diffCPIn.isNew()) {

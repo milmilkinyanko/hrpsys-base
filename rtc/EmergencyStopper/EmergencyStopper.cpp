@@ -299,7 +299,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             m_input_posture_queue.pop();
         }
         if (!is_stop_mode) {
-            double tmpq[] = {-2.089651e-09, -4.241150e-06, -1.26054, 2.52092, -1.26036, 4.345870e-06, 2.088983e-09, 4.241150e-06, -1.26055, 2.52092, -1.26036, -4.345870e-06};
+            double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06};
             for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
                 if (recover_time > 0) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_stop_posture[i] = m_q.data[i];
