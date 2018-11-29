@@ -20,13 +20,6 @@
 
 typedef coil::Guard<coil::Mutex> Guard;
 
-#ifndef deg2rad
-#define deg2rad(x) ((x) * M_PI / 180.0)
-#endif
-#ifndef rad2deg
-#define rad2deg(rad) (rad * 180 / M_PI)
-#endif
-
 // Module specification
 // <rtc-template block="module_spec">
 static const char* emergencystopper_spec[] =

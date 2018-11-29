@@ -210,6 +210,7 @@ class AutoBalancer
   void solveFullbodyIK ();
   void startABCparam(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
   void stopABCparam();
+  void stopABCparamEmergency();
   void waitABCTransition();
   // Functions to calculate parameters for ABC output.
   // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRatio

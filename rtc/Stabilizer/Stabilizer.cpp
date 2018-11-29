@@ -415,6 +415,9 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
 
+  transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
+  transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
+
   // parameters for RUNST
   double ke = 0, tc = 0;
   for (int i = 0; i < 2; i++) {
@@ -441,6 +444,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
 
   m_qCurrent.data.length(m_robot->numJoints());
   m_qRef.data.length(m_robot->numJoints());
+  diff_q.resize(m_robot->numJoints());
   m_tau.data.length(m_robot->numJoints());
   transition_joint_q.resize(m_robot->numJoints());
   qorg.resize(m_robot->numJoints());
@@ -504,6 +508,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
 
 RTC::ReturnCode_t Stabilizer::onFinalize()
 {
+  delete transition_interpolator;
   if (szd == NULL) {
       delete szd;
       szd = NULL;
@@ -652,6 +657,16 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
   }
   if ( m_robot->numJoints() == m_qRef.data.length() ) {
     if (is_legged_robot) {
+      // emergencySignal
+      if (reset_emergency_flag) {
+        m_emergencySignal.data = 0;
+        m_emergencySignalOut.write();
+        reset_emergency_flag = false;
+      } else if (is_emergency) {
+        m_emergencySignal.data = 1;
+        m_emergencySignalOut.write();
+        stopSTEmergency();
+      }
       for ( int i = 0; i < m_robot->numJoints(); i++ ){
         m_qRef.data[i] = m_robot->joint(i)->q;
         //m_tau.data[i] = m_robot->joint(i)->u;
@@ -742,16 +757,6 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_debugDataOut.write();
     }
     m_qRefOut.write();
-    // emergencySignal
-    if (reset_emergency_flag) {
-      m_emergencySignal.data = 0;
-      m_emergencySignalOut.write();
-      reset_emergency_flag = false;
-    } else if (is_emergency) {
-      m_emergencySignal.data = 1;
-      m_emergencySignalOut.write();
-      control_mode = MODE_IDLE;
-    }
   }
 
   return RTC::RTC_OK;
@@ -1173,6 +1178,13 @@ void Stabilizer::getTargetParameters ()
   } else {
     for ( int i = 0; i < m_robot->numJoints(); i++ ){
       m_robot->joint(i)->q = m_qRef.data[i];
+    }
+  }
+  if (!transition_interpolator->isEmpty()) {
+    double tmp_ratio;
+    transition_interpolator->get(&tmp_ratio, true);
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_robot->joint(i)->q = m_qRef.data[i] + tmp_ratio * diff_q[i];
     }
   }
   if ( transition_count < 0 ) {
@@ -1847,6 +1859,20 @@ void Stabilizer::sync_2_idle ()
   for (int i = 0; i < m_robot->numJoints(); i++ ) {
     transition_joint_q[i] = m_robot->joint(i)->q;
   }
+}
+
+void Stabilizer::stopSTEmergency()
+{
+  std::cerr << "[" << m_profile.instance_name << "] stop stabilizer mode for emergency" << std::endl;
+  double tmp_ratio = 1.0;
+  transition_interpolator->clear();
+  transition_interpolator->set(&tmp_ratio);
+  tmp_ratio = 0.0;
+  transition_interpolator->setGoal(&tmp_ratio, 0.5, true);
+  for (int i = 0; i < m_robot->numJoints(); i++ ) {
+    diff_q[i] = m_robot->joint(i)->q - m_qRef.data[i];
+  }
+  control_mode = MODE_IDLE;
 }
 
 void Stabilizer::startStabilizer(void)

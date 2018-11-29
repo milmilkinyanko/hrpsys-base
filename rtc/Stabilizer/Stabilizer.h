@@ -29,6 +29,7 @@
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
+#include "../SequencePlayer/interpolator.h"
 
 // </rtc-template>
 
@@ -111,6 +112,7 @@ class Stabilizer
   void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
   void sync_2_st ();
   void sync_2_idle();
+  void stopSTEmergency();
   bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
   void calcStateForEmergencySignal();
   void calcRUNST();
@@ -334,6 +336,9 @@ class Stabilizer
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::StabilizerService::EmergencyCheckMode emergency_check_mode;
+
+  std::vector<double> diff_q;
+  interpolator *transition_interpolator;
 };
 
 

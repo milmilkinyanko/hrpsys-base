@@ -467,10 +467,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
         if (!is_stop_mode) {
-            std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
-            is_stop_mode = true;
-            gg->emergency_stop();
-            control_mode = MODE_IDLE;
+          std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
+          is_stop_mode = true;
+          gg->finalize_velocity_mode();
+          stopABCparam();
         }
     }
     if (m_diffCPIn.isNew()) {
@@ -1168,6 +1168,18 @@ void AutoBalancer::stopABCparam()
   transition_interpolator->set(&tmp_ratio);
   tmp_ratio = 0.0;
   transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
+  control_mode = MODE_SYNC_TO_IDLE;
+}
+
+void AutoBalancer::stopABCparamEmergency()
+{
+  std::cerr << "[" << m_profile.instance_name << "] stop auto balancer mode for emergency" << std::endl;
+  //Guard guard(m_mutex);
+  double tmp_ratio = 1.0;
+  transition_interpolator->clear();
+  transition_interpolator->set(&tmp_ratio);
+  tmp_ratio = 0.0;
+  transition_interpolator->setGoal(&tmp_ratio, 0.5, true);
   control_mode = MODE_SYNC_TO_IDLE;
 }
 
