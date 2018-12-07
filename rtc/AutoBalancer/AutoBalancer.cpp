@@ -466,7 +466,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
-        if (!is_stop_mode) {
+        if (m_emergencySignal.data && !is_stop_mode) {
           std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
           is_stop_mode = true;
           gg->finalize_velocity_mode();
