@@ -1032,6 +1032,7 @@ namespace rats
   {
 
   public:
+    bool use_act_states;
 #ifndef HAVE_MAIN
   private:
 #endif

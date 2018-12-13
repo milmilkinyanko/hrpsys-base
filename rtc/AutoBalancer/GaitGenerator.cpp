@@ -731,7 +731,7 @@ namespace rats
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel);
-      if (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel);
+      if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel);
     }
 
     rg.update_refzmp();
@@ -841,7 +841,7 @@ namespace rats
     if (!is_double_support_phase) prev_start_ref_zmp = fg_ref_zmp;
     if (is_second_ver) fg_start_ref_zmp = prev_start_ref_zmp;
 
-    foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
+    if(use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
 
     if (use_double_support) {
       if (!is_start_phase) {

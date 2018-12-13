@@ -455,6 +455,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_stop_mode = false;
     is_hand_fix_mode = false;
 
+    gg->use_act_states = st->use_act_states = use_act_states = true;
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -1275,7 +1277,7 @@ void AutoBalancer::solveFullbodyIK ()
   fik->revertRobotStateToCurrentAll();
   {
     hrp::Vector3 tmpcog = m_robot->calcCM();
-    if (gg_is_walking) {
+    if (gg_is_walking && use_act_states) {
       ref_cog.head(2) = (tmpcog + (ref_cog -  (st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog))).head(2);
     } else {
       hrp::Vector3 dif_cog = ref_cog - tmpcog;
@@ -2378,7 +2380,6 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   st->is_estop_while_walking = i_param.is_estop_while_walking;
   st->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
   st->use_zmp_truncation = i_param.use_zmp_truncation;
-  limb_stretch_avoidance_time_const = i_param.limb_stretch_avoidance_time_const;
   for (size_t i = 0; i < 2; i++) {
     st->limb_stretch_avoidance_vlimit[i] = i_param.limb_stretch_avoidance_vlimit[i];
     st->root_rot_compensation_limit[i] = i_param.root_rot_compensation_limit[i];
@@ -2880,7 +2881,7 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 {
   hrp::Vector3 target_sbp = hrp::Vector3(0, 0, 0);
   hrp::Vector3 tmpcog;
-  if (!gg_is_walking) {
+  if (!gg_is_walking || !use_act_states) {
     tmpcog = m_robot->calcCM();
     dif_ref_act_cog = hrp::Vector3::Zero();
   } else {
