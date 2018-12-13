@@ -290,8 +290,6 @@ class AutoBalancer
   double m_dt;
   hrp::BodyPtr m_robot;
   coil::Mutex m_mutex;
-  double d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2];
-  bool use_limb_stretch_avoidance;
 
   double transition_interpolator_ratio, transition_time, zmp_transition_time, adjust_footstep_transition_time, leg_names_interpolator_ratio;
   interpolator *zmp_offset_interpolator;
@@ -325,6 +323,7 @@ class AutoBalancer
   bool is_ik_converged;
   hrp::Vector3 dif_ref_act_cog;
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vertices;
+  bool use_act_states;
 };
 
 

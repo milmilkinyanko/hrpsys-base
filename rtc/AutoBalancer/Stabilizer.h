@@ -59,7 +59,7 @@ public:
     hrp::Vector3 localCOPPos; // Position offset of reference COP in end link frame (^{l}p_{cop} = R_l^T (p_{cop} - p_l) - ^{l}p_e)
     hrp::Matrix33 localR; // Rotation of ee in end link frame (^{l}R_e = R_l^T R_e)
     // For eefm
-    hrp::Vector3 d_foot_pos, d_foot_rpy, ee_d_foot_rpy;
+    hrp::Vector3 d_foot_pos, ee_d_foot_pos, d_foot_rpy, ee_d_foot_rpy;
     hrp::Vector3 eefm_pos_damping_gain, eefm_pos_time_const_support, eefm_rot_damping_gain, eefm_rot_time_const, eefm_swing_rot_spring_gain, eefm_swing_pos_spring_gain, eefm_swing_rot_time_const, eefm_swing_pos_time_const, eefm_ee_moment_limit;
     double eefm_pos_compensation_limit, eefm_rot_compensation_limit;
     hrp::Vector3 ref_force, ref_moment;
@@ -91,7 +91,7 @@ public:
   bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
   bool is_walking, is_estop_while_walking;
   hrp::Vector3 current_root_p, target_root_p, ref_foot_origin_pos, prev_act_foot_origin_pos;
-  hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;
+  hrp::Matrix33 current_root_R, target_root_R, act_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;
   std::vector <hrp::Vector3> target_ee_p, rel_ee_pos, act_ee_p, projected_normal, act_force, ref_force, ref_moment;
   std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R;
   std::vector<std::string> rel_ee_name;
@@ -132,6 +132,9 @@ public:
   hrp::Vector3 zmpRef, basePos, rpy, baseRpy;
   std::vector<hrp::dvector>  wrenches, ref_wrenches;
   std::vector<hrp::Vector3>  limbCOPOffset;
+  hrp::Vector3 foot_origin_pos;
+  hrp::Matrix33 foot_origin_rot;
+  bool use_act_states;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
