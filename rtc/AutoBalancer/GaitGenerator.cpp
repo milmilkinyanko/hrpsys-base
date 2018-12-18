@@ -666,6 +666,9 @@ namespace rats
       is_after_double_support_phase = false;
       was_enlarged_time = false;
     }
+    hrp::Vector3 cur_refcog, cur_refcogvel;
+    foot_guided_controller_ptr->get_pos(cur_refcog);
+    foot_guided_controller_ptr->get_vel(cur_refcogvel);
     /* update refzmp */
     if (emergency_flg == EMERGENCY_STOP && lcg.get_footstep_index() > 0) {
         leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
@@ -699,12 +702,12 @@ namespace rats
             }
             overwrite_footstep_nodes_list.push_back(tmp_fsn);
         }
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
         overwrite_footstep_nodes_list.clear();
       } else if ( !overwrite_footstep_nodes_list.empty() && // If overwrite_footstep_node_list exists
                   (lcg.get_footstep_index() < footstep_nodes_list.size()-1) &&  // If overwrite_footstep_node_list is specified and current footstep is not last footstep.
                   get_overwritable_index() == overwrite_footstep_index ) {
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_cog, cur_refcogvel);
         overwrite_footstep_nodes_list.clear();
       }
       updated_vel_footsteps = true;
@@ -730,8 +733,8 @@ namespace rats
 
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
-      if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel);
-      if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel);
+      if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
+      if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
     }
 
     rg.update_refzmp();
@@ -772,7 +775,7 @@ namespace rats
     }
   }
 
-  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
+  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel)
   {
     // set param
     solved = true;
@@ -841,7 +844,9 @@ namespace rats
     if (!is_double_support_phase) prev_start_ref_zmp = fg_ref_zmp;
     if (is_second_ver) fg_start_ref_zmp = prev_start_ref_zmp;
 
+    foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
     if(use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, is_start_or_end_phase);
+    else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, is_start_or_end_phase);
 
     if (use_double_support) {
       if (!is_start_phase) {
@@ -932,7 +937,7 @@ namespace rats
 
     // calc zmp
     foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
-    // trumcate zmp (assume RLEG, LLEG)
+    // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
     if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
       zmp.head(2) = tmp_zmp;
@@ -1056,7 +1061,7 @@ namespace rats
     }
   }
 
-  void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
+  void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel)
   {
     double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
     bool is_modify = false;
@@ -1076,7 +1081,7 @@ namespace rats
       {
         double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
         double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
-        double support_r = std::min(std::min(leg_margin[0], leg_margin[1]), std::min(leg_margin[3], leg_margin[4]));
+        double support_r = std::min(std::min(safe_leg_margin[0], safe_leg_margin[1]), std::min(safe_leg_margin[3], safe_leg_margin[4]));
         double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
         double tmp_dt = 0.0;
         bool is_change_time = false;
@@ -1105,18 +1110,18 @@ namespace rats
         }
         // inside check
         {
-          double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
+          double inside_off = overwritable_stride_limitation[4] + safe_leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
-          double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * leg_margin[2];
+          double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
           if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
-            new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
+            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
               is_change_time = true;
               was_enlarged_time = true;
               tmp_dt = new_remain_time - remain_count*dt;
             }
           } else if (was_enlarged_time) {
-            new_remain_time = std::log((inside_off + leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + leg_margin[2])) / omega;
+            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             tmp_dt = new_remain_time - remain_count*dt;
             if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
               tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
@@ -1144,17 +1149,17 @@ namespace rats
       {
         double remain_time = remain_count * dt;
         hrp::Vector3 tmp_zmp = - (next_step_pos - std::exp(omega * remain_time) * cur_cp) / (std::exp(omega * remain_time) - 1);
-        if (tmp_zmp(0) > leg_margin[0]) { // front
-          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * leg_margin[0] - next_step_pos(0);
+        if (tmp_zmp(0) > safe_leg_margin[0]) { // front
+          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * safe_leg_margin[0] - next_step_pos(0);
           is_modify = true;
-        } else if (tmp_zmp(0) < - leg_margin[1]) { // rear
-          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * leg_margin[1] - next_step_pos(0);
+        } else if (tmp_zmp(0) < - safe_leg_margin[1]) { // rear
+          d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * safe_leg_margin[1] - next_step_pos(0);
           is_modify = true;
-        } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > leg_margin[2] + foot_side_mgn) { // outside
-          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * leg_margin[2] - next_step_pos(1);
+        } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > safe_leg_margin[2]) { // outside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * safe_leg_margin[2] - next_step_pos(1);
           is_modify = true;
-        } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > leg_margin[3] + foot_side_mgn) { // inside
-          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * leg_margin[3] - next_step_pos(1);
+        } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > safe_leg_margin[3]) { // inside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * safe_leg_margin[3] - next_step_pos(1);
           is_modify = true;
         }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
@@ -1172,7 +1177,7 @@ namespace rats
         }
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         // overwrite zmp
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
         overwrite_footstep_nodes_list.clear();
         modified_d_footstep += d_footstep;
       }
@@ -1442,7 +1447,7 @@ namespace rats
     }
   };
 
-  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel)
+  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel)
   {
     size_t idx = get_overwritable_index();
     footstep_nodes_list.erase(footstep_nodes_list.begin()+idx, footstep_nodes_list.end());
@@ -1520,7 +1525,7 @@ namespace rats
       solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
       rg.update_refzmp();
     } else {
-      update_foot_guided_controller(solved, cur_cog, cur_cogvel);
+      update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
     }
   };
 

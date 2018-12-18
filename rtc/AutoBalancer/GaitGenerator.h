@@ -1076,10 +1076,10 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time;
     size_t remain_count;
-    double leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
+    double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps;
     hrp::Vector3 diff_cp, modified_d_footstep;
-    double modified_d_step_time, foot_side_mgn, min_time_mgn, min_time;
+    double modified_d_step_time, min_time_mgn, min_time;
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio, double_remain_count_offset;
@@ -1115,7 +1115,7 @@ namespace rats
       }
       _footstep_nodes_list.push_back(sns);
     };
-    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero());
+    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero());
     void calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const;
     void calc_next_coords_velocity_mode (std::vector< std::vector<step_node> >& ret_list, const size_t idx, const size_t future_step_num = 3);
     void append_footstep_list_velocity_mode ();
@@ -1143,11 +1143,12 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), foot_side_mgn(0.015), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()) {
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
         for (size_t i = 0; i < 4; i++) leg_margin[i] = 0.1;
+        for (size_t i = 0; i < 4; i++) safe_leg_margin[i] = 0.1;
         for (size_t i = 0; i < 5; i++) stride_limitation_for_circle_type[i] = 0.2;
         for (size_t i = 0; i < 5; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
@@ -1169,11 +1170,11 @@ namespace rats
                                     const double delay = 1.6);
     bool proc_one_tick (const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
-    void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel);
+    void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel);
     void set_first_count_flag ();
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void modify_footsteps_for_recovery ();
-    void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel);
+    void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
     {
         std::vector<step_node> tmp_sns;
@@ -1431,6 +1432,11 @@ namespace rats
         leg_margin[i] = _leg_margin[i];
       }
     };
+    void set_safe_leg_margin (const double _leg_margin[4]) {
+      for (size_t i = 0; i < 4; i++) {
+        safe_leg_margin[i] = _leg_margin[i];
+      }
+    };
     void set_stride_limitation_for_circle_type (const double (&_stride_limitation_for_circle_type)[5]) {
       for (size_t i = 0; i < 5; i++) {
         stride_limitation_for_circle_type[i] = _stride_limitation_for_circle_type[i];
@@ -1457,7 +1463,6 @@ namespace rats
     void set_modify_footsteps (const bool _modify_footsteps) { modify_footsteps = _modify_footsteps; };
     void set_min_time_mgn (const double _t) { min_time_mgn = _t; };
     void set_min_time (const double _t) { min_time = _t; };
-    void set_foot_side_mgn (const double _mgn) { foot_side_mgn = _mgn; };
     void set_margin_time_ratio (const double _margin_time_ratio) { margin_time_ratio = _margin_time_ratio; };
     void set_diff_cp (const hrp::Vector3 _cp) { diff_cp = _cp; };
     void set_stride_limitation_type (const stride_limitation_type _tmp) { default_stride_limitation_type = _tmp; };
@@ -1686,6 +1691,7 @@ namespace rats
     bool is_finalizing (const double tm) const { return ((preview_controller_ptr->get_delay()*2 - default_step_time/dt)-finalize_count) <= (tm/dt)-1; };
     size_t get_overwrite_check_timing () const { return static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1;}; // Almost middle of step time
     double get_leg_margin (const size_t idx) const { return leg_margin[idx]; };
+    double get_safe_leg_margin (const size_t idx) const { return safe_leg_margin[idx]; };
     double get_stride_limitation_for_circle_type (const size_t idx) const { return stride_limitation_for_circle_type[idx]; };
     double get_overwritable_stride_limitation (const size_t idx) const { return overwritable_stride_limitation[idx]; };
     double get_footstep_modification_gain () const { return footstep_modification_gain; };
@@ -1693,7 +1699,6 @@ namespace rats
     bool get_modify_footsteps () const { return modify_footsteps; };
     double get_min_time_mgn () const { return min_time_mgn; };
     double get_min_time () const { return min_time; };
-    double get_foot_side_mgn () const { return foot_side_mgn; };
     double get_margin_time_ratio () const { return margin_time_ratio; };
     bool get_use_stride_limitation () const { return use_stride_limitation; };
     stride_limitation_type get_stride_limitation_type () const { return default_stride_limitation_type; };

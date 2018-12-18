@@ -455,7 +455,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_stop_mode = false;
     is_hand_fix_mode = false;
 
-    gg->use_act_states = st->use_act_states = use_act_states = true;
+    use_act_states = false;
+    gg->use_act_states = st->use_act_states = true;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -1888,6 +1889,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_optional_go_pos_finalize_footstep_num(i_param.optional_go_pos_finalize_footstep_num);
   gg->set_overwritable_footstep_index_offset(i_param.overwritable_footstep_index_offset);
   gg->set_leg_margin(i_param.leg_margin);
+  gg->set_safe_leg_margin(i_param.safe_leg_margin);
   gg->set_vertices_from_leg_margin();
   gg->set_stride_limitation_for_circle_type(i_param.stride_limitation_for_circle_type);
   gg->set_overwritable_stride_limitation(i_param.overwritable_stride_limitation);
@@ -1896,7 +1898,6 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_modify_footsteps(i_param.modify_footsteps);
   gg->set_min_time_mgn(i_param.min_time_mgn);
   gg->set_min_time(i_param.min_time);
-  gg->set_foot_side_mgn(i_param.foot_side_mgn);
   gg->set_cp_check_margin(i_param.cp_check_margin);
   gg->set_margin_time_ratio(i_param.margin_time_ratio);
   if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::SQUARE) {
@@ -1981,6 +1982,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   for (size_t i=0; i<4; i++) {
     i_param.leg_margin[i] = gg->get_leg_margin(i);
   }
+  for (size_t i=0; i<4; i++) {
+    i_param.safe_leg_margin[i] = gg->get_safe_leg_margin(i);
+  }
   for (size_t i=0; i<5; i++) {
     i_param.stride_limitation_for_circle_type[i] = gg->get_stride_limitation_for_circle_type(i);
   }
@@ -1992,7 +1996,6 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.modify_footsteps = gg->get_modify_footsteps();
   i_param.min_time_mgn = gg->get_min_time_mgn();
   i_param.min_time = gg->get_min_time();
-  i_param.foot_side_mgn = gg->get_foot_side_mgn();
   for (size_t i=0; i<2; i++) {
     i_param.cp_check_margin[i] = gg->get_cp_check_margin(i);
   }
