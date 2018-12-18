@@ -591,7 +591,7 @@ void Stabilizer::getActualParametersForST ()
     }
 
     // foor modif
-    if (control_mode == MODE_ST && is_walking) {
+    if (control_mode == MODE_ST) {
       hrp::Vector3 f_diff(hrp::Vector3::Zero());
       std::vector<bool> large_swing_f_diff(3, false);
       // moment control

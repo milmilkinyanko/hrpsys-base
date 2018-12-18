@@ -301,6 +301,8 @@ module OpenHRP
       StrideLimitationType stride_limitation_type;
       /// Leg margin between foot end effector position and foot edge (front, rear, outside, inside) [m]
       DblArray4 leg_margin;
+      /// Safe leg margin between foot end effector position and foot edge (front, rear, outside, inside) [m]
+      DblArray4 safe_leg_margin;
       /// Feedback gain when modifying footsteps based on Capture Point
       double footstep_modification_gain;
       /// Whether modify footsteps based on Capture Point
@@ -315,8 +317,6 @@ module OpenHRP
       double min_time_mgn;
       /// overwritable min step time for fg[s]
       double min_time;
-      /// foot side margin for fg foot step modification[s]
-      double foot_side_mgn;
     };
 
     /**
