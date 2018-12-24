@@ -147,8 +147,6 @@ class AutoBalancer
   InPort<TimedDoubleSeq> m_optionalDataIn;
   std::vector<TimedDoubleSeq> m_ref_force;
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
-  TimedLong m_emergencySignal;
-  InPort<TimedLong> m_emergencySignalIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
   TimedBooleanSeq m_actContactStates;
@@ -193,6 +191,8 @@ class AutoBalancer
   OutPort<TimedBoolean> m_walkingStatesOut;
   TimedPoint3D m_sbpCogOffset;
   OutPort<TimedPoint3D> m_sbpCogOffsetOut;
+  TimedLong m_emergencySignal;
+  OutPort<TimedLong> m_emergencySignalOut;
   std::vector<TimedDoubleSeq> m_force;
   std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
   std::vector<TimedPoint3D> m_limbCOPOffset;
@@ -231,6 +231,7 @@ class AutoBalancer
   void solveFullbodyIK ();
   void startABCparam(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
   void stopABCparam();
+  void stopABCparamEmergency();
   void waitABCTransition();
   // Functions to calculate parameters for ABC output.
   // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRatio
