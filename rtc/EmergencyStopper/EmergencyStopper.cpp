@@ -292,11 +292,12 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             m_input_posture_queue.pop();
         }
         if (!is_stop_mode) {
+            double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06}; // CHIDORI
             for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
                 if (recover_time > 0) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_stop_posture[i] = m_q.data[i];
                 } else {
-                    m_stop_posture[i] = m_input_posture_queue.front()[i];
+                  m_stop_posture[i] = tmpq[i];
                 }
             }
         }
@@ -332,10 +333,12 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
         if ( m_emergencySignal.data == 0 ) {
+          if (is_stop_mode) {
             Guard guard(m_mutex);
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
                       << "] emergencySignal is reset!" << std::endl;
             is_stop_mode = false;
+          }
         } else if (!is_stop_mode) {
             Guard guard(m_mutex);
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm

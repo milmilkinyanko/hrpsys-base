@@ -118,6 +118,8 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
+  transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
+  transition_interpolator->setName(std::string(print_str)+" transition_interpolator");
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -156,6 +158,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
 
   qRef.resize(m_robot->numJoints());
   qCurrent.resize(m_robot->numJoints());
+  diff_q.resize(m_robot->numJoints());
   qRefSeq.resize(m_robot->numJoints());
   controlSwingSupportTime.resize(num, 1.0);
   copInfo.resize(num*3, 1.0); // nx, ny, fz for each end-effectors
@@ -275,6 +278,13 @@ void Stabilizer::getTargetParameters ()
   } else {
     for ( int i = 0; i < m_robot->numJoints(); i++ ){
       m_robot->joint(i)->q = qRef[i];
+    }
+  }
+  if (!transition_interpolator->isEmpty()) {
+    double tmp_ratio;
+    transition_interpolator->get(&tmp_ratio, true);
+    for ( int i = 0; i < m_robot->numJoints(); i++ ){
+      m_robot->joint(i)->q = qRef[i] + tmp_ratio * diff_q[i];
     }
   }
   if ( transition_count < 0 ) {
@@ -807,6 +817,20 @@ void Stabilizer::sync_2_idle ()
   }
 }
 
+void Stabilizer::stopSTEmergency()
+{
+  std::cerr << "[" << print_str << "] stop stabilizer mode for emergency" << std::endl;
+  double tmp_ratio = 1.0;
+  transition_interpolator->clear();
+  transition_interpolator->set(&tmp_ratio);
+  tmp_ratio = 0.0;
+  transition_interpolator->setGoal(&tmp_ratio, 0.5, true);
+  for (int i = 0; i < m_robot->numJoints(); i++ ) {
+    diff_q[i] = m_robot->joint(i)->q - qRef[i];
+  }
+  control_mode = MODE_IDLE;
+}
+
 void Stabilizer::startStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
@@ -1334,8 +1358,9 @@ void Stabilizer::calcStateForEmergencySignal()
   bool is_cp_outside = false;
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     Eigen::Vector2d tmp_cp = act_cp.head(2);
-    szd->get_margined_vertices(margined_support_polygon_vetices);
-    szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
+    std::vector<bool> tmp_cs(2,true);
+    szd->get_vertices(support_polygon_vetices);
+    szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
     if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     if (DEBUGP) {
       std::cerr << "[" << print_str << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "

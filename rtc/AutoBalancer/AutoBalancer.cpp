@@ -60,7 +60,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_baseRpyIn("baseRpyIn", m_baseRpy),
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
-      m_emergencySignalIn("emergencySignal", m_emergencySignal),
+      m_emergencySignalOut("emergencySignal", m_emergencySignal),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
@@ -109,7 +109,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("baseRpyIn", m_baseRpyIn);
     addInPort("zmpIn", m_zmpIn);
     addInPort("optionalData", m_optionalDataIn);
-    addInPort("emergencySignal", m_emergencySignalIn);
     addInPort("diffCapturePoint", m_diffCPIn);
     addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
@@ -132,6 +131,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("cogOut", m_cogOut);
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
+    addOutPort("emergencySignal", m_emergencySignalOut);
   
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -477,6 +477,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete adjust_footstep_interpolator;
   delete leg_names_interpolator;
   delete angular_momentum_interpolator;
+  delete st->transition_interpolator;
   if (st->szd == NULL) {
     delete st->szd;
     st->szd = NULL;
@@ -561,13 +562,18 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_optionalDataIn.isNew()) {
         m_optionalDataIn.read();
     }
-    if (m_emergencySignalIn.isNew()){
-        m_emergencySignalIn.read();
-        // if (!is_stop_mode) {
-        //     std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
-        //     is_stop_mode = true;
-        //     gg->emergency_stop();
-        // }
+    if (st->reset_emergency_flag) {
+      m_emergencySignal.data = 0;
+      m_emergencySignalOut.write();
+      st->reset_emergency_flag = false;
+    } else if (st->is_emergency && !is_stop_mode) {
+      std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
+      is_stop_mode = true;
+      gg->finalize_velocity_mode();
+      stopABCparam();
+      st->stopSTEmergency();
+      m_emergencySignal.data = 1;
+      m_emergencySignalOut.write();
     }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
@@ -1511,6 +1517,18 @@ void AutoBalancer::stopABCparam()
   control_mode = MODE_SYNC_TO_IDLE;
 }
 
+void AutoBalancer::stopABCparamEmergency()
+{
+  std::cerr << "[" << m_profile.instance_name << "] stop auto balancer mode for emergency" << std::endl;
+  //Guard guard(m_mutex);
+  double tmp_ratio = 1.0;
+  transition_interpolator->clear();
+  transition_interpolator->set(&tmp_ratio);
+  tmp_ratio = 0.0;
+  transition_interpolator->setGoal(&tmp_ratio, 0.5, true);
+  control_mode = MODE_SYNC_TO_IDLE;
+}
+
 bool AutoBalancer::startWalking ()
 {
   if ( control_mode != MODE_ABC ) {
@@ -1628,38 +1646,43 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
 
 bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& vth)
 {
-  gg->set_all_limbs(leg_names);
-  bool ret = true;
-  if (gg_is_walking && gg_solved) {
-    gg->set_velocity_param(vx, vy, vth);
-  } else {
-    coordinates ref_coords;
-    ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;
-    mid_rot(ref_coords.rot, 0.5, ikp["rleg"].target_r0, ikp["lleg"].target_r0);
-    std::vector<leg_type> current_legs;
-    switch(gait_type) {
-    case BIPED:
+  if (!is_stop_mode) {
+    gg->set_all_limbs(leg_names);
+    bool ret = true;
+    if (gg_is_walking && gg_solved) {
+      gg->set_velocity_param(vx, vy, vth);
+    } else {
+      coordinates ref_coords;
+      ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;
+      mid_rot(ref_coords.rot, 0.5, ikp["rleg"].target_r0, ikp["lleg"].target_r0);
+      std::vector<leg_type> current_legs;
+      switch(gait_type) {
+      case BIPED:
         current_legs.assign (1, vy > 0 ? RLEG : LLEG);
         break;
-    case TROT:
+      case TROT:
         current_legs = (vy > 0 ? boost::assign::list_of(RLEG)(LARM) : boost::assign::list_of(LLEG)(RARM)).convert_to_container < std::vector<leg_type> > ();
         break;
-    case PACE:
+      case PACE:
         current_legs = (vy > 0 ? boost::assign::list_of(RLEG)(RARM) : boost::assign::list_of(LLEG)(LARM)).convert_to_container < std::vector<leg_type> > ();
         break;
-    case CRAWL:
+      case CRAWL:
         std::cerr << "[" << m_profile.instance_name << "] crawl walk[" << gait_type << "] is not implemented yet." << std::endl;
         return false;
-    case GALLOP:
+      case GALLOP:
         /* at least one leg shoud be in contact */
         std::cerr << "[" << m_profile.instance_name << "] gallop walk[" << gait_type << "] is not implemented yet." << std::endl;
         return false;
-    default: break;
+      default: break;
+      }
+      gg->initialize_velocity_mode(ref_coords, vx, vy, vth, current_legs);
+      ret = startWalking();
     }
-    gg->initialize_velocity_mode(ref_coords, vx, vy, vth, current_legs);
-    ret = startWalking();
+    return ret;
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot goVelocity while stopping mode." << std::endl;
+    return false;
   }
-  return ret;
 }
 
 bool AutoBalancer::goStop ()

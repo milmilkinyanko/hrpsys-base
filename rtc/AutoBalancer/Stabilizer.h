@@ -29,6 +29,7 @@
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
+#include "../SequencePlayer/interpolator.h"
 
 // </rtc-template>
 
@@ -135,6 +136,8 @@ public:
   hrp::Vector3 foot_origin_pos;
   hrp::Matrix33 foot_origin_rot;
   bool use_act_states;
+  std::vector<double> diff_q;
+  interpolator *transition_interpolator;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
@@ -156,6 +159,7 @@ public:
   void waitSTTransition();
   void sync_2_st ();
   void sync_2_idle();
+  void stopSTEmergency();
   inline int calcMaxTransitionCount ()
   {
       return (transition_time / dt);
