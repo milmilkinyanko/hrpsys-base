@@ -764,7 +764,7 @@ private:
     {
         parse_params(false);
         gg->print_param();
-        gg->initialize_gait_parameter(cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
+        gg->initialize_gait_parameter(cog, cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
         while ( !gg->proc_one_tick() );
         //gg->print_footstep_list();
         /* make step and dump */
@@ -1174,7 +1174,7 @@ public:
         coordinates fm_coords;
         mid_coords(fm_coords, 0.5, initial_swing_leg_dst_step.worldcoords, initial_support_leg_step.worldcoords);
         gg->initialize_velocity_mode(fm_coords, 0.1, 0.05, 10.0, boost::assign::list_of(RLEG));
-        gg->initialize_gait_parameter(cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
+        gg->initialize_gait_parameter(cog, cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
         while ( !gg->proc_one_tick() );
         /* make step and dump */
         check_start_values();
@@ -1204,7 +1204,7 @@ public:
         coordinates fm_coords;
         mid_coords(fm_coords, 0.5, initial_swing_leg_dst_step.worldcoords, initial_support_leg_step.worldcoords);
         gg->initialize_velocity_mode(fm_coords, 0, 0, 0, boost::assign::list_of(RLEG));
-        gg->initialize_gait_parameter(cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
+        gg->initialize_gait_parameter(cog, cog, boost::assign::list_of(initial_support_leg_step), boost::assign::list_of(initial_swing_leg_dst_step));
         while ( !gg->proc_one_tick() );
         /* make step and dump */
         check_start_values();
