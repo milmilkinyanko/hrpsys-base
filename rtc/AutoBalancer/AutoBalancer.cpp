@@ -1554,7 +1554,7 @@ bool AutoBalancer::startWalking ()
     for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
         init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
     gg->set_default_zmp_offsets(default_zmp_offsets);
-    gg->initialize_gait_parameter(act_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+    gg->initialize_gait_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
   while ( !gg->proc_one_tick(act_cog, act_cogvel) );

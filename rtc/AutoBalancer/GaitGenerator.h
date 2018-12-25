@@ -1163,7 +1163,7 @@ namespace rats
         foot_guided_controller_ptr = NULL;
       }
     };
-    void initialize_gait_parameter (const hrp::Vector3& cur_cog,
+    void initialize_gait_parameter (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_refcog,
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,
                                     const double delay = 1.6);
