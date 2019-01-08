@@ -264,7 +264,7 @@ class AutoBalancer
   std::string getUseForceModeString ();
   void setActData2ST ();
   void setABCData2ST ();
-  void limit_cogvel (hrp::Vector3& dif);
+  void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
 
   // for gg
@@ -277,7 +277,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
+  hrp::Vector3 ref_cog, prev_ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -321,7 +321,7 @@ class AutoBalancer
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
 
-  bool is_ik_converged;
+  size_t ik_converged_count;
   hrp::Vector3 dif_ref_act_cog;
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vertices;
   bool use_act_states;
