@@ -458,6 +458,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     use_act_states = false;
     gg->use_act_states = st->use_act_states = true;
 
+    ik_converged_count = 0;
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -934,6 +936,7 @@ void AutoBalancer::getTargetParameters()
       ref_cog = tmp_foot_mid_pos;
     }
     ref_cog(2) = tmp_ref_cog(2);
+    limit_cog(ref_cog);
     if (gg_is_walking) {
       ref_zmp = gg->get_refzmp();
     } else {
@@ -957,6 +960,7 @@ void AutoBalancer::getTargetParameters()
               m_force[i].data[j] = m_ref_force[i].data[j];
           }
       }
+      ik_converged_count = 0;
   }
   // Just for stop walking
   if (gg_is_walking && !gg_solved) stopWalking ();
@@ -1286,10 +1290,6 @@ void AutoBalancer::solveFullbodyIK ()
     hrp::Vector3 tmpcog = m_robot->calcCM();
     if (gg_is_walking && use_act_states) {
       ref_cog.head(2) = (tmpcog + (ref_cog -  (st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog))).head(2);
-    } else {
-      hrp::Vector3 dif_cog = ref_cog - tmpcog;
-      limit_cogvel(dif_cog);
-      ref_cog = tmpcog + dif_cog;
     }
   }
 
@@ -1412,26 +1412,25 @@ void AutoBalancer::solveSimpleFullbodyIK ()
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
-  limit_cogvel(dif_cog);
 
   // Solve IK
   fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
   for (size_t i = 0; i < 2; i++) { // ik loop
     dif_cog = m_robot->calcCM() - ref_cog - dif_ref_act_cog;
-    limit_cogvel(dif_cog);
-    fik->solveFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
+    fik->solveSimpleFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
   }
 }
 
-void AutoBalancer::limit_cogvel (hrp::Vector3& dif)
+void AutoBalancer::limit_cog (hrp::Vector3& cog)
 {
-  if (transition_interpolator->isEmpty() && !gg_is_walking && !is_ik_converged) {
-    is_ik_converged = true;
+  if (transition_interpolator->isEmpty() && !gg_is_walking && ik_converged_count > 0) {
+    double lvlimit = -1 * 1e-3 * m_dt, uvlimit = 1 * 1e-3 * m_dt; // 1 [mm/s]
     for (size_t i = 0; i < 2; i++) {
-      double lvlimit = -5 * 1e-3 * m_dt, uvlimit = 5 * 1e-3 * m_dt; // 5 [mm/s]
-      if(!vlimit(dif(i), lvlimit, uvlimit)) is_ik_converged = false;
+      vlimit(cog(i), prev_ref_cog(i) + lvlimit, prev_ref_cog(i) + uvlimit);
     }
+    ik_converged_count--;
   }
+  prev_ref_cog = cog;
 }
 
 bool AutoBalancer::vlimit(double& ret, const double llimit_value, const double ulimit_value)
@@ -1492,6 +1491,7 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   tmp_ratio = 1.0;
   transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
   prev_ref_zmp = ref_zmp;
+  prev_ref_cog = ref_cog;
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }
@@ -1561,7 +1561,7 @@ bool AutoBalancer::startWalking ()
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
-    is_ik_converged = false;
+    ik_converged_count = 5.0 / m_dt; // 5.0 [s]
   }
   return true;
 }

@@ -146,7 +146,7 @@ public:
             if (it->second.is_ik_enable) solveLimbIK (it->second, it->first, ratio_for_vel, is_transition);
         }
     };
-    void solveFullbodyIKLoop (const hrp::Vector3& _dif_cog, const bool is_transition) {
+    void solveSimpleFullbodyIKLoop (const hrp::Vector3& _dif_cog, const bool is_transition) {
       hrp::Vector3 dif_cog(ratio_for_vel*_dif_cog);
       dif_cog(2) = m_robot->rootLink()->p(2) - target_root_p(2) - d_root_height;
       m_robot->rootLink()->p = m_robot->rootLink()->p + -1 * move_base_gain * dif_cog;
