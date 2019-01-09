@@ -665,14 +665,16 @@ namespace rats
     } else if ( lcg.get_lcg_count() == get_overwrite_check_timing() ) {
       if (velocity_mode_flg != VEL_IDLING && lcg.get_footstep_index() > 0) {
         std::vector< std::vector<step_node> > cv;
+        size_t tmpidx = overwritable_footstep_index_offset;
+        overwritable_footstep_index_offset = 1;
         calc_next_coords_velocity_mode(cv, get_overwritable_index(),
                                        (overwritable_footstep_index_offset == 0 ? 4 : 3) // Why?
                                        );
         if (velocity_mode_flg == VEL_ENDING) velocity_mode_flg = VEL_IDLING;
-        std::vector<leg_type> first_overwrite_leg;
-        for (size_t i = 0; i < footstep_nodes_list[get_overwritable_index()].size(); i++) {
-            first_overwrite_leg.push_back(footstep_nodes_list[get_overwritable_index()].at(i).l_r);
-        }
+        // std::vector<leg_type> first_overwrite_leg;
+        // for (size_t i = 0; i < footstep_nodes_list[get_overwritable_index()].size(); i++) {
+        //     first_overwrite_leg.push_back(footstep_nodes_list[get_overwritable_index()].at(i).l_r);
+        // }
         for (size_t i = 0; i < cv.size(); i++) {
             std::vector<step_node> tmp_fsn;
             for (size_t j = 0; j < cv.at(i).size(); j++) {
@@ -684,6 +686,7 @@ namespace rats
         }
         overwrite_refzmp_queue(overwrite_footstep_nodes_list);
         overwrite_footstep_nodes_list.clear();
+        overwritable_footstep_index_offset = tmpidx;
       } else if ( !overwrite_footstep_nodes_list.empty() && // If overwrite_footstep_node_list exists
                   (lcg.get_footstep_index() < footstep_nodes_list.size()-1) &&  // If overwrite_footstep_node_list is specified and current footstep is not last footstep.
                   get_overwritable_index() == overwrite_footstep_index ) {
