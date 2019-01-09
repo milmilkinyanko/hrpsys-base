@@ -825,7 +825,7 @@ namespace rats
       if (!is_second_ver) {
         if (remain_count < fg_step_count * default_double_support_ratio_after) double_support_ratio = default_double_support_ratio_after;
       } else {
-        if (remain_count < fg_step_count * (1 - default_double_support_ratio_before) + 3 - double_remain_count_offset) double_support_ratio = default_double_support_ratio_after;
+        if (remain_count < fg_step_count * (1 - default_double_support_ratio_before) + 2 - double_remain_count_offset) double_support_ratio = default_double_support_ratio_after;
       }
     } else if (step_index == step_num - 1) { // last double support phase
       if (is_second_ver) double_support_ratio = 0.0;
