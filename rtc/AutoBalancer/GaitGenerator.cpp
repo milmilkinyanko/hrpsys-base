@@ -712,6 +712,7 @@ namespace rats
     }
     // modify footsteps based on diff_cp
     if(modify_footsteps) modify_footsteps_for_recovery();
+    else modified_d_footstep = hrp::Vector3::Zero();
 
     if ( !solved ) {
       hrp::Vector3 rzmp;
