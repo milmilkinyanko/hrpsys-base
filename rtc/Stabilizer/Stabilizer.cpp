@@ -498,6 +498,9 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   rel_ee_rot.reserve(stikp.size());
   rel_ee_name.reserve(stikp.size());
 
+  is_sitting = false;
+  total_ref_force_while_sitting = hrp::Vector3(0.0, 0.0, 200); // [N]
+
   hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
   if (sen == NULL) {
       std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -963,28 +966,29 @@ void Stabilizer::getActualParameters ()
       }
 
       // Distribute ZMP into each EE force/moment at each COP
-      if (st_algorithm == OpenHRP::StabilizerService::EEFM) {
+      if (!is_sitting) {
+        if (st_algorithm == OpenHRP::StabilizerService::EEFM) {
           // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
           szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
                                            ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                            new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                            eefm_gravitational_acceleration * total_mass, dt,
                                            DEBUGP, std::string(m_profile.instance_name));
-      } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQP) {
+        } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQP) {
           szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
                                              ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                              new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                              eefm_gravitational_acceleration * total_mass, dt,
                                              DEBUGP, std::string(m_profile.instance_name),
                                              (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP));
-      } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP) {
+        } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP) {
           szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
-                                             ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
-                                             new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                             eefm_gravitational_acceleration * total_mass, dt,
-                                             DEBUGP, std::string(m_profile.instance_name),
-                                             (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP), is_contact_list);
-      } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP2) {
+                                                        ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
+                                                        new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
+                                                        eefm_gravitational_acceleration * total_mass, dt,
+                                                        DEBUGP, std::string(m_profile.instance_name),
+                                                        (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP), is_contact_list);
+        } else if (st_algorithm == OpenHRP::StabilizerService::EEFMQPCOP2) {
           szd->distributeZMPToForceMomentsPseudoInverse2(tmp_ref_force, tmp_ref_moment,
                                                          ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                                          new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
@@ -992,6 +996,7 @@ void Stabilizer::getActualParameters ()
                                                          ee_forcemoment_distribution_weight,
                                                          eefm_gravitational_acceleration * total_mass, dt,
                                                          DEBUGP, std::string(m_profile.instance_name));
+        }
       }
       // for debug output
       new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
@@ -1046,9 +1051,16 @@ void Stabilizer::getActualParameters ()
           ikp.ee_d_foot_rpy = vlimit(ikp.ee_d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
         }
         if (!eefm_use_force_difference_control) { // Pos
-            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain;
-            ikp.ee_d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.ee_d_foot_pos, tmp_damping_gain, ikp.eefm_pos_time_const_support);
-            ikp.ee_d_foot_pos = vlimit(ikp.ee_d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
+          if (is_sitting) {
+            if (ref_contact_states[0] && ref_contact_states[1]) {
+              ikp.ref_force = total_ref_force_while_sitting / 2.0;
+            } else if (ref_contact_states[i]) {
+              ikp.ref_force = total_ref_force_while_sitting;
+            }
+          }
+          hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain;
+          ikp.ee_d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.ee_d_foot_pos, tmp_damping_gain, ikp.eefm_pos_time_const_support);
+          ikp.ee_d_foot_pos = vlimit(ikp.ee_d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
         }
         // Convert force & moment as foot origin coords relative
         ikp.ref_moment = foot_origin_rot.transpose() * ee_R * ikp.ref_moment;
@@ -1455,10 +1467,12 @@ void Stabilizer::moveBasePosRotForBodyRPYControl ()
     //   Basically Equation (1) and (2) in the paper [1]
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
     bool is_root_rot_limit = false;
-    for (size_t i = 0; i < 2; i++) {
+    if (!is_sitting) {
+      for (size_t i = 0; i < 2; i++) {
         d_rpy[i] = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1/eefm_body_attitude_control_time_const[i] * d_rpy[i]) * dt + d_rpy[i];
         d_rpy[i] = vlimit(d_rpy[i], -1 * root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
         is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i] ) < 1e-5); // near the limit
+      }
     }
     rats::rotm3times(current_root_R, target_root_R, hrp::rotFromRpy(d_rpy[0], d_rpy[1], 0));
     m_robot->rootLink()->R = current_root_R;
@@ -2052,6 +2066,10 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
   i_stp.limb_stretch_avoidance_time_const = limb_stretch_avoidance_time_const;
   i_stp.limb_length_margin.length(stikp.size());
   i_stp.detection_time_to_air = detection_count_to_air * dt;
+  i_stp.is_sitting = is_sitting;
+  for (size_t i = 0; i < 3; i++) {
+    i_stp.total_ref_force_while_sitting[i] = total_ref_force_while_sitting(i);
+  }
   for (size_t i = 0; i < 2; i++) {
     i_stp.limb_stretch_avoidance_vlimit[i] = limb_stretch_avoidance_vlimit[i];
     i_stp.root_rot_compensation_limit[i] = root_rot_compensation_limit[i];
@@ -2234,6 +2252,10 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
     root_rot_compensation_limit[i] = i_stp.root_rot_compensation_limit[i];
   }
   detection_count_to_air = static_cast<int>(i_stp.detection_time_to_air / dt);
+  is_sitting = i_stp.is_sitting;
+  for (size_t i = 0; i < 3; i++) {
+    total_ref_force_while_sitting(i) = i_stp.total_ref_force_while_sitting[i];
+  }
   if (control_mode == MODE_IDLE) {
       for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
           std::vector<STIKParam>::iterator it = std::find_if(stikp.begin(), stikp.end(), (&boost::lambda::_1->* &std::vector<STIKParam>::value_type::ee_name == std::string(i_stp.end_effector_list[i].leg)));

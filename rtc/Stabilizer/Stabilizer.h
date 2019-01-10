@@ -339,6 +339,8 @@ class Stabilizer
 
   std::vector<double> diff_q;
   interpolator *transition_interpolator;
+  bool is_sitting;
+  hrp::Vector3 total_ref_force_while_sitting;
 };
 
 

@@ -237,6 +237,10 @@ module OpenHRP
       DblArray2 root_rot_compensation_limit;
       /// Whether truncate zmp according to foot support polygon or not
       boolean use_zmp_truncation;
+      /// for sitting mode
+      boolean is_sitting;
+      /// for sitting mode
+      DblArray3 total_ref_force_while_sitting;
     };
 
     /**
