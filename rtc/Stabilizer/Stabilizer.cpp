@@ -500,6 +500,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
 
   is_sitting = false;
   total_ref_force_while_sitting = hrp::Vector3(0.0, 0.0, 200); // [N]
+  is_force_sensor_error = false;
 
   hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
   if (sen == NULL) {
@@ -665,7 +666,7 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
         m_emergencySignal.data = 0;
         m_emergencySignalOut.write();
         reset_emergency_flag = false;
-      } else if (is_emergency) {
+      } else if (is_emergency && transition_interpolator->isEmpty()) {
         m_emergencySignal.data = 1;
         m_emergencySignalOut.write();
         stopSTEmergency();
@@ -1008,6 +1009,7 @@ void Stabilizer::getActualParameters ()
       std::vector<bool> large_swing_f_diff(3, false);
       // moment control
       act_total_foot_origin_moment = hrp::Vector3::Zero();
+      is_force_sensor_error = false;
       for (size_t i = 0; i < stikp.size(); i++) {
         STIKParam& ikp = stikp[i];
         std::vector<bool> large_swing_m_diff(3, false);
@@ -1061,6 +1063,13 @@ void Stabilizer::getActualParameters ()
           hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain;
           ikp.ee_d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.ee_d_foot_pos, tmp_damping_gain, ikp.eefm_pos_time_const_support);
           ikp.ee_d_foot_pos = vlimit(ikp.ee_d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
+        }
+        // check force sensor error
+        for (size_t j = 0; j < 2; j++) {
+          if (std::fabs(sensor_force(i)) > 1000) {
+            std::cerr << j << "th force_sensor(" << j << ") is noisy" << std::endl;
+            is_force_sensor_error = true;
+          }
         }
         // Convert force & moment as foot origin coords relative
         ikp.ref_moment = foot_origin_rot.transpose() * ee_R * ikp.ref_moment;
@@ -1451,6 +1460,7 @@ void Stabilizer::calcStateForEmergencySignal()
   default:
       break;
   }
+  is_emergency = is_emergency || is_force_sensor_error;
   if (DEBUGP) {
       std::cerr << "[" << m_profile.instance_name << "] EmergencyCheck ("
                 << (emergency_check_mode == OpenHRP::StabilizerService::NO_CHECK?"NO_CHECK": (emergency_check_mode == OpenHRP::StabilizerService::COP?"COP":"CP") )

@@ -341,6 +341,7 @@ class Stabilizer
   interpolator *transition_interpolator;
   bool is_sitting;
   hrp::Vector3 total_ref_force_while_sitting;
+  bool is_force_sensor_error;
 };
 
 
