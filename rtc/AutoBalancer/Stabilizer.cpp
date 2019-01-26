@@ -248,6 +248,7 @@ void Stabilizer::execStabilizer()
       control_mode = MODE_AIR;
       break;
     }
+    copy (ref_contact_states.begin(), ref_contact_states.end(), prev_ref_contact_states.begin());
     getCurrentParameters();
   }
 }
@@ -759,7 +760,6 @@ void Stabilizer::getActualParametersForST ()
     m_robot->rootLink()->R = current_root_R;
     m_robot->calcForwardKinematics();
   }
-  copy (ref_contact_states.begin(), ref_contact_states.end(), prev_ref_contact_states.begin());
   if (control_mode != MODE_ST) d_pos_z_root = 0.0;
   prev_act_foot_origin_rot = foot_origin_rot;
   prev_act_foot_origin_pos = foot_origin_pos;
@@ -1589,8 +1589,15 @@ void Stabilizer::calcEEForceMomentControl()
   hrp::Matrix33 foot_origin_rot;
   calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
   std::vector<hrp::Vector3> current_d_foot_pos;
-  for (size_t i = 0; i < stikp.size(); i++)
+  for (size_t i = 0; i < stikp.size(); i++) {
     current_d_foot_pos.push_back(foot_origin_rot * stikp[i].d_foot_pos);
+    if (ref_contact_states != prev_ref_contact_states) {
+      stikp[i].d_pos_swing = (foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_pos_swing;
+      stikp[i].d_rpy_swing = (foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_rpy_swing;
+      stikp[i].prev_d_pos_swing = (foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].prev_d_pos_swing;
+      stikp[i].prev_d_rpy_swing = (foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].prev_d_rpy_swing;
+    }
+  }
 
   // Swing ee compensation.
   calcSwingEEModification();
@@ -1632,6 +1639,7 @@ void Stabilizer::calcEEForceMomentControl()
       }
     }
   }
+  prev_ref_foot_origin_rot = foot_origin_rot;
 }
 
 // Swing ee compensation.
@@ -1642,8 +1650,8 @@ void Stabilizer::calcSwingEEModification ()
 {
   for (size_t i = 0; i < stikp.size(); i++) {
     // Calc compensation values
-    double limit_pos = 30 * 1e-3; // 30[mm] limit
-    double limit_rot = deg2rad(10); // 10[deg] limit
+    double limit_pos = 50 * 1e-3; // 50[mm] limit
+    double limit_rot = deg2rad(30); // 30[deg] limit
     if (ref_contact_states[contact_states_index_map[stikp[i].ee_name]] || act_contact_states[contact_states_index_map[stikp[i].ee_name]]) {
       // If actual contact or target contact is ON, do not use swing ee compensation. Exponential zero retrieving.
       stikp[i].d_rpy_swing = calcDampingControl(stikp[i].d_rpy_swing, stikp[i].eefm_swing_rot_time_const);
