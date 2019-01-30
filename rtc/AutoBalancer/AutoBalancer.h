@@ -173,6 +173,8 @@ class AutoBalancer
   RTC::OutPort<RTC::TimedPoint3D> m_zmpOut;
   TimedDoubleSeq m_tmp;
   OutPort<TimedDoubleSeq> m_tmpOut;
+  TimedDoubleSeq m_allEEComp;
+  OutPort<TimedDoubleSeq> m_allEECompOut;
   OutPort<TimedPoint3D> m_basePosOut;
   OutPort<TimedOrientation3D> m_baseRpyOut;
   TimedDoubleSeq m_baseTform;
