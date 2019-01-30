@@ -362,6 +362,7 @@ void Stabilizer::getTargetParameters ()
     for (size_t i = 0; i < stikp.size(); i++) {
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
+      stikp[i].ref_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target_ee_R[i]);
       ref_force[i] = foot_origin_rot.transpose() * ref_force[i];
       ref_moment[i] = foot_origin_rot.transpose() * ref_moment[i];
     }
@@ -797,6 +798,7 @@ void Stabilizer::sync_2_st ()
     ikp.target_ee_diff_p_filter->reset(hrp::Vector3::Zero());
     ikp.target_ee_diff_r_filter->reset(hrp::Vector3::Zero());
     ikp.d_foot_pos = ikp.ee_d_foot_pos = ikp.d_foot_rpy = ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
+    ikp.omega.angle() = 0.0;
   }
   if (on_ground) {
     transition_count = -1 * calcMaxTransitionCount();
@@ -1575,6 +1577,7 @@ void Stabilizer::calcEEForceMomentControl()
       hrp::Link* target = m_robot->link(stikp[i].target_name);
       stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
       stikp[i].target_ee_diff_r = (foot_origin_rot.transpose() * target->R * stikp[i].localR).transpose() * stikp[i].target_ee_diff_r;
+      stikp[i].act_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target->R * stikp[i].localR);
     }
   }
 
@@ -1661,7 +1664,8 @@ void Stabilizer::calcSwingEEModification ()
     } else {
       /* position */
       {
-        hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p_filter->passFilter(stikp[i].target_ee_diff_p));
+        // hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p_filter->passFilter(stikp[i].target_ee_diff_p)); // old
+        hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p) * dt + stikp[i].d_pos_swing;
         double lvlimit = -50 * 1e-3 * dt, uvlimit = 50 * 1e-3 * dt; // 50 [mm/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
@@ -1669,7 +1673,12 @@ void Stabilizer::calcSwingEEModification ()
       }
       /* rotation */
       {
-        hrp::Vector3 tmpdiffr = stikp[i].eefm_swing_rot_spring_gain.cwiseProduct(stikp[i].target_ee_diff_r_filter->passFilter(hrp::rpyFromRot(stikp[i].target_ee_diff_r)));
+        // hrp::Vector3 tmpdiffr = stikp[i].eefm_swing_rot_spring_gain.cwiseProduct(stikp[i].target_ee_diff_r_filter->passFilter(hrp::rpyFromRot(stikp[i].target_ee_diff_r))); // old
+        Eigen::AngleAxisd prev_omega = stikp[i].omega;
+        stikp[i].omega = (stikp[i].ref_theta * stikp[i].act_theta.inverse());
+        stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
+        stikp[i].omega = stikp[i].omega * prev_omega;
+        hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
         double lvlimit = deg2rad(-20.0*dt), uvlimit = deg2rad(20.0*dt); // 20 [deg/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
