@@ -81,6 +81,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_walkingStatesOut("walkingStates", m_walkingStates),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_cogOut("cogOut", m_cog),
+      m_allEECompOut("allEEComp", m_allEEComp),
       m_AutoBalancerServicePort("AutoBalancerService"),
       // </rtc-template>
       gait_type(BIPED),
@@ -123,6 +124,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
+    addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
     addOutPort("contactStates", m_contactStatesOut);
@@ -171,7 +173,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(6);
+    m_tmp.data.length(14);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -412,6 +414,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
+        m_allEEComp.data.length(st->stikp.size() * 6); // 6 is pos+rot dim
         st->wrenches[i].resize(6);
         st->ref_wrenches[i].resize(6);
         registerInPort(sensor_names[i].c_str(), *m_wrenchesIn[i]);
@@ -748,15 +751,19 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
-
-      m_tmp.data[0] = gg->get_tmp(0);
-      m_tmp.data[1] = gg->get_tmp(1);
-      m_tmp.data[2] = gg->get_tmp(2);
-      m_tmp.data[3] = gg->get_tmp(3);
-      m_tmp.data[4] = gg->get_tmp(4);
-      m_tmp.data[5] = gg->get_tmp(5);
+      for (size_t i = 0; i < 14; i++) {
+        m_tmp.data[i] = gg->get_tmp(i);
+      }
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
+      for (size_t i = 0; i < st->stikp.size(); i++) {
+        for (size_t j = 0; j < 3; j++) {
+          m_allEEComp.data[6*i+j] = st->stikp[i].d_pos_swing(j);
+          m_allEEComp.data[6*i+j+3] = st->stikp[i].d_rpy_swing(j);
+        }
+      }
+      m_allEEComp.tm = m_qRef.tm;
+      m_allEECompOut.write();
 
       // reference acceleration
       hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");

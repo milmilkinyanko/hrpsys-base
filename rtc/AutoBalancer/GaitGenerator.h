@@ -1088,7 +1088,7 @@ namespace rats
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count;
     double total_mass;
-    double tmp[6];
+    double tmp[14];
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;

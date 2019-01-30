@@ -956,12 +956,22 @@ namespace rats
 
     tmp[0] = fg_ref_zmp(0);
     tmp[1] = fg_ref_zmp(1);
-    tmp[2] = ref_dcm(1);
-    tmp[3] = double_remain_count/1000.0;
-    double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
-    hrp::Vector3 cur_cp = cur_cog + cur_cogvel / omega;
-    tmp[4] = cur_cp(0);
-    tmp[5] = cur_cp(1);
+    tmp[2] = ref_dcm(0);
+    tmp[3] = ref_dcm(1);
+    tmp[4] = refzmp(0);
+    tmp[5] = refzmp(1);
+    double cur_omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
+    double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - refzmp)(2));
+    hrp::Vector3 cur_cp = cur_cog + cur_cogvel / cur_omega;
+    hrp::Vector3 cur_refcp = cur_refcog + cur_refcogvel / ref_omega;
+    tmp[6] = cur_refcp(0);
+    tmp[7] = cur_refcp(1);
+    tmp[8] = cur_cp(0);
+    tmp[9] = cur_cp(1);
+    tmp[10] = double_remain_count*dt;
+    tmp[11] = remain_count*dt;
+    tmp[12] = flywheel_tau(0);
+    tmp[13] = flywheel_tau(1);
   }
 
   void gait_generator::set_first_count_flag ()
