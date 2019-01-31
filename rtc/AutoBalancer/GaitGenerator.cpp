@@ -1194,9 +1194,7 @@ namespace rats
     }
     // calculate angular momentum
     use_roll_flywheel = use_pitch_flywheel = false;
-    if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
-        lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
-        ) {
+    {
       hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
       double remain_time = remain_count * dt;
       short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;

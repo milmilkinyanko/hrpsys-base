@@ -1308,7 +1308,8 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,1e-6,1e-6,1e-6; // JAXON
+        tmp.constraint_weight << 0,0,0,1e-6,1e-6,1; // COMMON
+        // tmp.constraint_weight << 0,0,0,1e-6,1e-6,1e-6; // JAXON
         // tmp.constraint_weight << 0,0,0,1e-4,1e-4,1; // CHIDORI
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight << 0,0,0,1,1,1;//transition中に回転フリーは危ない
         ik_tgt_list.push_back(tmp);
@@ -1360,9 +1361,11 @@ void AutoBalancer::solveFullbodyIK ()
 
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(1);//reference angular momentum
-        tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0; // consider angular momentum (JAXON)
+        // tmp.constraint_weight << 3,3,1e-1,1e-7,1e-7,0; // consider angular momentum (debug)
+        tmp.constraint_weight << 3,3,1e-1,(gg->get_use_roll_flywheel() ? 1e-3 : 2e-7),(gg->get_use_pitch_flywheel() ? 1e-3 : 2e-7),0; // consider angular momentum (COMMON)
+        // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0; // consider angular momentum (JAXON)
         // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1e-3 : 1e-4),(gg->get_use_pitch_flywheel() ? 1e-3 : 1e-4),0; // consider angular momentum (CHIDORI)
-
+        // if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) std::cerr << tmp.constraint_weight << std::endl;
         double initial_ratio = 0.0, goal_ratio = 2e-7, interpolator_time = 2.0;
         if(fik->q_ref_constraint_weight.rows()>12+21) { //上半身関節角のq_refへの緩い拘束(JAXON)
           if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
@@ -1382,17 +1385,17 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
     }
     // knee stretch protection
-    if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(10);
-    if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(10);
-    if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(10);
-    if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(10);
+    if(m_robot->link("RLEG_JOINT3") != NULL) m_robot->link("RLEG_JOINT3")->llimit = deg2rad(5);
+    if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(5);
+    if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(5);
+    if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(5);
     // reduce chest joint move
     if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
     if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
     if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
     fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
-    fik->rootlink_rpy_llimit << deg2rad(-10), deg2rad(-10), -DBL_MAX;
-    fik->rootlink_rpy_ulimit << deg2rad(10), deg2rad(10), DBL_MAX;
+    fik->rootlink_rpy_llimit << deg2rad(-5), deg2rad(-15), -DBL_MAX;
+    fik->rootlink_rpy_ulimit << deg2rad(5), deg2rad(30), DBL_MAX;
 
   int loop_result = 0;
   const int IK_MAX_LOOP = 1;
