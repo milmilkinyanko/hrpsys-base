@@ -1172,6 +1172,7 @@ namespace rats
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel);
     void set_first_count_flag ();
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
+    void limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void modify_footsteps_for_recovery ();
     void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
