@@ -972,6 +972,7 @@ namespace rats
     tmp[11] = remain_count*dt;
     tmp[12] = flywheel_tau(0);
     tmp[13] = flywheel_tau(1);
+    tmp[14] = falling_direction;
   }
 
   void gait_generator::set_first_count_flag ()
@@ -1167,7 +1168,7 @@ namespace rats
         }
         // outside check
         {
-          double inside_off = overwritable_stride_limitation[4] + safe_leg_margin[3];
+          double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
           double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
           if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
@@ -1246,7 +1247,7 @@ namespace rats
       double remain_time = remain_count * dt;
       short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;
       for (size_t i = 0; i < 2; i++) {
-        if(std::fabs(short_of_footstep(i)) > 1e-2) { // > 1cm
+        if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
           if (i == 0) use_pitch_flywheel = true;
           else use_roll_flywheel = true;
           short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
@@ -1254,6 +1255,63 @@ namespace rats
       }
       flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
       // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
+    }
+    // fall down check // TODO: turn walking is not considered
+    {
+      // next step pos relative
+      double remain_time = remain_count * dt;
+      double end_cp_front = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * leg_margin[0];
+      double end_cp_back = std::exp(omega * remain_time) * cur_cp(0) + (std::exp(omega * remain_time) - 1) * leg_margin[1];
+      double end_cp_outside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * remain_time) - 1) * leg_margin[2];
+      double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * leg_margin[3];
+      hrp::Vector3 new_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+      hrp::Matrix33 new_footstep_rot = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot;
+      hrp::Vector3 end_cp = new_footstep_pos;
+      size_t tmp_falling_direction = 0;
+      falling_direction = 0;
+      // x axis
+      double xz_max, l_max;
+      if (end_cp_front > overwritable_stride_limitation[0] + leg_margin[0]) { // front
+        tmp_falling_direction = 1;
+        xz_max = leg_margin[0];
+        l_max = overwritable_stride_limitation[0];
+        end_cp(0) = end_cp_front;
+      } else if (end_cp_back < -1 * (overwritable_stride_limitation[3] + leg_margin[1])) { // rear
+        tmp_falling_direction = 2;
+        xz_max = leg_margin[1];
+        l_max = overwritable_stride_limitation[3];
+        end_cp(0) = end_cp_back;
+      }
+      end_cp = new_footstep_rot.transpose() * ((cur_footstep_pos + cur_footstep_rot * end_cp) - new_footstep_pos);
+      if (tmp_falling_direction == 1 || tmp_falling_direction == 2) {
+        if ((tmp_falling_direction == 1 ? 1 : -1) * end_cp(0) > xz_max - l_max / (1 - std::exp(omega * min_time))) {
+          falling_direction = tmp_falling_direction;
+        }
+      }
+      // y axis
+      end_cp = new_footstep_pos;
+      double yz_1, yz_2, l_1, l_2;
+      if ((cur_leg == RLEG ? 1 : -1) * end_cp_inside > overwritable_stride_limitation[1] + leg_margin[2]) { // inside
+        tmp_falling_direction = 3;
+        yz_1 = leg_margin[2];
+        yz_2 = leg_margin[3];
+        l_1 = overwritable_stride_limitation[4] + leg_margin[3];
+        l_2 = -1 * overwritable_stride_limitation[1];
+        end_cp(1) = end_cp_inside;
+      } else if ((cur_leg == RLEG ? -1 : 1) * end_cp_outside > leg_margin[2]) { // outside
+        tmp_falling_direction = 4;
+        yz_1 = leg_margin[3];
+        yz_1 = leg_margin[2];
+        l_1 = -1 * overwritable_stride_limitation[1];
+        l_2 = overwritable_stride_limitation[4] + leg_margin[3];
+        end_cp(1) = end_cp_outside;
+      }
+      end_cp = new_footstep_rot.transpose() * ((cur_footstep_pos + cur_footstep_rot * end_cp) - new_footstep_pos);
+      if (tmp_falling_direction == 3 || tmp_falling_direction == 4) {
+        if(std::fabs(end_cp(1)) > (yz_1 + yz_2 * std::exp(omega * min_time)) / (1 + std::exp(omega * min_time)) + (l_1 + l_2 * std::exp(omega * min_time)) / (1 - std::exp(2 * omega * min_time))) {
+          falling_direction = tmp_falling_direction;
+        }
+      }
     }
   }
 

@@ -173,7 +173,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(14);
+    m_tmp.data.length(15);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -756,7 +756,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
-      for (size_t i = 0; i < 14; i++) {
+      for (size_t i = 0; i < 15; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
       }
       m_tmp.tm = m_qRef.tm;
@@ -898,6 +898,7 @@ void AutoBalancer::getTargetParameters()
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
       gg_solved = gg->proc_one_tick(act_cog, act_cogvel);
+      st->falling_direction = gg->get_falling_direction();
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
       tmp_fix_coords = fix_leg_coords;

@@ -139,6 +139,7 @@ public:
   bool use_act_states;
   std::vector<double> diff_q;
   interpolator *transition_interpolator;
+  size_t falling_direction;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),

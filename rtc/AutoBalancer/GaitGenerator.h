@@ -1087,9 +1087,9 @@ namespace rats
     bool updated_vel_footsteps, use_roll_flywheel, use_pitch_flywheel;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
-    size_t fg_step_count;
+    size_t fg_step_count, falling_direction;
     double total_mass;
-    double tmp[14];
+    double tmp[15];
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1143,7 +1143,7 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()) {
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
@@ -1705,6 +1705,7 @@ namespace rats
     stride_limitation_type get_stride_limitation_type () const { return default_stride_limitation_type; };
     double get_toe_check_thre () const { return thtc.get_toe_check_thre(); };
     double get_heel_check_thre () const { return thtc.get_heel_check_thre(); };
+    size_t get_falling_direction () const {return falling_direction;};
     // Get ee coords by checking whether given EE name is swing or support
     bool get_swing_support_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
     {

@@ -1361,9 +1361,15 @@ void Stabilizer::calcStateForEmergencySignal()
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     std::vector<bool> tmp_cs(2,true);
+    hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
     szd->get_vertices(support_polygon_vetices);
     szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
-    if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    if (!is_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    else if (falling_direction != 0) {
+      if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 20) ||
+          ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 3))
+        is_cp_outside = true;
+    }
     if (DEBUGP) {
       std::cerr << "[" << print_str << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "
                 << "sbp cog offset [" << sbp_cog_offset(0) << " " << sbp_cog_offset(1) << "], outside ? "
