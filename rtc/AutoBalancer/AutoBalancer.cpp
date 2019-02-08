@@ -173,7 +173,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(15);
+    m_tmp.data.length(17);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -1365,8 +1365,11 @@ void AutoBalancer::solveFullbodyIK ()
         // tmp_tau = st->vlimit(tmp_tau, -1000, 1000);
         tmp.targetRpy = hrp::Vector3::Zero();
 
-        if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(0);//reference angular momentum
-        if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (fik->cur_momentum_around_COM_filtered + tmp_tau * m_dt)(1);//reference angular momentum
+        hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
+        m_tmp.data[15] = prev_momentum(0);
+        m_tmp.data[16] = prev_momentum(1);
+        if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
+        if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         // tmp.constraint_weight << 3,3,1e-1,1e-5,1e-5,0; // consider angular momentum (debug)
         // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0; // consider angular momentum (JAXON)
         // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1e-3 : 1e-4),(gg->get_use_pitch_flywheel() ? 1e-3 : 1e-4),0; // consider angular momentum (CHIDORI)
@@ -1391,7 +1394,7 @@ void AutoBalancer::solveFullbodyIK ()
         }
         tmp.constraint_weight << 3,3,1e-1,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
         //上半身関節角のq_refへの緩い拘束(JAXON)
-        double initial_ratio = 0.0, goal_ratio = 2e-7, interpolator_time = 1.5;
+        double initial_ratio = 0.0, goal_ratio = 2e-5, interpolator_time = 1.5;
         if(fik->q_ref_constraint_weight.rows()>12+21) {
           if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
             fik->q_ref_constraint_weight.segment(12,21).fill(initial_ratio);
