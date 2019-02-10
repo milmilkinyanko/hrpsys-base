@@ -1224,6 +1224,7 @@ namespace rats
 				   const double vel_x, const double vel_y, const double vel_theta, /* [mm/s] [mm/s] [deg/s] */
                                    const std::vector<leg_type>& current_legs);
     void finalize_velocity_mode ();
+    void finalize_velocity_mode2 ();
     void append_finalize_footstep ()
     {
       append_finalize_footstep(footstep_nodes_list);
