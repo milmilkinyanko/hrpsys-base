@@ -329,6 +329,8 @@ class AutoBalancer
   hrp::Vector3 dif_ref_act_cog;
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vertices;
   bool use_act_states;
+  std::vector<double> diff_q;
+  interpolator *emergency_transition_interpolator;
 };
 
 

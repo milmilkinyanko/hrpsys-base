@@ -174,6 +174,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(17);
+    diff_q.resize(m_robot->numJoints());
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -340,6 +341,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     transition_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
     transition_interpolator_ratio = 0.0;
+    emergency_transition_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
+    emergency_transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
     adjust_footstep_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     adjust_footstep_interpolator->setName(std::string(m_profile.instance_name)+" adjust_footstep_interpolator");
     transition_time = 2.0;
@@ -482,6 +485,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
 {
   delete zmp_offset_interpolator;
   delete transition_interpolator;
+  delete emergency_transition_interpolator;
   delete adjust_footstep_interpolator;
   delete leg_names_interpolator;
   delete angular_momentum_interpolator;
@@ -579,8 +583,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     } else if (st->is_emergency && !is_stop_mode) {
       std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
       is_stop_mode = true;
-      gg->finalize_velocity_mode();
-      stopABCparam();
+      gg->finalize_velocity_mode2();
+      stopABCparamEmergency();
       st->stopSTEmergency();
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
@@ -655,6 +659,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
         rel_ref_zmp = m_robot->rootLink()->R.transpose() * (ref_zmp - m_robot->rootLink()->p);
       } else {
+        if (!emergency_transition_interpolator->isEmpty()) {
+          double tmp_ratio;
+          emergency_transition_interpolator->get(&tmp_ratio, true);
+          for ( int i = 0; i < m_robot->numJoints(); i++ ){
+            m_robot->joint(i)->q = m_qRef.data[i] + tmp_ratio * diff_q[i];
+          }
+        }
         rel_ref_zmp = input_zmp;
         fik->d_root_height = 0.0;
       }
@@ -1362,7 +1373,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = ref_cog;// COM height will not be constraint
         hrp::Vector3 tmp_tau = gg->get_flywheel_tau();
-        // tmp_tau = st->vlimit(tmp_tau, -1000, 1000);
+        tmp_tau = st->vlimit(tmp_tau, -1000, 1000);
         tmp.targetRpy = hrp::Vector3::Zero();
 
         hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
@@ -1558,13 +1569,17 @@ void AutoBalancer::stopABCparam()
 void AutoBalancer::stopABCparamEmergency()
 {
   std::cerr << "[" << m_profile.instance_name << "] stop auto balancer mode for emergency" << std::endl;
-  //Guard guard(m_mutex);
   double tmp_ratio = 1.0;
-  transition_interpolator->clear();
-  transition_interpolator->set(&tmp_ratio);
+  emergency_transition_interpolator->clear();
+  emergency_transition_interpolator->set(&tmp_ratio);
   tmp_ratio = 0.0;
-  transition_interpolator->setGoal(&tmp_ratio, 0.5, true);
-  control_mode = MODE_SYNC_TO_IDLE;
+  emergency_transition_interpolator->setGoal(&tmp_ratio, 0.8, true);
+  for (int i = 0; i < m_robot->numJoints(); i++ ) {
+    diff_q[i] = m_robot->joint(i)->q - m_qRef.data[i];
+  }
+  control_mode = MODE_IDLE;
+  gg->clear_footstep_nodes_list();
+  gg_is_walking = false;
 }
 
 bool AutoBalancer::startWalking ()

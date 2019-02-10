@@ -1463,6 +1463,11 @@ namespace rats
     if (velocity_mode_flg == VEL_DOING) velocity_mode_flg = VEL_ENDING;
   };
 
+  void gait_generator::finalize_velocity_mode2 ()
+  {
+    if (velocity_mode_flg == VEL_DOING) velocity_mode_flg = VEL_IDLING;
+  };
+
   void gait_generator::calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const
   {
     ref_coords = sup_fns.front().worldcoords;
