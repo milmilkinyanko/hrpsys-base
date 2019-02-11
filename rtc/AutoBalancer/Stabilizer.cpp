@@ -249,8 +249,10 @@ void Stabilizer::execStabilizer()
       break;
     }
     copy (ref_contact_states.begin(), ref_contact_states.end(), prev_ref_contact_states.begin());
-    for (int i = 0; i < m_robot->numJoints(); i++ ) {
-      diff_q[i] = m_robot->joint(i)->q - qRef[i];
+    if (!transition_interpolator->isEmpty()) {
+        for (int i = 0; i < m_robot->numJoints(); i++ ) {
+            diff_q[i] = m_robot->joint(i)->q - qRef[i];
+        }
     }
     getCurrentParameters();
   }
@@ -1369,7 +1371,7 @@ void Stabilizer::calcStateForEmergencySignal()
     szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
     if (!is_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     else if (falling_direction != 0) {
-      if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(0))) > 10) ||
+      if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(0))) > 5) ||
           ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 5))
         is_cp_outside = true;
     }
