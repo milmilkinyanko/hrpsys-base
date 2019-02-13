@@ -1250,7 +1250,8 @@ namespace rats
         if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
           if (i == 0) use_pitch_flywheel = true;
           else use_roll_flywheel = true;
-          short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
+          // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
+          short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
         }
       }
       flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
