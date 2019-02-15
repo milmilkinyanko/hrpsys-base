@@ -640,6 +640,7 @@ namespace rats
     foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - rg.get_refzmp_cur()(2), cur_refcog, gravitational_acceleration);
     foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     is_first_count = false;
+    prev_short_of_zmp = hrp::Vector3::Zero();
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -1109,11 +1110,13 @@ namespace rats
     leg_type cur_leg = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
     hrp::Vector3 cur_cp = cur_footstep_rot.transpose() * (cur_cog + cur_cogvel / omega - cur_footstep_pos);
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
+    bool is_modify_pahse = false;
 
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
         lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before)) &&
         !(lcg.get_lcg_count() <= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1 && act_contact_states[0] && act_contact_states[1])
         ) {
+      is_modify_pahse = true;
       // step timing modification
       {
         double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
@@ -1246,13 +1249,18 @@ namespace rats
       hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
       double remain_time = remain_count * dt;
       short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;
-      for (size_t i = 0; i < 2; i++) {
-        if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
-          if (i == 0) use_pitch_flywheel = true;
-          else use_roll_flywheel = true;
-          // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
-          short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
+      if (is_modify_pahse) {
+        for (size_t i = 0; i < 2; i++) {
+          if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
+            if (i == 0) use_pitch_flywheel = true;
+            else use_roll_flywheel = true;
+            // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
+            short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
+          }
         }
+        prev_short_of_zmp = short_of_zmp;
+      } else {
+        short_of_zmp = prev_short_of_zmp;
       }
       flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
       // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
