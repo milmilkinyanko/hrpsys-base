@@ -734,7 +734,6 @@ namespace rats
 
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
-      tmp[10] = 0.0;
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
     }
@@ -970,7 +969,7 @@ namespace rats
     tmp[7] = cur_refcp(1);
     tmp[8] = cur_cp(0);
     tmp[9] = cur_cp(1);
-    // tmp[10] = double_remain_count*dt;
+    tmp[10] = double_remain_count*dt;
     tmp[11] = remain_count*dt;
     tmp[12] = flywheel_tau(0);
     tmp[13] = flywheel_tau(1);
@@ -1123,7 +1122,7 @@ namespace rats
         double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
         double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
         double support_r = std::min(std::min(safe_leg_margin[0], safe_leg_margin[1]), std::min(safe_leg_margin[3], safe_leg_margin[4]));
-        // double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
+        double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
         double tmp_dt = 0.0;
         bool is_change_time = false;
         double new_remain_time = remain_count * dt;
@@ -1172,34 +1171,30 @@ namespace rats
         }
         // outside check
         {
-          tmp[10] = 0.1;
           double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
           double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
           if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
-            tmp[10] = 0.5;
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
-              tmp[10] = 0.8;
               is_change_time = true;
               was_enlarged_time = true;
               tmp_dt = new_remain_time - remain_count*dt;
             }
           } else if (was_enlarged_time) {
-            tmp[10] = 1;
-            // new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
-            // tmp_dt = new_remain_time - remain_count*dt;
-            // if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
-            //   tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
-            // }
-            // if (remain_count*dt + tmp_dt < min_time_mgn) {
-            //   if (remain_count*dt < min_time_mgn) {
-            //     tmp_dt = 0.0;
-            //   } else {
-            //     tmp_dt = min_time_mgn - remain_count*dt;
-            //   }
-            // }
-            // is_change_time = true;
+            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
+            tmp_dt = new_remain_time - remain_count*dt;
+            if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
+              tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+            }
+            if (remain_count*dt + tmp_dt < min_time_mgn) {
+              if (remain_count*dt < min_time_mgn) {
+                tmp_dt = 0.0;
+              } else {
+                tmp_dt = min_time_mgn - remain_count*dt;
+              }
+            }
+            is_change_time = true;
           }
         }
         if (is_change_time) {
