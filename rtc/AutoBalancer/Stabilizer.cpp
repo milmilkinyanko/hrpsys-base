@@ -1372,7 +1372,7 @@ void Stabilizer::calcStateForEmergencySignal()
     if (!is_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     else if (falling_direction != 0) {
       if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 10) ||
-          ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 5))
+          ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 3))
         is_cp_outside = true;
     }
     if (DEBUGP) {
