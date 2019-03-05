@@ -281,6 +281,10 @@ namespace rats
          it1++, it2++, it3++) {
       coordinates ret;
       ret.rot = it1->worldcoords.rot * hrp::rotFromRpy(tmp_swing_foot_rot[it2->l_r]);
+      if (it1->l_r == RLEG && act_contact_states[1] ||
+          it1->l_r == LLEG && act_contact_states[0])
+        is_touch_ground = true;
+      else is_touch_ground = false;
       switch (default_orbit_type) {
       case SHUFFLING:
         ret.pos = swing_ratio*it1->worldcoords.pos + (1-swing_ratio)*it2->worldcoords.pos;
@@ -432,6 +436,7 @@ namespace rats
   void leg_coords_generator::rectangle_midcoords (coordinates& ret, const coordinates& start,
                                                   const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx, const coordinates& current_coords)
   {
+    rdtg[swing_trajectory_generator_idx].is_touch_ground = is_touch_ground;
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height, hrp::Vector3(current_coords.pos));
   };
 

@@ -425,6 +425,7 @@ namespace rats
     public:
       delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0) {};
       ~delay_hoffarbib_trajectory_generator() { };
+      bool is_touch_ground;
       void set_dt (const double _dt) { dt = _dt; };
       void set_swing_trajectory_delay_time_offset (const double _time_offset) { time_offset = _time_offset; };
       void set_swing_trajectory_final_distance_weight (const double _final_distance_weight) { final_distance_weight = _final_distance_weight; };
@@ -482,6 +483,11 @@ namespace rats
           } else {
             pos = goal;
           }
+        }
+        if (!is_touch_ground) {
+          pos = start;
+          vel = hrp::Vector3::Zero();
+          acc = hrp::Vector3::Zero();
         }
         ret = pos;
         current_count++;
@@ -729,6 +735,8 @@ namespace rats
       double toe_pos_offset_x, heel_pos_offset_x, toe_angle, heel_angle, foot_dif_rot_angle, toe_heel_dif_angle;
       bool use_toe_joint, use_toe_heel_auto_set;
       toe_heel_type current_src_toe_heel_type, current_dst_toe_heel_type;
+      std::vector<bool> act_contact_states;
+      bool is_touch_ground;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       double calc_interpolated_toe_heel_angle (const toe_heel_phase start_phase, const toe_heel_phase goal_phase, const double start, const double goal);
@@ -860,6 +868,12 @@ namespace rats
           }
       };
       bool set_toe_heel_phase_ratio (const std::vector<double>& ratio) { return thp.set_toe_heel_phase_ratio(ratio); };
+      void set_act_contact_states (const std::vector<bool>& _act_contact_states) {
+        if (act_contact_states.empty()) act_contact_states.resize(_act_contact_states.size());
+        for (size_t i = 0; i < act_contact_states.size(); i++) {
+          act_contact_states[i] = _act_contact_states[i];
+        }
+      };
       void reset(const size_t _one_step_count, const size_t _next_one_step_count,
                  const std::vector<step_node>& _swing_leg_dst_steps,
                  const std::vector<step_node>& _swing_leg_src_steps,
@@ -1459,6 +1473,7 @@ namespace rats
       for (size_t i = 0; i < act_contact_states.size(); i++) {
         act_contact_states[i] = _act_contact_states[i];
       }
+      lcg.set_act_contact_states(_act_contact_states);
     };
     void set_use_stride_limitation (const bool _use_stride_limitation) { use_stride_limitation = _use_stride_limitation; };
     void set_modify_footsteps (const bool _modify_footsteps) { modify_footsteps = _modify_footsteps; };
