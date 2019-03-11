@@ -1601,6 +1601,9 @@ namespace rats
     double get_heel_zmp_offset_x () const { return rg.get_heel_zmp_offset_x(); };
     bool get_use_toe_heel_transition () const { return rg.get_use_toe_heel_transition(); };
     bool get_use_toe_heel_auto_set () const { return rg.get_use_toe_heel_auto_set(); };
+    size_t get_remain_count () const { return remain_count; };
+    bool is_before_step_phase () const { return lcg.get_lcg_count() > static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1; };
+    leg_type get_cur_leg () const { return footstep_nodes_list[lcg.get_footstep_index()].front().l_r; };
     const std::map<leg_type, double> get_zmp_weight_map () const { return rg.get_zmp_weight_map(); };
     void proc_zmp_weight_map_interpolation () { return rg.proc_zmp_weight_map_interpolation(); };
     std::vector<std::string> get_footstep_front_leg_names () const {
@@ -1721,6 +1724,7 @@ namespace rats
     double get_toe_check_thre () const { return thtc.get_toe_check_thre(); };
     double get_heel_check_thre () const { return thtc.get_heel_check_thre(); };
     size_t get_falling_direction () const {return falling_direction;};
+    size_t get_step_num () const {return footstep_nodes_list.size(); };
     // Get ee coords by checking whether given EE name is swing or support
     bool get_swing_support_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
     {
