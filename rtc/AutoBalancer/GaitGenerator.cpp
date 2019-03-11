@@ -915,6 +915,7 @@ namespace rats
             is_first_double_after = true;
           }
         }
+        if (is_start_or_end_phase) remain_count++;
       } else {
         if (remain_count == static_cast<size_t>(fg_step_count * default_double_support_ratio_after)) {
           double_remain_count_offset = remain_count + static_cast<size_t>(fg_step_count * (1 - default_double_support_ratio_after) + 2) - fg_step_count;

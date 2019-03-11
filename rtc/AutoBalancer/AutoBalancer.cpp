@@ -296,6 +296,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         std::cerr << "[" << m_profile.instance_name << "]   offset_pos = " << tp.localPos.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   has_toe_joint = " << (tp.has_toe_joint?"true":"false") << std::endl;
         contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
+        if (( ee_name == "lleg" ) || ( ee_name == "rleg" )) touchdown_transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt, interpolator::HOFFARBIB)));
       }
       m_contactStates.data.length(num);
       m_toeheelRatio.data.length(num);
@@ -342,7 +343,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
     transition_interpolator_ratio = 0.0;
     emergency_transition_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
-    emergency_transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
+    emergency_transition_interpolator->setName(std::string(m_profile.instance_name)+" emergency_transition_interpolator");
     adjust_footstep_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     adjust_footstep_interpolator->setName(std::string(m_profile.instance_name)+" adjust_footstep_interpolator");
     transition_time = 2.0;
@@ -492,6 +493,9 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete roll_weight_interpolator;
   delete pitch_weight_interpolator;
   delete st->transition_interpolator;
+  for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
+    delete it->second;
+  }
   if (st->szd == NULL) {
     delete st->szd;
     st->szd = NULL;
@@ -1305,6 +1309,39 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
+void AutoBalancer::stopFootForEarlyTouchDown ()
+{
+  double remain_time;
+  bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
+  for (size_t i = 0; i < 2; i++) {
+    if (gg_is_walking) {
+      remain_time = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
+                                                     ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
+                                                      ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
+                                                     gg->get_default_step_time() + m_dt : 0);
+      if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
+        if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
+          double tmp_ratio = 1.0;
+          touchdown_transition_interpolator[leg_names[i]]->clear();
+          touchdown_transition_interpolator[leg_names[i]]->set(&tmp_ratio);
+          ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i];
+          tmp_ratio = 0.0;
+          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+          is_foot_touch[i] = true;
+        }
+      }
+    }
+    if (!touchdown_transition_interpolator[leg_names[i]]->isEmpty()) {
+      double tmp_ratio = 0.0;
+      touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+      touchdown_transition_interpolator[leg_names[i]]->get(&tmp_ratio, true);
+      ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i] * tmp_ratio + ikp[leg_names[i]].target_p0 * (1.0 - tmp_ratio);
+    } else {
+      is_foot_touch[i] = false;
+      touchdown_foot_pos[i] = ikp[leg_names[i]].target_p0;
+    }
+  }
+}
 void AutoBalancer::solveFullbodyIK ()
 {
   // set desired natural pose and pullback gain
@@ -1317,7 +1354,9 @@ void AutoBalancer::solveFullbodyIK ()
     }
   }
 
-  std::vector<IKConstraint> ik_tgt_list;
+  stopFootForEarlyTouchDown();
+
+    std::vector<IKConstraint> ik_tgt_list;
     {
         IKConstraint tmp;
         tmp.target_link_name = "WAIST";
@@ -1579,6 +1618,9 @@ void AutoBalancer::stopABCparamEmergency()
   }
   control_mode = MODE_IDLE;
   gg->clear_footstep_nodes_list();
+  for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
+    it->second->clear();
+  }
   gg_is_walking = false;
 }
 

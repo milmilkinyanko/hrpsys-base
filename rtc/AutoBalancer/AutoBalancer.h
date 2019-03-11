@@ -268,6 +268,7 @@ class AutoBalancer
   void setABCData2ST ();
   void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
+  void stopFootForEarlyTouchDown();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -331,6 +332,9 @@ class AutoBalancer
   bool use_act_states;
   std::vector<double> diff_q;
   interpolator *emergency_transition_interpolator;
+  hrp::Vector3 touchdown_foot_pos[2];
+  bool is_foot_touch[2];
+  std::map<std::string, interpolator*> touchdown_transition_interpolator;
 };
 
 
