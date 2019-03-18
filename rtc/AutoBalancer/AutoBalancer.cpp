@@ -223,6 +223,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         while (!root->isRoot()) {
           tmp_fikp.max_limb_length += root->b.norm();
           tmp_fikp.parent_name = root->name;
+          tmp_fikp.group_indices.push_back(root->jointId);
           root = root->parent;
         }
         fik->ikp.insert(std::pair<std::string, FullbodyInverseKinematicsSolver::IKparam>(ee_name, tmp_fikp));
@@ -1365,8 +1366,6 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
         tmp.constraint_weight << 0,0,0,1e-4,1e-4,1; // COMMON
-        // tmp.constraint_weight << 0,0,0,1e-6,1e-6,1e-6; // JAXON
-        // tmp.constraint_weight << 0,0,0,1e-4,1e-4,1; // CHIDORI
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight << 0,0,0,1,1,1;//transition中に回転フリーは危ない
         ik_tgt_list.push_back(tmp);
     }{
@@ -1420,10 +1419,6 @@ void AutoBalancer::solveFullbodyIK ()
         m_tmp.data[16] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        // tmp.constraint_weight << 3,3,1e-1,1e-5,1e-5,0; // consider angular momentum (debug)
-        // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1 : 1e-7),(gg->get_use_pitch_flywheel() ? 1 : 1e-7),0; // consider angular momentum (JAXON)
-        // tmp.constraint_weight << 3,3,1,(gg->get_use_roll_flywheel() ? 1e-3 : 1e-4),(gg->get_use_pitch_flywheel() ? 1e-3 : 1e-4),0; // consider angular momentum (CHIDORI)
-        // if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) std::cerr << tmp_tau.transpose() << std::endl;
         double roll_weight, pitch_weight, goal_weight = 1e-5, weight_interpolator_time = 1.5;
         roll_weight = pitch_weight = 1e-2;
         // roll
@@ -1443,20 +1438,21 @@ void AutoBalancer::solveFullbodyIK ()
           else pitch_weight_interpolator->get(&pitch_weight, true);
         }
         tmp.constraint_weight << 3,3,1e-1,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
-        //上半身関節角のq_refへの緩い拘束(JAXON)
+
+        // 上半身関節角のq_refへの緩い拘束
         double initial_ratio = 0.0, goal_ratio = 2e-5, interpolator_time = 1.5;
-        if(fik->q_ref_constraint_weight.rows()>12+21) {
-          if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
-            fik->q_ref_constraint_weight.segment(12,21).fill(initial_ratio);
-            angular_momentum_interpolator->set(&initial_ratio);
-            angular_momentum_interpolator->setGoal(&goal_ratio, interpolator_time, true);
-          } else {
-            double tmp_ratio;
-            if (angular_momentum_interpolator->isEmpty()) tmp_ratio = goal_ratio;
-            else angular_momentum_interpolator->get(&tmp_ratio, true);
-            fik->q_ref_constraint_weight.segment(12,21).fill(tmp_ratio);
-          }
+        if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
+          fik->q_ref_constraint_weight.fill(initial_ratio);
+          angular_momentum_interpolator->set(&initial_ratio);
+          angular_momentum_interpolator->setGoal(&goal_ratio, interpolator_time, true);
+        } else {
+          double tmp_ratio;
+          if (angular_momentum_interpolator->isEmpty()) tmp_ratio = goal_ratio;
+          else angular_momentum_interpolator->get(&tmp_ratio, true);
+          fik->q_ref_constraint_weight.fill(tmp_ratio);
         }
+        fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
+        fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
 
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight.tail(3).fill(0);// disable angular momentum control in transition
 //        tmp.rot_precision = 1e-1;//angular momentum precision
@@ -1471,6 +1467,8 @@ void AutoBalancer::solveFullbodyIK ()
     if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
     if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
     if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
+    if(m_robot->link("CHEST_Y") != NULL) fik->dq_weight_all(m_robot->link("CHEST_Y")->jointId) = 10;
+    if(m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(m_robot->link("CHEST_P")->jointId) = 10;
     fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
     fik->rootlink_rpy_llimit << deg2rad(-5), deg2rad(-30), -DBL_MAX;
     fik->rootlink_rpy_ulimit << deg2rad(5), deg2rad(30), DBL_MAX;

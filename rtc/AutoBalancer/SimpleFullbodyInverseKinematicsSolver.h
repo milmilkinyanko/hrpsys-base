@@ -41,6 +41,7 @@ public:
         std::string parent_name;
         // Limb length
         double max_limb_length, limb_length_margin;
+        std::vector<int> group_indices;
         IKparam ()
             : avoid_gain(0.001), reference_gain(0.01),
               pos_ik_error_count(0), rot_ik_error_count(0),
