@@ -106,6 +106,7 @@ public:
     bool releaseMotion();
     bool getEmergencyStopperParam(OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param);
     bool setEmergencyStopperParam(const OpenHRP::EmergencyStopperService::EmergencyStopperParam& i_param);
+    bool setEmergencyJointAngles(const double *angles, const bool solved);
 
 protected:
     // Configuration variable declaration
@@ -114,6 +115,7 @@ protected:
     // </rtc-template>
 
     TimedDoubleSeq m_qRef;
+    TimedDoubleSeq m_qEmergency;
     TimedDoubleSeq m_q;
     TimedLong m_emergencySignal;
     TimedLong m_emergencyMode;
@@ -125,6 +127,7 @@ protected:
     // DataInPort declaration
     // <rtc-template block="inport_declare">
     InPort<TimedDoubleSeq> m_qRefIn;
+    InPort<TimedDoubleSeq> m_qEmergencyIn;
     InPort<TimedLong> m_emergencySignalIn;
     InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
@@ -194,6 +197,7 @@ private:
     coil::Mutex m_mutex;
     BeepClient bc;
     int dummy;
+    bool solved;
 };
 
 

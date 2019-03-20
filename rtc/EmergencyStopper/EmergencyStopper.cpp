@@ -55,6 +55,7 @@ EmergencyStopper::EmergencyStopper(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       // <rtc-template block="initializer">
       m_qRefIn("qRef", m_qRef),
+      m_qEmergencyIn("qEmergency", m_qEmergency),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
       m_servoStateIn("servoStateIn", m_servoState),
       m_qOut("q", m_q),
@@ -88,6 +89,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     // <rtc-template block="registration">
     // Set InPort buffers
     addInPort("qRef", m_qRefIn);
+    addInPort("qEmergency", m_qEmergencyIn);
     addInPort("emergencySignal", m_emergencySignalIn);
     addInPort("servoStateIn", m_servoStateIn);
 
@@ -178,6 +180,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     recover_time_dt = 1.0;
     default_recover_time = 2.5/m_dt;
     default_retrieve_time = 1;
+    solved = false;
     //default_retrieve_time = 1.0/m_dt;
     m_stop_posture = new double[m_robot->numJoints()];
     m_stop_wrenches = new double[nforce*6];
@@ -255,6 +258,7 @@ RTC::ReturnCode_t EmergencyStopper::onDeactivated(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
+        solved = false;
         recover_time = 0;
         m_interpolator->setGoal(m_qRef.data.get_buffer(), m_dt);
         m_interpolator->get(m_q.data.get_buffer());
@@ -291,13 +295,19 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
         while ((int)m_input_posture_queue.size() > default_retrieve_time) {
             m_input_posture_queue.pop();
         }
-        if (!is_stop_mode) {
-            double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06}; // CHIDORI
+        // if (!is_stop_mode) {
+        {
+            // double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06}; // CHIDORI
+            double tmpq[] = {
+              // -0.031978, -0.302196, 0.052625, 0.623091, -0.052851, -0.319949, -0.000000, -0.000291, -0.032075, -0.302298, 0.052653, 0.623232, -0.052929, -0.320630, -0.000000, -0.000063, 0.261282, 0.869966, -0.087213, -0.000439, 0.000020, -0.000080, 0.000013, 0.890118, 0.261531, -0.086439, 0.087310, -0.523310, -0.000004, 0.000032, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // stretch larm
+                0.000005, -0.348759, 0.000012, 0.630766, 0.000030, -0.278725, 0.000000, -0.000211, -0.000005, -0.348793, 0.000024, 0.630764, 0.000044, -0.278784, -0.000000, -0.000065, 0.261541, 0.086439, -0.087310, -0.523306, 0.000004, 0.000033, 0.000003, 0.890118, 0.261541, -0.086438, 0.087310, -0.523306, -0.000004, 0.000033, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // reset-pose
+            }; // RHP4B
             for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
-                if (recover_time > 0) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
+                if (recover_time > 0 && !is_stop_mode) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_stop_posture[i] = m_q.data[i];
                 } else {
-                  m_stop_posture[i] = tmpq[i];
+                  if (!solved) m_stop_posture[i] = tmpq[i];
+                  else m_stop_posture[i] = m_qEmergency.data[i];
                 }
             }
         }
@@ -345,6 +355,9 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
                       << "] emergencySignal is set!" << std::endl;
             is_stop_mode = true;
         }
+    }
+    if (m_qEmergencyIn.isNew()) {
+      m_qEmergencyIn.read();
     }
     if (is_stop_mode && !prev_is_stop_mode) {
         retrieve_time = default_retrieve_time;
@@ -500,6 +513,7 @@ bool EmergencyStopper::releaseMotion()
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
+        solved = false;
         std::cerr << "[" << m_profile.instance_name << "] releaseMotion is called" << std::endl;
     }
     return true;
@@ -520,6 +534,15 @@ bool EmergencyStopper::setEmergencyStopperParam(const OpenHRP::EmergencyStopperS
     default_recover_time = i_param.default_recover_time/m_dt;
     default_retrieve_time = i_param.default_retrieve_time/m_dt;
     std::cerr << "[" << m_profile.instance_name << "]   default_recover_time = " << default_recover_time*m_dt << "[s], default_retrieve_time = " << default_retrieve_time*m_dt << "[s]" << std::endl;
+    return true;
+};
+
+bool EmergencyStopper::setEmergencyJointAngles(const double *angles, const bool _solved)
+{
+    // for (size_t i = 0; i < m_robot->numJoints(); i++) {
+    //   m_stop_posture[i] = angles[i];
+    // }
+    solved = _solved;
     return true;
 };
 

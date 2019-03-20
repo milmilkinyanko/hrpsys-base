@@ -159,6 +159,8 @@ class SequencePlayer
   std::vector<OutPort<TimedDoubleSeq> *> m_wrenchesOut;
   TimedDoubleSeq m_optionalData;
   OutPort<TimedDoubleSeq> m_optionalDataOut;
+  TimedDoubleSeq m_qEmergency;
+  OutPort<TimedDoubleSeq> m_qEmergencyOut;
 
   
   // </rtc-template>

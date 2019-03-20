@@ -5,6 +5,8 @@ module OpenHRP
 {
   interface EmergencyStopperService
   {
+    typedef sequence<double> dSequence;
+
     /**
      * @struct EmergencyStopperParam
      * @brief Parameters for EmergencyStopper.
@@ -42,6 +44,12 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     boolean setEmergencyStopperParam(in EmergencyStopperParam i_param);
+
+    /**
+     * @brief Set EmergencyStopperParam
+     * @return true if set successfully, false otherwise
+     */
+    boolean setEmergencyJointAngles(in dSequence angles, in boolean solved);
   };
 };
 
