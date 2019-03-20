@@ -48,6 +48,7 @@ SequencePlayer::SequencePlayer(RTC::Manager* manager)
       m_baseRpyInitIn("baseRpyInit", m_baseRpyInit),
       m_zmpRefInitIn("zmpRefInit", m_zmpRefInit),
       m_qRefOut("qRef", m_qRef),
+      m_qEmergencyOut("qEmergency", m_qEmergency),
       m_tqRefOut("tqRef", m_tqRef),
       m_zmpRefOut("zmpRef", m_zmpRef),
       m_accRefOut("accRef", m_accRef),
@@ -87,6 +88,7 @@ RTC::ReturnCode_t SequencePlayer::onInitialize()
   
     // Set OutPort buffer
     addOutPort("qRef", m_qRefOut);
+    addOutPort("qEmergency", m_qEmergencyOut);
     addOutPort("tqRef", m_tqRefOut);
     addOutPort("zmpRef", m_zmpRefOut);
     addOutPort("accRef", m_accRefOut);
@@ -174,6 +176,7 @@ RTC::ReturnCode_t SequencePlayer::onInitialize()
 
     // allocate memory for outPorts
     m_qRef.data.length(dof);
+    m_qEmergency.data.length(dof);
     m_tqRef.data.length(dof);
     m_optionalData.data.length(optional_data_dim);
 
@@ -303,6 +306,7 @@ RTC::ReturnCode_t SequencePlayer::onExecute(RTC::UniqueId ec_id)
         }
         m_qRef.tm = m_qInit.tm;
         m_qRefOut.write();
+        m_qEmergencyOut.write();
         m_tqRefOut.write();
         m_zmpRefOut.write();
         m_accRefOut.write();
@@ -418,6 +422,7 @@ bool SequencePlayer::setJointAngles(const double *angles, double tm)
     for (unsigned int i=0; i<m_robot->numJoints(); i++){
         hrp::Link *j = m_robot->joint(i);
         if (j) j->q = angles[i];
+        m_qEmergency.data[i] = angles[i];
     }
     m_robot->calcForwardKinematics();
     hrp::Vector3 absZmp = m_robot->calcCM();
@@ -430,6 +435,7 @@ bool SequencePlayer::setJointAngles(const double *angles, double tm)
     v_tms.push_back(tm);
     m_seq->setJointAnglesSequence(v_poss, v_tms);
     m_seq->setZmp(relZmp.data(), tm);
+
     return true;
 }
 

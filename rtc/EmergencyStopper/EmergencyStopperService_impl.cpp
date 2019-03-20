@@ -30,6 +30,11 @@ CORBA::Boolean EmergencyStopperService_impl::setEmergencyStopperParam(const Open
     return m_emergencystopper->setEmergencyStopperParam(i_param);
 };
 
+CORBA::Boolean EmergencyStopperService_impl::setEmergencyJointAngles(const OpenHRP::EmergencyStopperService::dSequence& angles, const CORBA::Boolean solved)
+{
+  return m_emergencystopper->setEmergencyJointAngles(angles.get_buffer(), solved);
+};
+
 void EmergencyStopperService_impl::emergencystopper(EmergencyStopper *i_emergencystopper)
 {
     m_emergencystopper = i_emergencystopper;

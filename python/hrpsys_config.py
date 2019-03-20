@@ -378,6 +378,8 @@ class HrpsysConfigurator(object):
         for sen in self.getForceSensorNames():
             connectPorts(self.seq.port(sen + "Ref"),
                          self.sh.port(sen + "In"))
+        if self.es:
+            connectPorts(self.seq.port("qEmergency"), self.es.port("qEmergency"))
 
         # connection for st
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
