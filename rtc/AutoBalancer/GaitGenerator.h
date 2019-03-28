@@ -10,6 +10,7 @@
 #include <boost/assign.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/shared_ptr.hpp>
+#include "../TorqueFilter/IIRFilter.h"
 
 #ifdef FOR_TESTGAITGENERATOR
 #warning "Compile for testGaitGenerator"
@@ -1104,6 +1105,7 @@ namespace rats
     size_t fg_step_count, falling_direction;
     double total_mass;
     double tmp[15];
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1167,6 +1169,7 @@ namespace rats
         for (size_t i = 0; i < 5; i++) overwritable_stride_limitation[i] = 0.2;
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
+        zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
