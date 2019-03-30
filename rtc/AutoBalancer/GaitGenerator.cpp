@@ -950,6 +950,8 @@ namespace rats
     if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
       zmp.head(2) = tmp_zmp;
     }
+    tmp[15] = zmp(0);
+    tmp[16] = zmp(1);
     zmp = zmp_filter->passFilter(zmp);
     foot_guided_controller_ptr->set_zmp(zmp);
     // calc cog
