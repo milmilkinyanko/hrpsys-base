@@ -1104,7 +1104,7 @@ namespace rats
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count, falling_direction;
     double total_mass;
-    double tmp[15];
+    double tmp[17];
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
 
     /* preview controller parameters */

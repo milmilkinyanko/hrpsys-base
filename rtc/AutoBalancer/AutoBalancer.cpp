@@ -173,7 +173,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(17);
+    m_tmp.data.length(23);
     diff_q.resize(m_robot->numJoints());
 
     control_mode = MODE_IDLE;
@@ -772,9 +772,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
-      for (size_t i = 0; i < 15; i++) {
+      for (size_t i = 0; i < 17; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
       }
+      hrp::Vector3 tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->new_refzmp;
+      m_tmp.data[19] = tmp_zmp(0);
+      m_tmp.data[20] = tmp_zmp(1);
+      tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_zmp;
+      m_tmp.data[21] = tmp_zmp(0);
+      m_tmp.data[22] = tmp_zmp(1);
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -1415,8 +1421,8 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.targetRpy = hrp::Vector3::Zero();
 
         hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
-        m_tmp.data[15] = prev_momentum(0);
-        m_tmp.data[16] = prev_momentum(1);
+        m_tmp.data[17] = prev_momentum(0);
+        m_tmp.data[18] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, goal_weight = 1e-5, weight_interpolator_time = 1.5;
