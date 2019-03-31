@@ -952,7 +952,7 @@ namespace rats
     }
     tmp[15] = zmp(0);
     tmp[16] = zmp(1);
-    zmp = zmp_filter->passFilter(zmp);
+    // zmp = zmp_filter->passFilter(zmp);
     foot_guided_controller_ptr->set_zmp(zmp);
     // calc cog
     foot_guided_controller_ptr->update_state(cog);
