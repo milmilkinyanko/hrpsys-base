@@ -646,7 +646,7 @@ namespace rats
     foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
-    zmp_filter->reset(rg.get_refzmp_cur());
+    // zmp_filter->reset(rg.get_refzmp_cur());
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -668,6 +668,7 @@ namespace rats
     solved = false;
     if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt)) { // for go-velocity
       modified_d_footstep = hrp::Vector3::Zero();
+      zmp_filter->reset(modified_d_footstep);
       modified_d_step_time = 0.0;
       updated_vel_footsteps = false;
       is_after_double_support_phase = false;
@@ -1243,6 +1244,9 @@ namespace rats
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
           short_of_footstep = d_footstep - short_of_footstep;
+          // low pass
+          d_footstep = zmp_filter->passFilter(modified_d_footstep + d_footstep) - modified_d_footstep;
+          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos = orig_footstep_pos + d_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
           }
