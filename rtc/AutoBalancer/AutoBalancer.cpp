@@ -470,6 +470,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     gg->use_act_states = st->use_act_states = true;
 
     ik_converged_count = 0;
+    prev_roll_state = prev_pitch_state = false;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -1425,38 +1426,75 @@ void AutoBalancer::solveFullbodyIK ()
         m_tmp.data[18] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        double roll_weight, pitch_weight, goal_weight = 1e-5, weight_interpolator_time = 1.5;
-        roll_weight = pitch_weight = 1e-2;
+        double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-5, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
         // roll
         if (gg->get_use_roll_flywheel()) {
-          roll_weight_interpolator->set(&roll_weight);
-          roll_weight_interpolator->setGoal(&goal_weight, weight_interpolator_time, true);
+          if (!prev_roll_state) {
+            if (roll_weight_interpolator->isEmpty()) roll_weight = normal_weight;
+            else roll_weight_interpolator->get(&roll_weight, true);
+            roll_weight_interpolator->set(&roll_weight);
+            roll_weight_interpolator->setGoal(&fly_weight, weight_fly_interpolator_time, true);
+          }
+          if (roll_weight_interpolator->isEmpty()) roll_weight = fly_weight;
+          else roll_weight_interpolator->get(&roll_weight, true);
         } else {
-          if (roll_weight_interpolator->isEmpty()) roll_weight = goal_weight;
+          if (prev_roll_state) {
+            if (roll_weight_interpolator->isEmpty()) roll_weight = fly_weight;
+            else roll_weight_interpolator->get(&roll_weight, true);
+            roll_weight_interpolator->set(&roll_weight);
+            roll_weight_interpolator->setGoal(&normal_weight, weight_normal_interpolator_time, true);
+          }
+          if (roll_weight_interpolator->isEmpty()) roll_weight = normal_weight;
           else roll_weight_interpolator->get(&roll_weight, true);
         }
         // pitch
         if (gg->get_use_pitch_flywheel()) {
-          pitch_weight_interpolator->set(&pitch_weight);
-          pitch_weight_interpolator->setGoal(&goal_weight, weight_interpolator_time, true);
+          if (!prev_pitch_state) {
+            if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
+            else pitch_weight_interpolator->get(&pitch_weight, true);
+            pitch_weight_interpolator->set(&pitch_weight);
+            pitch_weight_interpolator->setGoal(&fly_weight, weight_fly_interpolator_time, true);
+          }
+          if (pitch_weight_interpolator->isEmpty()) pitch_weight = fly_weight;
+          else pitch_weight_interpolator->get(&pitch_weight, true);
         } else {
-          if (pitch_weight_interpolator->isEmpty()) pitch_weight = goal_weight;
+          if (prev_pitch_state) {
+            if (pitch_weight_interpolator->isEmpty()) pitch_weight = fly_weight;
+            else pitch_weight_interpolator->get(&pitch_weight, true);
+            pitch_weight_interpolator->set(&pitch_weight);
+            pitch_weight_interpolator->setGoal(&normal_weight, weight_normal_interpolator_time, true);
+          }
+          if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
           else pitch_weight_interpolator->get(&pitch_weight, true);
         }
         tmp.constraint_weight << 3,3,1e-1,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
-        double initial_ratio = 0.0, goal_ratio = 2e-5, interpolator_time = 1.5;
+        double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-5;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
-          fik->q_ref_constraint_weight.fill(initial_ratio);
-          angular_momentum_interpolator->set(&initial_ratio);
-          angular_momentum_interpolator->setGoal(&goal_ratio, interpolator_time, true);
+          if (!prev_roll_state && !prev_pitch_state) {
+            if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
+            else angular_momentum_interpolator->get(&upper_weight, true);
+            angular_momentum_interpolator->set(&upper_weight);
+            angular_momentum_interpolator->setGoal(&fly_ratio, weight_fly_interpolator_time, true);
+          }
+          if (angular_momentum_interpolator->isEmpty()) upper_weight = fly_ratio;
+          else angular_momentum_interpolator->get(&upper_weight, true);
         } else {
-          double tmp_ratio;
-          if (angular_momentum_interpolator->isEmpty()) tmp_ratio = goal_ratio;
-          else angular_momentum_interpolator->get(&tmp_ratio, true);
-          fik->q_ref_constraint_weight.fill(tmp_ratio);
+          if (prev_roll_state || prev_pitch_state) {
+            if (angular_momentum_interpolator->isEmpty()) upper_weight = fly_ratio;
+            else angular_momentum_interpolator->get(&upper_weight, true);
+            angular_momentum_interpolator->set(&upper_weight);
+            angular_momentum_interpolator->setGoal(&normal_ratio, weight_normal_interpolator_time, true);
+          }
+          if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
+          else angular_momentum_interpolator->get(&upper_weight, true);
         }
+        fik->q_ref_constraint_weight.fill(upper_weight);
+
+        prev_roll_state = gg->get_use_roll_flywheel();
+        prev_pitch_state = gg->get_use_pitch_flywheel();
+
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
 

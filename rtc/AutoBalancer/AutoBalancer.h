@@ -335,6 +335,7 @@ class AutoBalancer
   hrp::Vector3 touchdown_foot_pos[2];
   bool is_foot_touch[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
+  bool prev_roll_state, prev_pitch_state;
 };
 
 
