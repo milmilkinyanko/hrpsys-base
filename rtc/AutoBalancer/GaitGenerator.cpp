@@ -1189,9 +1189,13 @@ namespace rats
           if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
+              double max_time = 1.2;
               is_change_time = true;
               was_enlarged_time = true;
               tmp_dt = new_remain_time - remain_count*dt;
+              if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt > max_time) {
+                tmp_dt = max_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+              }
             }
           } else if (was_enlarged_time) {
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
