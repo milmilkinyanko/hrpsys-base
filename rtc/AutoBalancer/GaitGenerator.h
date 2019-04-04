@@ -486,7 +486,7 @@ namespace rats
             pos = goal;
           }
         }
-        if (!is_touch_ground) {
+        if (!is_touch_ground && start == current) {
           pos = start;
           vel = hrp::Vector3::Zero();
           acc = hrp::Vector3::Zero();
