@@ -741,6 +741,12 @@ namespace rats
 
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
+      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
+        orig_current_foot_rpy = hrp::rpyFromRot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
+        for (size_t i = 0; i < 2; i++) {
+          if(std::fabs(orig_current_foot_rpy(i)) < 1e-5) orig_current_foot_rpy(i) = 0.0;
+        }
+      }
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel);
     }
@@ -1239,6 +1245,22 @@ namespace rats
           d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * safe_leg_margin[3] - next_step_pos(1);
           is_modify = true;
         }
+        // disturbance compensation using foot rot
+        // {
+        //   double d_footstep_mgn = 0.01, dc_gain = 0.08, dc_time_const = 100.0;
+        //   if ((footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > dc_landing_pos(0) && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) < footstep_nodes_list[footstep_nodes_list.size()-1].front().worldcoords.pos(0)) ||
+        //       (footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) < dc_landing_pos(0) && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > footstep_nodes_list[footstep_nodes_list.size()-1].front().worldcoords.pos(0))) {
+        //     if (std::fabs(d_footstep(0)) > d_footstep_mgn) {
+        //       dc_foot_rpy(1) += dc_gain * d_footstep(0);
+        //       dc_landing_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
+        //     } else {
+        //       dc_foot_rpy = calcDampingControl(dc_foot_rpy, dc_time_const);
+        //     }
+        //     footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(orig_current_foot_rpy + dc_foot_rpy);
+        //   } else {
+        //     footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(orig_current_foot_rpy);
+        //   }
+        // }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
         if (is_modify) {
