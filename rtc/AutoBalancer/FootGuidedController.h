@@ -34,19 +34,21 @@ protected:
   double dt, g;
   double dz, xi, h, h_;
   double act_vel_ratio; // how much act_vel is used (0.0 ~ 1.0)
+  double dc_off; // offset for disturbance compensation
+  double mass;
 public:
   // constructor
   foot_guided_control_base() {}
-  foot_guided_control_base(const double _dt,  const double _dz,
+  foot_guided_control_base(const double _dt,  const double _dz, const double _mass,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g), act_vel_ratio(1.0),
+    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
   }
-  foot_guided_control_base(const double _dt,  const double _dz, const double init_xk,
+  foot_guided_control_base(const double _dt,  const double _dz, const double init_xk, const double _mass,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g), act_vel_ratio(1.0),
+    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
@@ -56,7 +58,7 @@ public:
   ~foot_guided_control_base() {};
   // update function
   void update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N);
-  void update_state(double& pos);
+  void update_state(double& pos, const double fx);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
   void set_mat();
@@ -64,11 +66,6 @@ public:
   {
     act_x_k(0) = pos;
     act_x_k(1) = vel;
-    // if (is_start_or_end_phase) {
-    //   x_k(1) = 0.01 * vel + 0.99 * x_k(1); // too much oscillate in start or end phase
-    // } else {
-    //   x_k(1) = act_vel_ratio * vel + (1.0 - act_vel_ratio) * x_k(1);
-    // }
   }
   void set_x_k(const double pos, const double vel)
   {
@@ -85,6 +82,7 @@ public:
   void set_act_vel_ratio (const double ratio) { act_vel_ratio = ratio; }
   // get_function
   void get_pos (double& ret) { ret = x_k(0); }
+  void get_dc_off (double& ret) { ret = dc_off; }
   void get_vel (double& ret) { ret = x_k(1); }
   void get_acc (double& ret) { ret = xi * xi * ( x_k(0) - u_k ); }
   void get_zmp (double& ret) { ret = u_k; }
@@ -100,11 +98,11 @@ private:
 protected:
 public:
   // constructor
-  foot_guided_controller(const double _dt,  const double _dz, const hrp::Vector3& init_xk,
+  foot_guided_controller(const double _dt,  const double _dz, const hrp::Vector3& init_xk, const double _mass,
                          const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
   {
     controllers = new foot_guided_control_base[dim];
-    for (size_t i = 0; i < dim; i++) controllers[i] = foot_guided_control_base(_dt, _dz, init_xk[i], _g);
+    for (size_t i = 0; i < dim; i++) controllers[i] = foot_guided_control_base(_dt, _dz, init_xk[i], _mass, _g);
   }
   // destructor
   ~foot_guided_controller()
@@ -117,10 +115,10 @@ public:
     for (size_t i = 0; i < dim; i++)
       controllers[i].update_control(p_ret[i], N, ref_dcm[i], ref_zmp[i], is_double, start_ref_zmp[i], goal_ref_zmp[i], double_N, double_whole_N);
   }
-  void update_state(hrp::Vector3& x_ret)
+  void update_state(hrp::Vector3& x_ret, const hrp::Vector3 fx)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].update_state(x_ret[i]);
+      controllers[i].update_state(x_ret[i], fx[i]);
   }
   void update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp)
   {
@@ -158,6 +156,10 @@ public:
   void get_pos(hrp::Vector3& ret) {
     for (size_t i = 0; i < dim; i++)
       controllers[i].get_pos(ret[i]);
+  }
+  void get_dc_off(hrp::Vector3& ret) {
+    for (size_t i = 0; i < dim; i++)
+      controllers[i].get_dc_off(ret[i]);
   }
   void get_vel(hrp::Vector3& ret) {
     for (size_t i = 0; i < dim; i++)

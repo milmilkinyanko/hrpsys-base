@@ -173,7 +173,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(23);
+    m_tmp.data.length(27);
     diff_q.resize(m_robot->numJoints());
 
     control_mode = MODE_IDLE;
@@ -773,15 +773,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
-      for (size_t i = 0; i < 17; i++) {
+      for (size_t i = 0; i < 21; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
       }
-      hrp::Vector3 tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->new_refzmp;
-      m_tmp.data[19] = tmp_zmp(0);
-      m_tmp.data[20] = tmp_zmp(1);
-      tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_zmp;
+      m_tmp.data[19] = ref_cog(0) - m_tmp.data[19];
+      m_tmp.data[20] = ref_cog(1) - m_tmp.data[20];
+      hrp::Vector3 tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_zmp;
       m_tmp.data[21] = tmp_zmp(0);
       m_tmp.data[22] = tmp_zmp(1);
+      tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
+      m_tmp.data[23] = tmp_zmp(0); // cmp
+      m_tmp.data[24] = tmp_zmp(1); // cmp
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -920,7 +922,8 @@ void AutoBalancer::getTargetParameters()
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
-      gg_solved = gg->proc_one_tick(act_cog, act_cogvel);
+      hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
+      gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
       st->falling_direction = gg->get_falling_direction();
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
@@ -1422,8 +1425,8 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.targetRpy = hrp::Vector3::Zero();
 
         hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
-        m_tmp.data[17] = prev_momentum(0);
-        m_tmp.data[18] = prev_momentum(1);
+        m_tmp.data[25] = prev_momentum(0);
+        m_tmp.data[26] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-5, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
@@ -1674,6 +1677,7 @@ bool AutoBalancer::startWalking ()
   }
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
+  hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
   {
     Guard guard(m_mutex);
     fik->resetIKFailParam();
@@ -1694,7 +1698,7 @@ bool AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(act_cog, act_cogvel) );
+  while ( !gg->proc_one_tick(act_cog, act_cogvel, act_cmp) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
@@ -2066,6 +2070,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
     gg->set_stride_limitation_type(CIRCLE);
   }
   gg->set_act_vel_ratio(i_param.act_vel_ratio);
+  gg->set_use_disturbance_compensation(i_param.use_disturbance_compensation);
+  gg->set_dc_gain(i_param.dc_gain);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2166,6 +2172,8 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
     i_param.stride_limitation_type = OpenHRP::AutoBalancerService::CIRCLE;
   }
   i_param.act_vel_ratio = gg->get_act_vel_ratio();
+  i_param.use_disturbance_compensation = gg->get_use_disturbance_compensation();
+  i_param.dc_gain = gg->get_dc_gain();
   return true;
 };
 
