@@ -317,6 +317,10 @@ module OpenHRP
       double min_time_mgn;
       /// overwritable min step time for fg[s]
       double min_time;
+      /// Whether use disturbance compensation or not
+      boolean use_disturbance_compensation;
+      /// Gain for disturbance compensation
+      double dc_gain;
     };
 
     /**

@@ -461,6 +461,17 @@ void Stabilizer::getActualParameters ()
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
     // <= Actual foot_origin frame
   }
+  // calc cmp
+  hrp::Vector3 total_force = hrp::Vector3::Zero();
+  for (size_t i = 0; i < stikp.size(); i++) { // TODO remove duplicatation in getActualParametersForST
+    STIKParam& ikp = stikp[i];
+    if (!is_feedback_control_enable[i]) continue;
+    hrp::Sensor* sensor = m_robot->sensor<hrp::ForceSensor>(ikp.sensor_name);
+    total_force += foot_origin_rot.transpose() * ((sensor->link->R * sensor->localR) * hrp::Vector3(wrenches[i][0], wrenches[i][1], wrenches[i][2]));
+  }
+  double tmp_k = (act_cog - act_zmp)(2) / total_force(2);
+  act_cmp.head(2) = (act_cog - tmp_k * total_force).head(2);
+  act_cmp(2) = act_zmp(2);
 }
 
 void Stabilizer::getActualParametersForST ()

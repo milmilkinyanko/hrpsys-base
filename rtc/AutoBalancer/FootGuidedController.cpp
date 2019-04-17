@@ -95,10 +95,11 @@ void foot_guided_control_base::update_control(double& zmp, const std::size_t N, 
   zmp = act_u_k;
 }
 
-void foot_guided_control_base::update_state(double& pos)
+void foot_guided_control_base::update_state(double& pos, const double fx)
 {
   calc_x_k();
-  pos = x_k(0);
+  dc_off = - fx / (xi * xi * mass); // 反力
+  pos = x_k(0) + dc_off;
 }
 
 // void foot_guided_control_base::update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp)
