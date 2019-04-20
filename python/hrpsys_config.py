@@ -399,15 +399,6 @@ class HrpsysConfigurator(object):
                                      self.rh.ref, "rfsensor") and self.st:
             connectPorts(self.kf.port("rpy"), self.st.port("rpy"))
             connectPorts(self.kf.port("rpy"), self.abc.port("rpy"))
-            connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
-            connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
-            connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
-            connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
-            #### normal
-#            connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
-#            connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
-#            connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
-#            connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
             #### wbms
             if self.wbms:
                 connectPorts(self.wbms.port("q"), self.ic.port("qRef"))
@@ -415,6 +406,12 @@ class HrpsysConfigurator(object):
                 connectPorts(self.wbms.port("basePosOut"), self.abc.port("basePosIn"))
                 connectPorts(self.wbms.port("baseRpyOut"), self.abc.port("baseRpyIn"))
                 connectPorts(self.wbms.port("optionalDataOut"), self.abc.port("optionalData"))
+            #### normal
+            else:
+                connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
+                connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
+                connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
+                connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
             connectPorts(self.abc.port("zmpOut"), self.st.port("zmpRef"))
             connectPorts(self.abc.port("baseRpyOut"), self.st.port("baseRpyIn"))
             connectPorts(self.abc.port("basePosOut"), self.st.port("basePosIn"))
