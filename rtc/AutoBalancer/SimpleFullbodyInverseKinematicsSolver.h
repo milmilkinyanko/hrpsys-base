@@ -4,6 +4,7 @@
 #include <hrpModel/Body.h>
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
+#include "AutoBalancerService_impl.h"
 
 // Class for Simple Fullbody Inverse Kinematics
 //   Input : target root pos and rot, target COG, target joint angles, target EE coords
