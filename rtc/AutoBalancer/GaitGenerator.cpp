@@ -1307,26 +1307,26 @@ namespace rats
     }
     // calculate angular momentum
     use_roll_flywheel = use_pitch_flywheel = false;
-    {
-      hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
-      double remain_time = remain_count * dt;
-      short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;
-      if (is_modify_pahse) {
-        for (size_t i = 0; i < 2; i++) {
-          if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
-            if (i == 0) use_pitch_flywheel = true;
-            else use_roll_flywheel = true;
-            // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
-            short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
-          }
-        }
-        prev_short_of_zmp = short_of_zmp;
-      } else {
-        short_of_zmp = prev_short_of_zmp;
-      }
-      flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
-      // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
-    }
+    // {
+    //   hrp::Vector3 short_of_zmp = hrp::Vector3::Zero();
+    //   double remain_time = remain_count * dt;
+    //   short_of_footstep = cur_footstep_rot.transpose() * short_of_footstep;
+    //   if (is_modify_pahse) {
+    //     for (size_t i = 0; i < 2; i++) {
+    //       if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
+    //         if (i == 0) use_pitch_flywheel = true;
+    //         else use_roll_flywheel = true;
+    //         // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
+    //         short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
+    //       }
+    //     }
+    //     prev_short_of_zmp = short_of_zmp;
+    //   } else {
+    //     short_of_zmp = prev_short_of_zmp;
+    //   }
+    //   flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
+    //   // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
+    // }
     // fall down check // TODO: turn walking is not considered
     {
       // next step pos relative

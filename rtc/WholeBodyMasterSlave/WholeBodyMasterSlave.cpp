@@ -806,8 +806,7 @@ void WholeBodyMasterSlave::solveFullbodyIKStrictCOM(fikPtr& fik_in, hrp::BodyPtr
 
 //    fik_in->q_ref_pullback_gain.segment(6+6+3+2, 8*2).fill(0.01);//腕だけ
 //    fik_in->dq_ref_pullback.segment(6+6+3+2, 8*2).fill(deg2rad(0.1));//腕だけ
-    // fik_in->q_ref_pullback_gain.fill(1);
-    // fik_in->dq_ref_pullback.fill(deg2rad(1)*m_dt);
+    fik->q_ref_constraint_weight.fill(0.0001);
 
     struct timespec startT, endT;
     const int IK_MAX_LOOP = 2;
