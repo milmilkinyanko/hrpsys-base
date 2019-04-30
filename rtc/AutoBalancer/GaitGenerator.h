@@ -1108,6 +1108,7 @@ namespace rats
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > dfootstep_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1173,6 +1174,7 @@ namespace rats
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
         dfootstep_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(2.0, _dt, hrp::Vector3::Zero()));
         fx_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, _dt, hrp::Vector3::Zero()));
+        zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {

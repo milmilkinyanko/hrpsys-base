@@ -649,6 +649,7 @@ namespace rats
     prev_ref_cp = cur_refcog; // assume that robot is stopping when starting walking
     fx = hrp::Vector3::Zero();
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
+    zmp_filter->reset(rg.get_refzmp_cur());
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -982,6 +983,7 @@ namespace rats
     if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
       zmp.head(2) = tmp_zmp;
     }
+    zmp = zmp_filter->passFilter(zmp);
     foot_guided_controller_ptr->set_zmp(zmp);
     // calc cog
     hrp::Vector3 tmpfx = hrp::Vector3::Zero();
