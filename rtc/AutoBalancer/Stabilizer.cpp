@@ -660,7 +660,8 @@ void Stabilizer::getActualParametersForST ()
           //   Basically Equation (16) and (17) in the paper [1]
           hrp::Vector3 tmp_damping_gain;
           for (size_t j = 0; j < 3; ++j) {
-            if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * ikp.eefm_rot_damping_gain(j) * 10 + transition_smooth_gain * ikp.eefm_rot_damping_gain(j);
+            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_walking ? 1.0 : 1.5);
+            if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
           ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
@@ -708,10 +709,11 @@ void Stabilizer::getActualParametersForST ()
           pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                          tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
         } else {
+          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_walking ? 1.0 : 1.5);
           if ( (ref_contact_states[contact_states_index_map["rleg"]] && ref_contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
                || (act_contact_states[0] && act_contact_states[1]) ) { // Actual : double support phase
             // Temporarily use first pos damping gain (stikp[0])
-            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
+            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                            tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
           } else {
@@ -724,7 +726,7 @@ void Stabilizer::getActualParametersForST ()
             // std::cerr << "st " << remain_swing_time << " rleg " << contact_states[contact_states_index_map["rleg"]] << " lleg " << contact_states[contact_states_index_map["lleg"]] << std::endl;
             double tmp_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time-eefm_pos_margin_time)/eefm_pos_transition_time)); // 0=>1
             // Temporarily use first pos damping gain (stikp[0])
-            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
+            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             hrp::Vector3 tmp_time_const = (1-tmp_ratio)*eefm_pos_time_const_swing*hrp::Vector3::Ones()+tmp_ratio*stikp[0].eefm_pos_time_const_support;
             pos_ctrl = calcDampingControl (tmp_ratio * ref_f_diff, tmp_ratio * f_diff, pos_ctrl, tmp_damping_gain, tmp_time_const);
           }
