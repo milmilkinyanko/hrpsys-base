@@ -321,6 +321,8 @@ module OpenHRP
       boolean use_disturbance_compensation;
       /// Gain for disturbance compensation
       double dc_gain;
+      /// Offset of y component of ref_dcm
+      double dcm_offset;
     };
 
     /**

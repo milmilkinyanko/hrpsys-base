@@ -977,8 +977,16 @@ namespace rats
       remain_count += 1;
     }
 
+    // dcm y offset
+    hrp::Vector3 tmp_ref_dcm = ref_dcm;
+    if(!(is_start_or_end_phase && !is_start_phase) && !(is_end2_phase && lcg.get_lcg_count() <= static_cast<size_t>(fg_step_count * (1 - default_double_support_ratio_before))))  {
+      hrp::Vector3 tmp_ref_zmp = cur_steps.front().worldcoords.rot.transpose() * (fg_ref_zmp - cur_steps.front().worldcoords.pos);
+      tmp_ref_dcm = cur_steps.front().worldcoords.rot.transpose() * (tmp_ref_dcm - cur_steps.front().worldcoords.pos);
+      tmp_ref_dcm(1) += ((tmp_ref_dcm - tmp_ref_zmp)(1) > 0 ? -1 : 1) * dcm_offset;
+      tmp_ref_dcm = cur_steps.front().worldcoords.pos + cur_steps.front().worldcoords.rot * tmp_ref_dcm;
+    }
     // calc zmp
-    foot_guided_controller_ptr->update_control(zmp, remain_count, ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
+    foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
     // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
     if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
@@ -1002,8 +1010,8 @@ namespace rats
     // for log
     tmp[0] = fg_ref_zmp(0);
     tmp[1] = fg_ref_zmp(1);
-    tmp[2] = ref_dcm(0);
-    tmp[3] = ref_dcm(1);
+    tmp[2] = tmp_ref_dcm(0);
+    tmp[3] = tmp_ref_dcm(1);
     tmp[4] = refzmp(0);
     tmp[5] = refzmp(1);
     tmp[6] = ref_cp(0);
