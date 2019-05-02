@@ -1103,7 +1103,7 @@ namespace rats
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count, falling_direction;
-    double total_mass, dc_gain;
+    double total_mass, dc_gain, dcm_offset;
     double tmp[21];
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
@@ -1161,7 +1161,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
@@ -1504,6 +1504,7 @@ namespace rats
     void set_total_mass (const double _m) { total_mass = _m; };
     void set_use_disturbance_compensation (const bool _use) { use_disturbance_compensation = _use; };
     void set_dc_gain (const double _gain) { dc_gain = _gain; };
+    void set_dcm_offset (const double _off) { dcm_offset = _off; };
     void set_vertices_from_leg_margin ()
     {
       std::vector<std::vector<Eigen::Vector2d> > vec;
@@ -1768,7 +1769,7 @@ namespace rats
     double get_act_vel_ratio () { return act_vel_ratio; };
     bool get_use_disturbance_compensation () { return use_disturbance_compensation; };
     double get_dc_gain () { return dc_gain; };
-
+    double get_dcm_offset () { return dcm_offset; };
     double get_tmp (const size_t idx) {return tmp[idx];}
 #ifdef FOR_TESTGAITGENERATOR
     size_t get_one_step_count() const { return lcg.get_one_step_count(); };
