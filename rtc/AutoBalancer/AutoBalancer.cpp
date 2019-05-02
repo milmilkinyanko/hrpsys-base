@@ -2072,6 +2072,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_act_vel_ratio(i_param.act_vel_ratio);
   gg->set_use_disturbance_compensation(i_param.use_disturbance_compensation);
   gg->set_dc_gain(i_param.dc_gain);
+  gg->set_dcm_offset(i_param.dcm_offset);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2174,6 +2175,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.act_vel_ratio = gg->get_act_vel_ratio();
   i_param.use_disturbance_compensation = gg->get_use_disturbance_compensation();
   i_param.dc_gain = gg->get_dc_gain();
+  i_param.dcm_offset = gg->get_dcm_offset();
   return true;
 };
 
