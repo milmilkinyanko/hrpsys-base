@@ -1161,6 +1161,14 @@ namespace rats
     cur_cp = cur_footstep_rot.transpose() * (cur_cp - cur_footstep_pos);
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
     bool is_modify_pahse = false;
+    double stride_limitation_with_off[5];
+    // assume that zmp_offsts is set to be symmetry
+    next_step_pos(0) += rg.get_default_zmp_offset(RLEG)(0);
+    next_step_pos(1) += (rg.get_default_zmp_offset(RLEG)(1) + dcm_offset) * (cur_leg == RLEG ? -1 : 1);
+    stride_limitation_with_off[0] = overwritable_stride_limitation[0] + rg.get_default_zmp_offset(RLEG)(0);
+    stride_limitation_with_off[1] = overwritable_stride_limitation[1] - rg.get_default_zmp_offset(RLEG)(1) - dcm_offset;
+    stride_limitation_with_off[3] = overwritable_stride_limitation[3] - rg.get_default_zmp_offset(RLEG)(0);
+    stride_limitation_with_off[4] = overwritable_stride_limitation[4] - rg.get_default_zmp_offset(RLEG)(1) - dcm_offset;
 
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after + margin_time_ratio)) &&
         lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before)) &&
@@ -1170,14 +1178,9 @@ namespace rats
       is_modify_pahse = true;
       // step timing modification
       {
-        double tmp_off = footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1);
-        double R_fl = overwritable_stride_limitation[0], l_m = 0.0;
-        double support_r = std::min(std::min(safe_leg_margin[0], safe_leg_margin[1]), std::min(safe_leg_margin[3], safe_leg_margin[4]));
-        double tmp = tmp_off * cur_cp(1) + R_fl * support_r - support_r * support_r, tmp2 = cur_cp(0) * cur_cp(0) + cur_cp(1) * cur_cp(1) - support_r * support_r;
         double tmp_dt = 0.0;
         bool is_change_time = false;
         double new_remain_time = remain_count * dt;
-        // outside check
         {
           double remain_time = remain_count * dt;
           double end_cp_front = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * safe_leg_margin[0];
@@ -1186,20 +1189,20 @@ namespace rats
           double xz_max, l_max;
           bool tmp_is_change_time = false;
           // front, back
-          if (end_cp_front > overwritable_stride_limitation[0]) {
+          if (end_cp_front > stride_limitation_with_off[0]) {
             tmp_is_change_time = true;
             xz_max = safe_leg_margin[0];
-            l_max = overwritable_stride_limitation[0];
-          } else if (end_cp_back < -1 * overwritable_stride_limitation[3]) {
+            l_max = stride_limitation_with_off[0];
+          } else if (end_cp_back < -1 * stride_limitation_with_off[3]) {
             tmp_is_change_time = true;
             xz_max = -1 * safe_leg_margin[1];
-            l_max = -1 * overwritable_stride_limitation[3];
+            l_max = -1 * stride_limitation_with_off[3];
           }
           if (tmp_is_change_time) new_remain_time = std::min(new_remain_time, (std::log((l_max - xz_max) / (cur_cp(0) - xz_max)) / omega));
           // inside
-          if ((cur_leg == RLEG ? 1 : -1) * end_cp_inside > overwritable_stride_limitation[1]) {
+          if ((cur_leg == RLEG ? 1 : -1) * end_cp_inside > stride_limitation_with_off[1]) {
             xz_max = (cur_leg == RLEG ? 1 : -1) * safe_leg_margin[3];
-            l_max = (cur_leg == RLEG ? 1 : -1) * overwritable_stride_limitation[1];
+            l_max = (cur_leg == RLEG ? 1 : -1) * stride_limitation_with_off[1];
             new_remain_time = std::min(new_remain_time, (std::log((l_max - xz_max) / (cur_cp(1) - xz_max)) / omega));
           }
           if (std::isfinite(new_remain_time)) tmp_dt = new_remain_time - remain_count*dt;
@@ -1222,7 +1225,7 @@ namespace rats
         }
         // outside check
         {
-          double inside_off = overwritable_stride_limitation[4] + leg_margin[3];
+          double inside_off = stride_limitation_with_off[4] + leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
           double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
           if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
