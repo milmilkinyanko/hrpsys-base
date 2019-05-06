@@ -1098,7 +1098,7 @@ namespace rats
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio, double_remain_count_offset;
-    hrp::Vector3 fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau, prev_short_of_zmp, ref_cp, act_cp, prev_ref_cp, fx;
+    hrp::Vector3 fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau, prev_short_of_zmp, ref_cp, act_cp, prev_ref_cp, fx, ref_footstep_offset;
     bool updated_vel_footsteps, use_roll_flywheel, use_pitch_flywheel, use_disturbance_compensation;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
