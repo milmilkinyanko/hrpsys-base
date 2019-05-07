@@ -472,6 +472,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     ik_converged_count = 0;
     prev_roll_state = prev_pitch_state = false;
 
+    is_emergency_step_mode = false;
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -550,6 +552,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 {
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
     loop ++;
+
+    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking) {
+      gg->set_is_emergency_step(true);
+      // if (fabs(st->act_cp(0)) > fabs(st->act_cp(1))) {
+        if (st->act_cp(0) > 0) goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? -1e-6:1e-6,0);
+        else goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? 1e-6:-1e-6,0);
+      // } else goVelocity(0,st->act_cp(1)>0?-1e-6:1e-6,0);
+    }
 
     // Read Inport
     if (m_qRefIn.isNew()) {
@@ -1767,6 +1777,8 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
     std::vector<leg_type> initial_support_legs;
     bool is_valid_gait_type = calc_inital_support_legs(y, initial_support_legs_coords, initial_support_legs, start_ref_coords);
     if (is_valid_gait_type == false) return false;
+    gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
+    gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
     bool ret = gg->go_pos_param_2_footstep_nodes_list(x, y, th,
                                                       initial_support_legs_coords, // Dummy if gg_is_walking
                                                       start_ref_coords,            // Dummy if gg_is_walking
@@ -1816,6 +1828,8 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
         return false;
       default: break;
       }
+      gg->set_vel_foot_offset(ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - ref_coords.pos), RLEG);
+      gg->set_vel_foot_offset(ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - ref_coords.pos), LLEG);
       gg->initialize_velocity_mode(ref_coords, vx, vy, vth, current_legs);
       ret = startWalking();
     }
@@ -2073,6 +2087,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_use_disturbance_compensation(i_param.use_disturbance_compensation);
   gg->set_dc_gain(i_param.dc_gain);
   gg->set_dcm_offset(i_param.dcm_offset);
+  gg->set_emergency_step_time(i_param.emergency_step_time);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2176,6 +2191,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.use_disturbance_compensation = gg->get_use_disturbance_compensation();
   i_param.dc_gain = gg->get_dc_gain();
   i_param.dcm_offset = gg->get_dcm_offset();
+  for (size_t i = 0; i < 3; i++) {
+    i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
+  }
   return true;
 };
 
@@ -2327,6 +2345,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i = 0; i < fik->ikp.size(); i++) {
     fik->ikp[ee_vec[i]].limb_length_margin = i_param.limb_length_margin[i];
   }
+  is_emergency_step_mode = i_param.is_emergency_step_mode;
   if (control_mode == MODE_IDLE) {
     ik_mode = i_param.ik_mode;
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode = " << ik_mode << std::endl;
@@ -2414,6 +2433,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i = 0; i < 3; i++) {
       i_param.additional_force_applied_point_offset[i] = additional_force_applied_point_offset(i);
   }
+  i_param.is_emergency_step_mode = is_emergency_step_mode;
   i_param.ik_mode = ik_mode;
   return true;
 };

@@ -142,7 +142,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     hrp::Sensor* sen= m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);
     if ( sen != NULL ) is_legged_robot = true;
   }
-  is_emergency = false;
+  is_emergency_step = is_emergency = false;
   reset_emergency_flag = false;
 
   // m_tau.data.length(m_robot->numJoints());
@@ -1380,10 +1380,17 @@ void Stabilizer::calcStateForEmergencySignal()
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     std::vector<bool> tmp_cs(2,true);
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
-    szd->get_vertices(support_polygon_vetices);
-    szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
-    if (!is_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
-    else if (falling_direction != 0) {
+    if (!is_walking) {
+      // szd->get_vertices(support_polygon_vetices);
+      // szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
+      // is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+
+      szd->get_margined_vertices(support_polygon_vetices);
+      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
+      is_emergency_step = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    } else if (falling_direction != 0) {
+      szd->get_vertices(support_polygon_vetices);
+      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
       if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0) ||
           ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0))
         is_cp_outside = true;
