@@ -32,6 +32,7 @@ module OpenHRP
         boolean use_head;
         boolean use_manipulability_limit;
         boolean disable_lower;
+        boolean output_zmp_in_idle;
     };
     boolean startCountDownForWholeBodyMasterSlave(in double sec);
     boolean startWholeBodyMasterSlave();
