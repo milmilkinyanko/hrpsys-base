@@ -894,6 +894,7 @@ void AutoBalancer::setABCData2ST()
   st->basePos = ref_basePos;
   st->baseRpy = baseRpy;
   st->is_walking = gg_is_walking;
+  st->is_single_walking = gg_is_walking && gg->get_is_single_walking();
   st->sbp_cog_offset = sbp_cog_offset;
 }
 
