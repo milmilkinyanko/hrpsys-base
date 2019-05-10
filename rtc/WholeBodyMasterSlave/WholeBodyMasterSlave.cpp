@@ -320,8 +320,15 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
         m_zmp.data.y = rel_ref_zmp(Y);
         m_zmp.data.z = rel_ref_zmp(Z);
         m_zmp.tm = m_qRef.tm;
+        // always contact both in idle
+        if(m_optionalData.data.length() < optionalDataLength){
+            m_optionalData.data.length(optionalDataLength);
+            for(int i=0;i<optionalDataLength;i++)m_optionalData.data[i] = 0;
+        }
+        m_optionalData.data[contact_states_index_map["rleg"]] = m_optionalData.data[optionalDataLength/2 + contact_states_index_map["rleg"]] = 1;
+        m_optionalData.data[contact_states_index_map["lleg"]] = m_optionalData.data[optionalDataLength/2 + contact_states_index_map["lleg"]] = 1;
     }
-    
+
     if ( is_legged_robot ) {
         processTransition();
         mode.update();
