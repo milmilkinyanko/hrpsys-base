@@ -142,7 +142,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     hrp::Sensor* sen= m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);
     if ( sen != NULL ) is_legged_robot = true;
   }
-  is_emergency = false;
+  is_emergency_step = is_emergency = false;
   reset_emergency_flag = false;
 
   // m_tau.data.length(m_robot->numJoints());
@@ -660,7 +660,8 @@ void Stabilizer::getActualParametersForST ()
           //   Basically Equation (16) and (17) in the paper [1]
           hrp::Vector3 tmp_damping_gain;
           for (size_t j = 0; j < 3; ++j) {
-            if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * ikp.eefm_rot_damping_gain(j) * 10 + transition_smooth_gain * ikp.eefm_rot_damping_gain(j);
+            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_walking ? 1.0 : 1.5);
+            if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
           ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
@@ -708,10 +709,11 @@ void Stabilizer::getActualParametersForST ()
           pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                          tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
         } else {
+          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_walking ? 1.0 : 1.5);
           if ( (ref_contact_states[contact_states_index_map["rleg"]] && ref_contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
                || (act_contact_states[0] && act_contact_states[1]) ) { // Actual : double support phase
             // Temporarily use first pos damping gain (stikp[0])
-            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
+            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                            tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
           } else {
@@ -724,7 +726,7 @@ void Stabilizer::getActualParametersForST ()
             // std::cerr << "st " << remain_swing_time << " rleg " << contact_states[contact_states_index_map["rleg"]] << " lleg " << contact_states[contact_states_index_map["lleg"]] << std::endl;
             double tmp_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time-eefm_pos_margin_time)/eefm_pos_transition_time)); // 0=>1
             // Temporarily use first pos damping gain (stikp[0])
-            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
+            hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             hrp::Vector3 tmp_time_const = (1-tmp_ratio)*eefm_pos_time_const_swing*hrp::Vector3::Ones()+tmp_ratio*stikp[0].eefm_pos_time_const_support;
             pos_ctrl = calcDampingControl (tmp_ratio * ref_f_diff, tmp_ratio * f_diff, pos_ctrl, tmp_damping_gain, tmp_time_const);
           }
@@ -1378,10 +1380,17 @@ void Stabilizer::calcStateForEmergencySignal()
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     std::vector<bool> tmp_cs(2,true);
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
-    szd->get_vertices(support_polygon_vetices);
-    szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
-    if (!is_walking) is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
-    else if (falling_direction != 0) {
+    if (!is_walking) {
+      // szd->get_vertices(support_polygon_vetices);
+      // szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
+      // is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+
+      szd->get_margined_vertices(support_polygon_vetices);
+      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
+      is_emergency_step = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    } else if (falling_direction != 0) {
+      szd->get_vertices(support_polygon_vetices);
+      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
       if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0) ||
           ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0))
         is_cp_outside = true;

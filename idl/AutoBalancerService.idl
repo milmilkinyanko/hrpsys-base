@@ -321,6 +321,10 @@ module OpenHRP
       boolean use_disturbance_compensation;
       /// Gain for disturbance compensation
       double dc_gain;
+      /// Offset of y component of ref_dcm
+      double dcm_offset;
+      /// Step time when emergency stepping [s]
+      DblArray3 emergency_step_time;
     };
 
     /**
@@ -401,6 +405,8 @@ module OpenHRP
       DblArray3 additional_force_applied_point_offset;
       /// switch SimpleFullbodyIK to FullbodyIK
       IKMode ik_mode;
+      /// whether step when emergency
+      boolean is_emergency_step_mode;
     };
 
     /**
