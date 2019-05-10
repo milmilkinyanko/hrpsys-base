@@ -325,6 +325,7 @@ module OpenHRP
       double dcm_offset;
       /// Step time when emergency stepping [s]
       DblArray3 emergency_step_time;
+      boolean use_act_states;
     };
 
     /**
