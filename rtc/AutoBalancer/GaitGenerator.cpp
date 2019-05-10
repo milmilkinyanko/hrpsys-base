@@ -828,7 +828,8 @@ namespace rats
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index());
     // for emergency step
     if (is_emergency_step && step_index < 3) {
-      default_double_support_ratio_before = default_double_support_ratio_after = (dt + 4e-4) / (emergency_step_time[step_index]);
+      default_double_support_ratio_before = default_double_support_ratio_after = (2*dt) / (emergency_step_time[step_index]);
+      min_time = std::min(orig_min_time, emergency_step_time[step_index]);
     }
     // set param
     solved = true;
@@ -1564,7 +1565,6 @@ namespace rats
       orig_default_double_support_static_ratio_before = default_double_support_ratio_before;
       orig_default_double_support_static_ratio_after = default_double_support_ratio_after;
       orig_min_time = min_time;
-      min_time = 0.4;
     }
     /* initialize */
     clear_footstep_nodes_list();
