@@ -201,6 +201,8 @@ class WholeBodyMasterSlave : public RTC::DataFlowComponentBase, UTIL_CONST {
     hrp::Vector3 torso_rot_rmc;
     ControlMode mode;
 
+    bool output_zmp_in_idle;
+
     //  enum { MODE_IDLE, MODE_SYNC_TO_WBMS, MODE_WBMS, MODE_PAUSE, MODE_SYNC_TO_IDLE} mode, previous_mode;
     //  bool isRunning(){ return (mode==MODE_SYNC_TO_WBMS) || (mode==MODE_WBMS) || (mode==MODE_PAUSE) || (mode==MODE_SYNC_TO_IDLE) ;}
     //  bool isInitialize(){ return (previous_mode==MODE_IDLE) && (mode==MODE_SYNC_TO_WBMS) ;}

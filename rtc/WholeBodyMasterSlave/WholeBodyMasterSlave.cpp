@@ -198,6 +198,8 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onInitialize(){
 
     sccp = boost::shared_ptr<CapsuleCollisionChecker>(new CapsuleCollisionChecker(m_robot));
 
+    output_zmp_in_idle = false;
+
     std::cerr << "[" << m_profile.instance_name << "] onInitialize() OK" << std::endl;
     return RTC::RTC_OK;
 }
@@ -270,10 +272,38 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
     if (m_baseRpyIn.isNew()) { m_baseRpyIn.read(); }
     if (m_zmpIn.isNew()) { m_zmpIn.read(); }
     if (m_optionalDataIn.isNew()) { m_optionalDataIn.read(); }
+
+    // buttons must be always updated for khi demo
+    if (m_htrfwIn.isNew()){ m_htrfwIn.read(); WBMSCore::DoubleSeqToVector6(m_htrfw.data,hsp->hp_wld_raw.tgt[rf].w); }
+    if (m_htlfwIn.isNew()){ m_htlfwIn.read(); WBMSCore::DoubleSeqToVector6(m_htlfw.data,hsp->hp_wld_raw.tgt[lf].w); }
+
+    //khi
+    if(m_htlfw.data[1] == 1 && m_htrfw.data[1] == 1 && mode.now() == MODE_IDLE){
+        std::cerr<<"startWholeBodyMasterSlave() called by button"<<std::endl;
+        startWholeBodyMasterSlave();
+    }else if(m_htlfw.data[1] == 1 && m_htrfw.data[1] == 1 && mode.now() == MODE_WBMS){
+        std::cerr<<"stopWholeBodyMasterSlave() called by button"<<std::endl;
+        stopWholeBodyMasterSlave();
+    }
+    static bool blocking_continuous_hits = false;
+    if(m_htlfw.data[2] == 1 && m_htrfw.data[2] == 1 && mode.now() == MODE_PAUSE){
+        if(!blocking_continuous_hits){
+            std::cerr<<"resumeWholeBodyMasterSlave() called by button"<<std::endl;
+            resumeWholeBodyMasterSlave();
+            blocking_continuous_hits = true;
+        }
+    }else if(m_htlfw.data[2] == 1 && m_htrfw.data[2] == 1 && mode.now() == MODE_WBMS){
+        if(!blocking_continuous_hits){
+            std::cerr<<"pauseWholeBodyMasterSlave() called by button"<<std::endl;
+            pauseWholeBodyMasterSlave();
+            blocking_continuous_hits = true;
+        }
+    }else{
+        blocking_continuous_hits = false;
+    }
+
     //for HumanSynchronizer
     if(mode.now()!=MODE_PAUSE){
-        if (m_htrfwIn.isNew()){ m_htrfwIn.read(); WBMSCore::DoubleSeqToVector6(m_htrfw.data,hsp->hp_wld_raw.tgt[rf].w); }
-        if (m_htlfwIn.isNew()){ m_htlfwIn.read(); WBMSCore::DoubleSeqToVector6(m_htlfw.data,hsp->hp_wld_raw.tgt[lf].w); }
         if (m_htcomIn.isNew()){ m_htcomIn.read(); WBMSCore::Pose3DToWBMSPose3D(m_htcom.data,hsp->hp_wld_raw.tgt[com].abs); }
         if (m_htrfIn.isNew()) { m_htrfIn.read();  WBMSCore::Pose3DToWBMSPose3D(m_htrf.data,hsp->hp_wld_raw.tgt[rf].abs); }
         if (m_htlfIn.isNew()) { m_htlfIn.read();  WBMSCore::Pose3DToWBMSPose3D(m_htlf.data,hsp->hp_wld_raw.tgt[lf].abs); }
@@ -283,13 +313,13 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
         if (m_htzmpIn.isNew()){ m_htzmpIn.read();  WBMSCore::Point3DToVector3(m_htzmp.data,hsp->hp_wld_raw.tgt[zmp].abs.p); }
     }
 
-    //khi
-    if(m_htlfw.data[1] == 1 && m_htrfw.data[1] == 1 && mode.now() == MODE_IDLE){
-        std::cerr<<"button call"<<std::endl;
-        startWholeBodyMasterSlave();
-        std::cerr<<"button call end"<<std::endl;
-    }else if(m_htlfw.data[1] == 1 && m_htrfw.data[1] == 1 && mode.now() == MODE_WBMS){
-        stopWholeBodyMasterSlave();
+    // output correct zmp for ST even if any other RTC doesn't (hotfix)
+    if(output_zmp_in_idle){
+        hrp::Vector3 rel_ref_zmp = m_robot->rootLink()->R.transpose() * ((m_robot->calcCM() + hrp::Vector3(0, 0, -0.95)) - m_robot->rootLink()->p);
+        m_zmp.data.x = rel_ref_zmp(X);
+        m_zmp.data.y = rel_ref_zmp(Y);
+        m_zmp.data.z = rel_ref_zmp(Z);
+        m_zmp.tm = m_qRef.tm;
     }
     
     if ( is_legged_robot ) {
@@ -308,7 +338,7 @@ RTC::ReturnCode_t WholeBodyMasterSlave::onExecute(RTC::UniqueId ec_id){
             if(fik_list[i]->ikp.count("larm"))fik_list[i]->ikp["larm"].is_ik_enable = hsp->WBMSparam.use_lh;
         }
 
-        if (mode.isRunning()) {
+        if (mode.isRunning()) { // after calling startWholeBodyMasterSlave();
             if(mode.isInitialize()){
                 preProcessForWholeBodyMasterSlave(fik, m_robot);
                 hsp->fik_ml = fik_ml;
@@ -496,15 +526,15 @@ void WholeBodyMasterSlave::processTransition(){
 
 void WholeBodyMasterSlave::preProcessForWholeBodyMasterSlave(fikPtr& fik_in, hrp::BodyPtr& robot_in){
     hrp::Vector3 basePos_heightChecked = hrp::Vector3(m_basePos.data.x, m_basePos.data.y, m_basePos.data.z);//ベースリンク高さ調整により足裏高さ0に
-    robot_in->rootLink()->p = basePos_heightChecked;
-    for ( int i = 0; i < robot_in->numJoints(); i++ ){ robot_in->joint(i)->q = m_qRef.data[i]; }
-    robot_in->calcForwardKinematics();
-    hrp::Vector3 init_foot_mid_coord = (fik_in->getEndEffectorPos("rleg") + fik_in->getEndEffectorPos("lleg")) / 2;
-    if( fabs((double)init_foot_mid_coord(Z)) > 1e-5 ){
-        basePos_heightChecked(Z) -= init_foot_mid_coord(Z);
-        init_foot_mid_coord(Z) = 0;
-        std::cerr<<"["<<m_profile.instance_name<<"] Input basePos height is invalid. Auto modify "<<m_basePos.data.z<<" -> "<<basePos_heightChecked(Z)<<endl;
-    }
+//    robot_in->rootLink()->p = basePos_heightChecked;
+//    for ( int i = 0; i < robot_in->numJoints(); i++ ){ robot_in->joint(i)->q = m_qRef.data[i]; }
+//    robot_in->calcForwardKinematics();
+//    hrp::Vector3 init_foot_mid_coord = (fik_in->getEndEffectorPos("rleg") + fik_in->getEndEffectorPos("lleg")) / 2;
+//    if( fabs((double)init_foot_mid_coord(Z)) > 1e-5 ){
+//        basePos_heightChecked(Z) -= init_foot_mid_coord(Z);
+//        init_foot_mid_coord(Z) = 0;
+//        std::cerr<<"["<<m_profile.instance_name<<"] Input basePos height is invalid. Auto modify "<<m_basePos.data.z<<" -> "<<basePos_heightChecked(Z)<<endl;
+//    }
     const std::string robot_l_names[4] = {"rleg","lleg","rarm","larm"};
 
     for(int i=0;i<body_list.size();i++){//初期姿勢でBodyをFK
@@ -585,25 +615,13 @@ void WholeBodyMasterSlave::solveFullbodyIKStrictCOM(fikPtr& fik_in, hrp::BodyPtr
         tmp.target_link_name = "WAIST";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
-//        tmp.targetPos = robot_in->rootLink()->p;// will be ignored by selection_vec
-//        tmp.targetRpy = com_ref.rpy;// ベースリンクの回転をフリーにはしないほうがいい(omegaの積分誤差で暴れる)
-//        tmp.constraint_weight << 0,0,0,1,1,1;
-        tmp.targetPos << m_basePos.data.x,m_basePos.data.y,m_basePos.data.z;// will be ignored by selection_vec
-        tmp.targetRpy << m_baseRpy.data.r,m_baseRpy.data.p,m_baseRpy.data.y;// ベースリンクの回転をフリーにはしないほうがいい(omegaの積分誤差で暴れる)
+        tmp.targetPos = robot_in->rootLink()->p;// will be ignored by selection_vec
+        tmp.targetRpy = com_ref.rpy;// ベースリンクの回転をフリーにはしないほうがいい(omegaの積分誤差で暴れる)
         tmp.constraint_weight << 0,0,0,1,1,1;
         tmp.rot_precision = deg2rad(3);
         ikc_list.push_back(tmp);
-    }
-    if(hsp->WBMSparam.disable_lower){
-      IKConstraint tmp;
-      tmp.target_link_name = "WAIST";
-      tmp.localPos = hrp::Vector3::Zero();
-      tmp.localR = hrp::Matrix33::Identity();
-      tmp.targetPos << m_basePos.data.x, m_basePos.data.y, m_basePos.data.z;// will be ignored by selection_vec
-      tmp.targetRpy << m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y;// ベースリンクの回転をフリーにはしないほうがいい(omegaの積分誤差で暴れる)
-      tmp.constraint_weight << 1,1,1,1,1,1;
-      tmp.rot_precision = deg2rad(3);
-      ikc_list.push_back(tmp);
+    }else{
+        fik_in->dq_weight_all.tail(6).fill(1e12);
     }
     if(!hsp->WBMSparam.disable_lower){
         IKConstraint tmp;
@@ -945,7 +963,7 @@ bool WholeBodyMasterSlave::startWholeBodyMasterSlave(){
     if(mode.now() == MODE_IDLE){
         std::cerr << "[" << m_profile.instance_name << "] startWholeBodyMasterSlave" << std::endl;
         mode.setModeRequest(MODE_SYNC_TO_WBMS);
-        while(!transition_interpolator->isEmpty()){ usleep(1000); }
+//        while(!transition_interpolator->isEmpty()){ usleep(1000); } //意味ない
         return true;
     }else{
         std::cerr << "[" << m_profile.instance_name << "] Invalid context to startWholeBodyMasterSlave" << std::endl;
@@ -958,6 +976,7 @@ bool WholeBodyMasterSlave::pauseWholeBodyMasterSlave(){
     if(mode.now() == MODE_WBMS){
         std::cerr << "[" << m_profile.instance_name << "] pauseWholeBodyMasterSlave" << std::endl;
         mode.setModeRequest(MODE_PAUSE);
+//        sleep(3); // sleepはサービスコール以外で呼ぶと普通に止まる
         return true;
     }else{
         std::cerr << "[" << m_profile.instance_name << "] Invalid context to pauseWholeBodyMasterSlave" << std::endl;
@@ -970,9 +989,9 @@ bool WholeBodyMasterSlave::resumeWholeBodyMasterSlave(){
     if(mode.now() == MODE_PAUSE){
         std::cerr << "[" << m_profile.instance_name << "] resumeWholeBodyMasterSlave" << std::endl;
         mode.setModeRequest(MODE_WBMS);
-        avg_q_vel /= 5;
-        sleep(5);
-        avg_q_vel *= 5;
+//        avg_q_vel /= 5;
+//        sleep(5); // sleepはサービスコール以外で呼ぶと普通に止まる
+//        avg_q_vel *= 5;
         return true;
     }else{
         std::cerr << "[" << m_profile.instance_name << "] Invalid context to resumeWholeBodyMasterSlave" << std::endl;
@@ -985,7 +1004,7 @@ bool WholeBodyMasterSlave::stopWholeBodyMasterSlave(){
     if(mode.now() == MODE_WBMS || mode.now() == MODE_PAUSE ){
         std::cerr << "[" << m_profile.instance_name << "] stopWholeBodyMasterSlave" << std::endl;
         mode.setModeRequest(MODE_SYNC_TO_IDLE);
-        while(!transition_interpolator->isEmpty()){ usleep(1000); }
+//        while(!transition_interpolator->isEmpty()){ usleep(1000); }//意味ない
         return true;
     }else{
         std::cerr << "[" << m_profile.instance_name << "] Invalid context to stopWholeBodyMasterSlave" << std::endl;
@@ -1008,6 +1027,7 @@ bool WholeBodyMasterSlave::setWholeBodyMasterSlaveParam(const OpenHRP::WholeBody
     hsp->WBMSparam.use_rh = hsp->WBMSparam.use_lh = i_param.use_hands;
     hsp->WBMSparam.use_head = i_param.use_head;
     hsp->WBMSparam.use_manipulability_limit = i_param.use_manipulability_limit;
+    output_zmp_in_idle = i_param.output_zmp_in_idle;
     if(mode.now() == MODE_IDLE){
       hsp->WBMSparam.disable_lower = i_param.disable_lower;
     }else{
@@ -1032,6 +1052,7 @@ bool WholeBodyMasterSlave::getWholeBodyMasterSlaveParam(OpenHRP::WholeBodyMaster
     i_param.use_head = hsp->WBMSparam.use_head;
     i_param.use_manipulability_limit = hsp->WBMSparam.use_manipulability_limit;
     i_param.disable_lower = hsp->WBMSparam.disable_lower;
+    i_param.output_zmp_in_idle = output_zmp_in_idle;
     return true;
 }
 
