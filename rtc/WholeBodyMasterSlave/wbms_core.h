@@ -447,12 +447,14 @@ class WBMSCore : UTIL_CONST {
             com_in_filter.setParameter(1, HZ);
             foot_vert_act_fblr[R] << 0.13, -0.10,  0.06, -0.08;
             foot_vert_act_fblr[L] << 0.13, -0.10,  0.08, -0.06;
-            foot_vert_check_fblr[R] << 0.02+0.002, -0.01-0.002,  0.02+0.002,  0.01-0.002;
-            foot_vert_check_fblr[L] << 0.02+0.002, -0.01-0.002, -0.01+0.002, -0.02-0.002;
+            foot_vert_check_fblr[R] << 0.02+0.002, -0.01-0.002,  0.04+0.002,  0.03-0.002;
+            foot_vert_check_fblr[L] << 0.02+0.002, -0.01-0.002, -0.03+0.002, -0.04-0.002;
             //      foot_vert_check_fblr[R] << 0.13, -0.10,  0.06, -0.08;
             //      foot_vert_check_fblr[L] << 0.13, -0.10,  0.08, -0.06;
-            foot_vert_safe_fblr[R] << 0.02, -0.01,  0.02,  0.01;
-            foot_vert_safe_fblr[L] << 0.02, -0.01, -0.01, -0.02;
+//            foot_vert_safe_fblr[R] << 0.02, -0.01,  0.02,  0.01;
+//            foot_vert_safe_fblr[L] << 0.02, -0.01, -0.01, -0.02;
+            foot_vert_safe_fblr[R] << 0.02, -0.01,  0.04,  0.03;
+            foot_vert_safe_fblr[L] << 0.02, -0.01, -0.03, -0.04;
             for(int i=0;i<LR;i++){
                 make_rect_verts(foot_vert_act_fblr[i], foot_vert_act[i]);
                 make_rect_verts(foot_vert_check_fblr[i], foot_vert_check[i]);
@@ -462,7 +464,7 @@ class WBMSCore : UTIL_CONST {
             cp_force_go_contact[L] = false;
 
             //      WBMSparam.auto_swing_foot_landing_threshold = 0.02;
-            WBMSparam.auto_swing_foot_landing_threshold = 0.04;
+            WBMSparam.auto_swing_foot_landing_threshold = 0.05;
             WBMSparam.foot_vertical_vel_limit_coeff = 4.0;
             WBMSparam.human_com_height = 1.00;
             WBMSparam.is_doctor = true;

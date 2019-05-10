@@ -627,6 +627,8 @@ void WholeBodyMasterSlave::solveFullbodyIKStrictCOM(fikPtr& fik_in, hrp::BodyPtr
         tmp.constraint_weight << 0,0,0,1,1,1;
         tmp.rot_precision = deg2rad(3);
         ikc_list.push_back(tmp);
+
+        fik_in->dq_weight_all.tail(6).fill(1);
     }else{
         fik_in->dq_weight_all.tail(6).fill(1e12);
     }
