@@ -829,6 +829,7 @@ namespace rats
     // for emergency step
     if (is_emergency_step && step_index < 3) {
       default_double_support_ratio_before = default_double_support_ratio_after = (50*dt) / (emergency_step_time[step_index]);
+      min_time = std::min(orig_min_time, emergency_step_time[step_index]);
     }
     // set param
     solved = true;
