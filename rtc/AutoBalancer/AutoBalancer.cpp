@@ -2118,6 +2118,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_dc_gain(i_param.dc_gain);
   gg->set_dcm_offset(i_param.dcm_offset);
   gg->set_emergency_step_time(i_param.emergency_step_time);
+  gg->use_act_states = st->use_act_states = i_param.use_act_states;
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2224,6 +2225,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   for (size_t i = 0; i < 3; i++) {
     i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
   }
+  i_param.use_act_states = gg->use_act_states;
   return true;
 };
 
