@@ -408,6 +408,8 @@ module OpenHRP
       IKMode ik_mode;
       /// whether step when emergency
       boolean is_emergency_step_mode;
+      /// cog height constraint in fullbody IK
+      double cog_z_constraint;
     };
 
     /**

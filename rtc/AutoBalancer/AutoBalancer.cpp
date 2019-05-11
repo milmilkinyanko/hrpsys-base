@@ -360,6 +360,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     pitch_weight_interpolator->setName(std::string(m_profile.instance_name)+" pitch_weight_interpolator");
     go_vel_interpolator = new interpolator(3, m_dt, interpolator::HOFFARBIB, 0);
     go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
+    cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -476,6 +478,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     is_emergency_step_mode = false;
 
+    cog_z_constraint = 1e-1;
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
         std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -500,6 +504,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete pitch_weight_interpolator;
   delete st->transition_interpolator;
   delete go_vel_interpolator;
+  delete cog_constraint_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
@@ -1489,7 +1494,10 @@ void AutoBalancer::solveFullbodyIK ()
           if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
           else pitch_weight_interpolator->get(&pitch_weight, true);
         }
-        tmp.constraint_weight << 3,3,1e-1,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
+        if (!cog_constraint_interpolator->isEmpty()) {
+          cog_constraint_interpolator->get(&cog_z_constraint, true);
+        }
+        tmp.constraint_weight << 3,3,cog_z_constraint,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-5;
@@ -2376,6 +2384,14 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   } else {
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode cannot be set in (control_mode != MODE_IDLE). Current ik_mode is " << ik_mode << std::endl;
   }
+  if (cog_constraint_interpolator->isEmpty()) {
+    double tmp_time = 1.0;
+    cog_constraint_interpolator->clear();
+    cog_constraint_interpolator->set(&cog_z_constraint);
+    cog_constraint_interpolator->setGoal(&i_param.cog_z_constraint, tmp_time, true);
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "]   cog_z_constraint cannot be set because interpolating." << std::endl;
+  }
   return true;
 };
 
@@ -2459,6 +2475,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   }
   i_param.is_emergency_step_mode = is_emergency_step_mode;
   i_param.ik_mode = ik_mode;
+  i_param.cog_z_constraint = cog_z_constraint;
   return true;
 };
 

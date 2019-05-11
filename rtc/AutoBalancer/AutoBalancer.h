@@ -304,6 +304,7 @@ class AutoBalancer
   interpolator *roll_weight_interpolator;
   interpolator *pitch_weight_interpolator;
   interpolator *go_vel_interpolator;
+  interpolator *cog_constraint_interpolator;
   hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
   hrp::Matrix33 input_baseRot, ref_baseRot;
 
@@ -338,6 +339,7 @@ class AutoBalancer
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode;
+  double cog_z_constraint;
 };
 
 
