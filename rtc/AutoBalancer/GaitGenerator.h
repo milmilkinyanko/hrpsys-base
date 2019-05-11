@@ -1405,6 +1405,7 @@ namespace rats
     void set_default_top_ratio(const double _tmp) { lcg.set_default_top_ratio(_tmp); };
     void set_velocity_param (const double vel_x, const double vel_y, const double vel_theta) /* [mm/s] [mm/s] [deg/s] */
     {
+        std::cerr << vel_x << " : " <<  vel_y << " : " << vel_theta << std::endl;
       vel_param.set(vel_x, vel_y, vel_theta);
     };
     void set_offset_velocity_param (const double vel_x, const double vel_y, const double vel_theta) /* [mm/s] [mm/s] [deg/s] */

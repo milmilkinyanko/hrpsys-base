@@ -358,6 +358,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     roll_weight_interpolator->setName(std::string(m_profile.instance_name)+" roll_weight_interpolator");
     pitch_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
     pitch_weight_interpolator->setName(std::string(m_profile.instance_name)+" pitch_weight_interpolator");
+    go_vel_interpolator = new interpolator(3, m_dt, interpolator::HOFFARBIB, 0);
+    go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -497,6 +499,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete roll_weight_interpolator;
   delete pitch_weight_interpolator;
   delete st->transition_interpolator;
+  delete go_vel_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
@@ -638,6 +641,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       // For parameters
       setActData2ST();
       st->getActualParameters();
+      if (!go_vel_interpolator->isEmpty()) {
+        std::vector<double> tmp_v(3);
+        go_vel_interpolator->get(tmp_v.data(), true);
+        gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
+      }
       getTargetParameters();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
@@ -1804,7 +1812,19 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
     gg->set_all_limbs(leg_names);
     bool ret = true;
     if (gg_is_walking && gg_solved) {
-      gg->set_velocity_param(vx, vy, vth);
+      std::vector<double> tmp_v(3), trarget_v(3);
+      trarget_v[0]  = vx;
+      trarget_v[1]  = vy;
+      trarget_v[2]  = vth;
+      double transition_time = 5.0;
+      if (go_vel_interpolator->isEmpty()) {
+        go_vel_interpolator->clear();
+        go_vel_interpolator->setGoal(trarget_v.data(), transition_time, true);
+      } else {
+        go_vel_interpolator->setGoal(trarget_v.data(), transition_time, true);
+      }
+      go_vel_interpolator->get(tmp_v.data(), true);
+      gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
     } else {
       coordinates ref_coords;
       ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;
@@ -1843,6 +1863,7 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
 
 bool AutoBalancer::goStop ()
 {
+  go_vel_interpolator->clear();
   gg->finalize_velocity_mode();
   waitFootSteps();
   return true;
