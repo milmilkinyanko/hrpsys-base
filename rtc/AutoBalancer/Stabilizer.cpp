@@ -1635,7 +1635,7 @@ void Stabilizer::calcEEForceMomentControl()
   }
 
   // Swing ee compensation.
-  calcSwingEEModification();
+  if (use_act_states) calcSwingEEModification();
 
   // solveIK
   //   IK target is link origin pos and rot, not ee pos and rot.
