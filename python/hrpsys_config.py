@@ -779,7 +779,7 @@ class HrpsysConfigurator(object):
             ['octd', "ObjectContactTurnaroundDetector"],
             ['es', "EmergencyStopper"],
             ['rfu', "ReferenceForceUpdater"],
-            ['wbms', "WholeBodyMasterSlave"],
+            # ['wbms', "WholeBodyMasterSlave"],
             ['ic', "ImpedanceController"],
             ['abc', "AutoBalancer"],
             ['st', "Stabilizer"],
