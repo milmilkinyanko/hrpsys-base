@@ -1543,7 +1543,7 @@ void AutoBalancer::solveFullbodyIK ()
     if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
     if(m_robot->link("CHEST_Y") != NULL) fik->dq_weight_all(m_robot->link("CHEST_Y")->jointId) = 10;
     if(m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(m_robot->link("CHEST_P")->jointId) = 10;
-    fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
+    // fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
     fik->rootlink_rpy_llimit << deg2rad(-5), deg2rad(-30), -DBL_MAX;
     fik->rootlink_rpy_ulimit << deg2rad(5), deg2rad(30), DBL_MAX;
 

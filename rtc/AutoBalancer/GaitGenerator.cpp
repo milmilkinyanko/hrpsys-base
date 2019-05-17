@@ -828,7 +828,8 @@ namespace rats
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index());
     // for emergency step
     if (is_emergency_step && step_index < 3) {
-      default_double_support_ratio_before = default_double_support_ratio_after = (2*dt) / (emergency_step_time[step_index]);
+      double double_time = 0.07; // [s]
+      default_double_support_ratio_before = default_double_support_ratio_after = double_time / emergency_step_time[step_index];
       min_time = std::min(orig_min_time, emergency_step_time[step_index]);
     }
     // set param
