@@ -440,11 +440,11 @@ namespace rats
         double_support_count_after = (default_double_support_ratio_after*one_step_count);
         spt = LIFTOFF;
       };
-      void reset_one_step_count (const size_t _one_step_len, const double default_double_support_ratio_before, const double default_double_support_ratio_after)
+      void reset_one_step_count (const size_t d_one_step_len, const double default_double_support_ratio_before, const double default_double_support_ratio_after)
       {
-        one_step_count = _one_step_len;
-        double_support_count_before = (default_double_support_ratio_before*one_step_count);
-        double_support_count_after = (default_double_support_ratio_after*one_step_count);
+        one_step_count += d_one_step_len;
+        // double_support_count_before = (default_double_support_ratio_before*one_step_count);
+        // double_support_count_after = (default_double_support_ratio_after*one_step_count);
       };
       void reset_all (const double _dt, const size_t _one_step_len,
                       const double default_double_support_ratio_before, const double default_double_support_ratio_after,
@@ -986,10 +986,10 @@ namespace rats
       size_t get_footstep_index() const { return footstep_index; };
       size_t get_lcg_count() const { return lcg_count; };
       void set_lcg_count (const size_t cnt) { lcg_count = cnt; };
-      void set_one_step_count (const size_t cnt) {one_step_count = cnt; };
-      void reset_one_step_count (const size_t cnt, const double before, const double after) {
+      void set_one_step_count (const size_t d_cnt) {one_step_count += d_cnt; };
+      void reset_one_step_count (const size_t d_cnt, const double before, const double after) {
         for (size_t i = 0; i < rdtg.size(); i++)
-          rdtg[i].reset_one_step_count(cnt, before, after);
+          rdtg[i].reset_one_step_count(d_cnt, before, after);
       };
       double get_current_swing_time(const size_t idx) const { return current_swing_time.at(idx); };
       const std::vector<step_node>& get_swing_leg_steps() const { return swing_leg_steps; };

@@ -321,7 +321,7 @@ namespace rats
   void leg_coords_generator::calc_ratio_from_double_support_ratio (const double default_double_support_ratio_before, const double default_double_support_ratio_after)
   {
     int support_len_before = one_step_count * default_double_support_ratio_before;
-    int support_len_after = one_step_count * default_double_support_ratio_after;
+    int support_len_after = next_one_step_count * default_double_support_ratio_after;
     // int support_len = 2*static_cast<int>(one_step_count * default_double_support_ratio * 0.5);
     int swing_len = one_step_count - support_len_before - support_len_after;
     int current_swing_len = lcg_count - support_len_before;
@@ -827,11 +827,7 @@ namespace rats
   {
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index());
     // for emergency step
-    if (is_emergency_step && step_index < 3) {
-      double double_time = 0.07; // [s]
-      default_double_support_ratio_before = default_double_support_ratio_after = double_time / emergency_step_time[step_index];
-      min_time = std::min(orig_min_time, emergency_step_time[step_index]);
-    }
+    if (is_emergency_step && step_index < 3) min_time = std::min(orig_min_time, emergency_step_time[step_index]);
     // set param
     solved = true;
     std::vector<step_node> cur_steps(step_index > 0 ? footstep_nodes_list[step_index-1] : lcg.get_support_leg_steps()), dist_steps(footstep_nodes_list[step_index]), next_dist_steps(footstep_nodes_list[step_index+1 >= step_num ? step_index : step_index+1]);
@@ -1275,9 +1271,10 @@ namespace rats
         if (is_change_time) {
           remain_count += tmp_dt / dt;
           footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
+          size_t orig_lcg_cnt = lcg.get_lcg_count();
           lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
-          lcg.set_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt));
-          lcg.reset_one_step_count(static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()].front().step_time/dt), default_double_support_ratio_before, default_double_support_ratio_after);
+          lcg.set_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt);
+          lcg.reset_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt, default_double_support_ratio_before, default_double_support_ratio_after);
           modified_d_step_time += tmp_dt;
         }
       }
