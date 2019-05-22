@@ -248,10 +248,10 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 hrp::Matrix33 dR;
                 hrp::Vector3 omega = dq_all.tail(6).tail(3);
                 hrp::calcRodrigues(dR, omega.normalized(), omega.norm());
-                if(!(_robot->rootLink()->R * dR).isUnitary()){
+                if(!(dR * _robot->rootLink()->R).isUnitary()){
                     std::cerr <<"ERROR R_base_ans is not Unitary" << std::endl; return;
                 }else{
-                    _robot->rootLink()->R = _robot->rootLink()->R * dR;
+                    _robot->rootLink()->R = dR * _robot->rootLink()->R;
                 }
                 _robot->calcForwardKinematics();
             #else
