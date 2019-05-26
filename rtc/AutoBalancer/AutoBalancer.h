@@ -161,6 +161,8 @@ class AutoBalancer
   InPort<TimedDoubleSeq> m_qRefSeqIn;
   std::vector<TimedDoubleSeq> m_wrenches;
   std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
+  OpenHRP::TimedLandingPosition m_landingHeight;
+  InPort<OpenHRP::TimedLandingPosition> m_landingHeightIn;
 
   // for debug
   TimedPoint3D m_cog;
@@ -195,6 +197,8 @@ class AutoBalancer
   OutPort<TimedPoint3D> m_sbpCogOffsetOut;
   TimedLong m_emergencySignal;
   OutPort<TimedLong> m_emergencySignalOut;
+  OpenHRP::TimedLandingPosition m_landingTarget;
+  OutPort<OpenHRP::TimedLandingPosition> m_landingTargetOut;
   std::vector<TimedDoubleSeq> m_force;
   std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
   std::vector<TimedPoint3D> m_limbCOPOffset;

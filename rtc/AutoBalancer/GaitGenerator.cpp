@@ -778,6 +778,12 @@ namespace rats
         default_double_support_ratio_swing_after = orig_default_double_support_static_ratio_after;
         min_time = orig_min_time;
       }
+      // calc landing pos relative to supporting foot for vision
+      if (lcg.get_footstep_index() > 0) {
+        cur_supporting_foot = (footstep_nodes_list[lcg.get_footstep_index()].front().l_r == LLEG ? 0 : 1);
+        landing_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
+      }
+
       prev_ref_cp = ref_cp;
       tmp[17] = fx(0);
       tmp[18] = fx(1);
@@ -1320,11 +1326,12 @@ namespace rats
         }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
-        if (is_modify) {
+        if (is_modify || is_vision_updated) {
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
           limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
+          if (is_vision_updated) footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + cur_footstep_rot * rel_landing_height)(2);
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
           short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {

@@ -67,6 +67,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_actContactStatesIn("actContactStates", m_actContactStates),
       m_rpyIn("rpy", m_rpy),
       m_qRefSeqIn("qRefSeq", m_qRefSeq),
+      m_landingHeightIn("landingHeight", m_landingHeight),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -82,6 +83,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_cogOut("cogOut", m_cog),
       m_allEECompOut("allEEComp", m_allEEComp),
+      m_landingTargetOut("landingTarget", m_landingTarget),
       m_AutoBalancerServicePort("AutoBalancerService"),
       // </rtc-template>
       gait_type(BIPED),
@@ -116,6 +118,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
     addInPort("rpy", m_rpyIn);
     addInPort("qRefSeq", m_qRefSeqIn);
+    addInPort("landingHeight", m_landingHeightIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -134,6 +137,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
+    addOutPort("landingTarget", m_landingTargetOut);
 
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -639,6 +643,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_wrenchesIn[i]->read();
       }
     }
+    gg->set_is_vision_updated(false);
+    if (m_landingHeightIn.isNew()) {
+      m_landingHeightIn.read();
+      gg->set_is_vision_updated(true);
+      hrp::Vector3 pos = hrp::Vector3(m_landingHeight.data.x, m_landingHeight.data.y, m_landingHeight.data.z);
+      gg->set_rel_landing_height(pos);
+    }
 
     // Calculation
     Guard guard(m_mutex);
@@ -852,6 +863,21 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_limbCOPOffsetOut[i]->write();
       }
     }
+
+    if (gg_is_walking && gg->get_lcg_count() > 0) {
+      hrp::Vector3 off = hrp::Vector3(0.0, 0.0, 0.0);
+      hrp::Vector3 pos;
+      int l_r; // rleg: 0, lleg: 1
+      gg->get_landing_pos(pos, l_r);
+      ABCIKparam& tmpikp = ikp[leg_names[l_r]];
+      pos = tmpikp.target_r0.transpose() * (pos - tmpikp.target_p0);
+      m_landingTarget.data.x = pos(0) + off(0);
+      m_landingTarget.data.y = pos(1) + off(1);
+      m_landingTarget.data.z = pos(2) + off(2);
+      m_landingTarget.data.l_r = l_r;
+      m_landingTargetOut.write();
+    }
+
     setABCData2ST();
     st->execStabilizer();
 
