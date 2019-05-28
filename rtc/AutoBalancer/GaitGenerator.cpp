@@ -829,6 +829,19 @@ namespace rats
     }
   }
 
+  void gait_generator::calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot) const
+  {
+    hrp::Vector3 ex = hrp::Vector3::UnitX();
+    hrp::Vector3 ez = hrp::Vector3::UnitZ();
+    hrp::Vector3 xv1(orig_rot * ex);
+    xv1(2)=0.0;
+    xv1.normalize();
+    hrp::Vector3 yv1(ez.cross(xv1));
+    foot_rot(0,0) = xv1(0); foot_rot(1,0) = xv1(1); foot_rot(2,0) = xv1(2);
+    foot_rot(0,1) = yv1(0); foot_rot(1,1) = yv1(1); foot_rot(2,1) = yv1(2);
+    foot_rot(0,2) = ez(0);  foot_rot(1,2) = ez(1);  foot_rot(2,2) = ez(2);
+  }
+
   void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
   {
     size_t step_num(footstep_nodes_list.size()), step_index(lcg.get_footstep_index());
@@ -995,16 +1008,18 @@ namespace rats
     // dcm y offset
     hrp::Vector3 tmp_ref_dcm = ref_dcm;
     if(!(is_start_or_end_phase && !is_start_phase) && !(is_end2_phase && lcg.get_lcg_count() <= static_cast<size_t>(fg_step_count * (1 - default_double_support_ratio_before))))  {
-      hrp::Vector3 tmp_ref_zmp = cur_steps.front().worldcoords.rot.transpose() * (fg_ref_zmp - cur_steps.front().worldcoords.pos);
-      tmp_ref_dcm = cur_steps.front().worldcoords.rot.transpose() * (tmp_ref_dcm - cur_steps.front().worldcoords.pos);
+      hrp::Matrix33 cur_step_rot;
+      calc_foot_origin_rot(cur_step_rot, cur_steps.front().worldcoords.rot);
+      hrp::Vector3 tmp_ref_zmp = cur_step_rot.transpose() * (fg_ref_zmp - cur_steps.front().worldcoords.pos);
+      tmp_ref_dcm = cur_step_rot.transpose() * (tmp_ref_dcm - cur_steps.front().worldcoords.pos);
       tmp_ref_dcm(1) += ((tmp_ref_dcm - tmp_ref_zmp)(1) > 0 ? -1 : 1) * dcm_offset;
-      tmp_ref_dcm = cur_steps.front().worldcoords.pos + cur_steps.front().worldcoords.rot * tmp_ref_dcm;
+      tmp_ref_dcm = cur_steps.front().worldcoords.pos + cur_step_rot * tmp_ref_dcm;
     }
     // calc zmp
     foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
     // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
-    if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) {
+    if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
       zmp.head(2) = tmp_zmp;
     }
     zmp = zmp_filter->passFilter(zmp);
@@ -1051,7 +1066,9 @@ namespace rats
     // limit[5] = {forward, outside, theta, backward, inside}
     leg_type cur_leg = cur_fs.l_r;
     // prev_fs frame
-    cur_fs.worldcoords.pos = prev_fs.worldcoords.rot.transpose() * (cur_fs.worldcoords.pos - prev_fs.worldcoords.pos);
+    hrp::Matrix33 prev_fs_rot;
+    calc_foot_origin_rot(prev_fs_rot, prev_fs.worldcoords.rot);
+    cur_fs.worldcoords.pos = prev_fs_rot.transpose() * (cur_fs.worldcoords.pos - prev_fs.worldcoords.pos);
     double stride_r = std::pow(cur_fs.worldcoords.pos(0), 2.0) + std::pow(cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1), 2.0);
     // front, rear, outside limitation
     double stride_r_limit = std::pow(std::max(limit[cur_fs.worldcoords.pos(0) >= 0 ? 0 : 3], limit[1] - limit[4]), 2.0);
@@ -1066,17 +1083,17 @@ namespace rats
     // inside limitation
     std::vector<double> cur_leg_vertices_y;
     cur_leg_vertices_y.reserve(4);
-    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs.worldcoords.rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(leg_margin[0], (cur_leg == LLEG ? 1 : -1) * leg_margin[2], 0.0))(1));
-    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs.worldcoords.rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(leg_margin[0], (cur_leg == LLEG ? -1 : 1) * leg_margin[3], 0.0))(1));
-    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs.worldcoords.rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(-1 * leg_margin[1], (cur_leg == LLEG ? 1 : -1) * leg_margin[2], 0.0))(1));
-    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs.worldcoords.rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(-1 * leg_margin[1], (cur_leg == LLEG ? -1 : 1) * leg_margin[3], 0.0))(1));
+    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs_rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(leg_margin[0], (cur_leg == LLEG ? 1 : -1) * leg_margin[2], 0.0))(1));
+    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs_rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(leg_margin[0], (cur_leg == LLEG ? -1 : 1) * leg_margin[3], 0.0))(1));
+    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs_rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(-1 * leg_margin[1], (cur_leg == LLEG ? 1 : -1) * leg_margin[2], 0.0))(1));
+    cur_leg_vertices_y.push_back((cur_fs.worldcoords.pos + prev_fs_rot.transpose() * cur_fs.worldcoords.rot * hrp::Vector3(-1 * leg_margin[1], (cur_leg == LLEG ? -1 : 1) * leg_margin[3], 0.0))(1));
     if (cur_leg == LLEG) {
       if (*std::min_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end()) < limit[4]) cur_fs.worldcoords.pos(1) += limit[4] - *std::min_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end());
     } else {
       if (*std::max_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end()) > -1 * limit[4]) cur_fs.worldcoords.pos(1) += -1 * limit[4] - *std::max_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end());
     }
     // world frame
-    cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs.worldcoords.rot * cur_fs.worldcoords.pos;
+    cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs_rot * cur_fs.worldcoords.pos;
   };
 
   void gait_generator::limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const
@@ -1084,7 +1101,9 @@ namespace rats
     // limit[5] = {forward, outside, theta, backward, inside}
     leg_type cur_leg = cur_fs.l_r;
     // prev_fs frame
-    cur_fs.worldcoords.pos = prev_fs.worldcoords.rot.transpose() * (cur_fs.worldcoords.pos - prev_fs.worldcoords.pos);
+    hrp::Matrix33 prev_fs_rot;
+    calc_foot_origin_rot(prev_fs_rot, prev_fs.worldcoords.rot);
+    cur_fs.worldcoords.pos = prev_fs_rot.transpose() * (cur_fs.worldcoords.pos - prev_fs.worldcoords.pos);
     // front, rear, outside limitation
     if (cur_fs.worldcoords.pos(0) > limit[0]) cur_fs.worldcoords.pos(0) = limit[0];
     if (cur_fs.worldcoords.pos(0) < -1 * limit[0]) cur_fs.worldcoords.pos(0) = -1 * limit[3];
@@ -1102,7 +1121,7 @@ namespace rats
       if (*std::max_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end()) > -1 * limit[4]) cur_fs.worldcoords.pos(1) += -1 * limit[4] - *std::max_element(cur_leg_vertices_y.begin(), cur_leg_vertices_y.end());
     }
     // world frame
-    cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs.worldcoords.rot * cur_fs.worldcoords.pos;
+    cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs_rot * cur_fs.worldcoords.pos;
   };
 
   void gait_generator::modify_footsteps_for_recovery ()
@@ -1170,7 +1189,8 @@ namespace rats
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
     hrp::Vector3 d_footstep = hrp::Vector3::Zero(), short_of_footstep = hrp::Vector3::Zero();
     hrp::Vector3 cur_footstep_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
-    hrp::Matrix33 cur_footstep_rot = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot;
+    hrp::Matrix33 cur_footstep_rot;
+    calc_foot_origin_rot(cur_footstep_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot);
     leg_type cur_leg = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
     hrp::Vector3 cur_cp = cp_filter->passFilter(cur_cog + cur_cogvel / omega);
     cur_cp = cur_footstep_rot.transpose() * (cur_cp - cur_footstep_pos);
@@ -1331,7 +1351,7 @@ namespace rats
           short_of_footstep = d_footstep;
           limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
-          if (is_vision_updated) footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + cur_footstep_rot * rel_landing_height)(2);
+          if (is_vision_updated) footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot * rel_landing_height)(2);
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
           short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
@@ -1376,7 +1396,8 @@ namespace rats
       double end_cp_outside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * remain_time) - 1) * leg_margin[2];
       double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * leg_margin[3];
       hrp::Vector3 new_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-      hrp::Matrix33 new_footstep_rot = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot;
+      hrp::Matrix33 new_footstep_rot;
+      calc_foot_origin_rot(new_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
       hrp::Vector3 end_cp = new_footstep_pos;
       size_t tmp_falling_direction = 0;
       falling_direction = 0;
