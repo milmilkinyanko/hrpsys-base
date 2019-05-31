@@ -646,9 +646,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     gg->set_is_vision_updated(false);
     if (m_landingHeightIn.isNew()) {
       m_landingHeightIn.read();
-      gg->set_is_vision_updated(true);
-      hrp::Vector3 pos = hrp::Vector3(m_landingHeight.data.x, m_landingHeight.data.y, m_landingHeight.data.z);
-      gg->set_rel_landing_height(pos);
+      if ((gg->get_support_leg_names().front() == "rleg" && m_landingHeight.data.l_r == 0) ||
+          (gg->get_support_leg_names().front() == "lleg" && m_landingHeight.data.l_r == 1))
+        {
+          gg->set_is_vision_updated(true);
+          hrp::Vector3 pos(hrp::Vector3(m_landingHeight.data.x, m_landingHeight.data.y, m_landingHeight.data.z));
+          hrp::Vector3 normal(hrp::Vector3(m_landingHeight.data.nx, m_landingHeight.data.ny, m_landingHeight.data.nz));
+          gg->set_rel_landing_height(pos);
+          gg->set_rel_landing_normal(normal);
+        }
     }
 
     // Calculation
@@ -868,9 +874,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       hrp::Vector3 off = hrp::Vector3(0.0, 0.0, 0.0);
       hrp::Vector3 pos;
       int l_r; // rleg: 0, lleg: 1
-      gg->get_landing_pos(pos, l_r);
-      ABCIKparam& tmpikp = ikp[leg_names[l_r]];
-      pos = tmpikp.target_r0.transpose() * (pos - tmpikp.target_p0);
+      gg->get_rel_landing_pos(pos, l_r);
       m_landingTarget.data.x = pos(0) + off(0);
       m_landingTarget.data.y = pos(1) + off(1);
       m_landingTarget.data.z = pos(2) + off(2);

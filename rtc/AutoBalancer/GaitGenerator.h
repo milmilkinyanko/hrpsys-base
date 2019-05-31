@@ -1105,10 +1105,10 @@ namespace rats
     size_t fg_step_count, falling_direction;
     double total_mass, dc_gain, dcm_offset;
     double tmp[21];
-    hrp::Vector3 landing_pos;
+    hrp::Vector3 rel_landing_pos;
     int cur_supporting_foot;
     bool is_vision_updated;
-    hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height;
+    hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height, rel_landing_normal;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
@@ -1165,7 +1165,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
@@ -1198,7 +1198,7 @@ namespace rats
     bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
-    void calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot) const;
+    void calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot, const hrp::Vector3& n) const;
     void set_first_count_flag ();
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
@@ -1500,7 +1500,7 @@ namespace rats
     void set_min_time_mgn (const double _t) { min_time_mgn = _t; };
     void set_min_time (const double _t) { min_time = _t; };
     void set_margin_time_ratio (const double _margin_time_ratio) { margin_time_ratio = _margin_time_ratio; };
-    void set_diff_cp (const hrp::Vector3 _cp) { diff_cp = _cp; };
+    void set_diff_cp (const hrp::Vector3& _cp) { diff_cp = _cp; };
     void set_stride_limitation_type (const stride_limitation_type _tmp) { default_stride_limitation_type = _tmp; };
     void set_toe_check_thre (const double _a) { thtc.set_toe_check_thre(_a); };
     void set_heel_check_thre (const double _a) { thtc.set_heel_check_thre(_a); };
@@ -1511,9 +1511,10 @@ namespace rats
     void set_use_disturbance_compensation (const bool _use) { use_disturbance_compensation = _use; };
     void set_dc_gain (const double _gain) { dc_gain = _gain; };
     void set_dcm_offset (const double _off) { dcm_offset = _off; };
-    void set_vel_foot_offset (const hrp::Vector3 _off, const leg_type _l_r) { footstep_param.vel_foot_offset[_l_r] = _off; };
+    void set_vel_foot_offset (const hrp::Vector3& _off, const leg_type _l_r) { footstep_param.vel_foot_offset[_l_r] = _off; };
     void set_is_vision_updated (const bool _t) { is_vision_updated = _t; };
-    void set_rel_landing_height (const hrp::Vector3 _pos) { rel_landing_height = _pos; };
+    void set_rel_landing_height (const hrp::Vector3& _pos) { rel_landing_height = _pos; };
+    void set_rel_landing_normal (const hrp::Vector3& _n) { rel_landing_normal = _n; };
     void set_vertices_from_leg_margin ()
     {
       std::vector<std::vector<Eigen::Vector2d> > vec;
@@ -1789,8 +1790,8 @@ namespace rats
     double get_dcm_offset () { return dcm_offset; };
     double get_tmp (const size_t idx) {return tmp[idx];}
     double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
-    void get_landing_pos (hrp::Vector3& pos, int& l_r) {
-      pos = landing_pos;
+    void get_rel_landing_pos (hrp::Vector3& pos, int& l_r) {
+      pos = rel_landing_pos;
       l_r = cur_supporting_foot;
     };
 #ifdef FOR_TESTGAITGENERATOR

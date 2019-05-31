@@ -781,7 +781,10 @@ namespace rats
       // calc landing pos relative to supporting foot for vision
       if (lcg.get_footstep_index() > 0) {
         cur_supporting_foot = (footstep_nodes_list[lcg.get_footstep_index()].front().l_r == LLEG ? 0 : 1);
-        landing_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
+        hrp::Matrix33 cur_rot;
+        hrp::Vector3 ez = hrp::Vector3::UnitZ();
+        calc_foot_origin_rot(cur_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
+        rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos);
       }
 
       prev_ref_cp = ref_cp;
@@ -829,17 +832,16 @@ namespace rats
     }
   }
 
-  void gait_generator::calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot) const
+  void gait_generator::calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot, const hrp::Vector3& n = hrp::Vector3::UnitZ()) const
   {
     hrp::Vector3 ex = hrp::Vector3::UnitX();
-    hrp::Vector3 ez = hrp::Vector3::UnitZ();
     hrp::Vector3 xv1(orig_rot * ex);
-    xv1(2)=0.0;
+    xv1 = xv1 - xv1.dot(n) * n;
     xv1.normalize();
-    hrp::Vector3 yv1(ez.cross(xv1));
+    hrp::Vector3 yv1(n.cross(xv1));
     foot_rot(0,0) = xv1(0); foot_rot(1,0) = xv1(1); foot_rot(2,0) = xv1(2);
     foot_rot(0,1) = yv1(0); foot_rot(1,1) = yv1(1); foot_rot(2,1) = yv1(2);
-    foot_rot(0,2) = ez(0);  foot_rot(1,2) = ez(1);  foot_rot(2,2) = ez(2);
+    foot_rot(0,2) = n(0);  foot_rot(1,2) = n(1);  foot_rot(2,2) = n(2);
   }
 
   void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
@@ -1187,10 +1189,13 @@ namespace rats
     double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
     bool is_modify = false;
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+    hrp::Matrix33 orig_footstep_rot = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot;
     hrp::Vector3 d_footstep = hrp::Vector3::Zero(), short_of_footstep = hrp::Vector3::Zero();
     hrp::Vector3 cur_footstep_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
     hrp::Matrix33 cur_footstep_rot;
     calc_foot_origin_rot(cur_footstep_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot);
+    hrp::Matrix33 next_footstep_rot;
+    calc_foot_origin_rot(next_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
     leg_type cur_leg = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
     hrp::Vector3 cur_cp = cp_filter->passFilter(cur_cog + cur_cogvel / omega);
     cur_cp = cur_footstep_rot.transpose() * (cur_cp - cur_footstep_pos);
@@ -1351,7 +1356,10 @@ namespace rats
           short_of_footstep = d_footstep;
           limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
-          if (is_vision_updated) footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot * rel_landing_height)(2);
+          if (is_vision_updated) {
+            footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
+            calc_foot_origin_rot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
+          }
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
           short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {

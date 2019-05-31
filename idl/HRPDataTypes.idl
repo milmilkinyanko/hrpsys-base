@@ -67,6 +67,9 @@ module OpenHRP
     double x;
     double y;
     double z;
+    double nx;
+    double ny;
+    double nz;
     long l_r;
   };
 
