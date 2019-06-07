@@ -652,6 +652,7 @@ namespace rats
     zmp_filter->reset(rg.get_refzmp_cur());
     // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
     cp_filter->reset(cur_cog); // assume that robot is stopping when starting walking
+    lr_region[0] = lr_region[1] = false;
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -747,10 +748,29 @@ namespace rats
 
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
-      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
-        orig_current_foot_rpy = hrp::rpyFromRot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
-        for (size_t i = 0; i < 2; i++) {
-          if(std::fabs(orig_current_foot_rpy(i)) < 1e-5) orig_current_foot_rpy(i) = 0.0;
+      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_footstep_index() > 1) {
+        leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+        lr_region[cur_leg] = false;
+        if (lr_region[cur_leg == RLEG ? LLEG : RLEG]) {
+          hrp::Matrix33 prev_fs_rot, preprev_fs_rot;
+          hrp::Vector3 prev_fs_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos, preprev_fs_pos = footstep_nodes_list[get_overwritable_index()-2].front().worldcoords.pos;
+          hrp::Vector3 ez = hrp::Vector3::UnitZ();
+          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot, ez);
+          calc_foot_origin_rot(preprev_fs_rot, footstep_nodes_list[get_overwritable_index()-2].front().worldcoords.rot, ez);
+          if (cur_leg == RLEG) {
+            stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+          } else {
+            stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+          }
+          for (size_t i = 0; i < steppable_region.size(); i++) {
+            steppable_region[i] = calc_intersect_convex(steppable_region[i], stride_limitation_polygon);
+          }
         }
       }
       // dc fx
@@ -1021,7 +1041,7 @@ namespace rats
     foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
     // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
-    if (!is_inside_support_polygon(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+    if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
       zmp.head(2) = tmp_zmp;
     }
     zmp = zmp_filter->passFilter(zmp);
@@ -1126,6 +1146,44 @@ namespace rats
     cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs_rot * cur_fs.worldcoords.pos;
   };
 
+  void gait_generator::limit_stride_vision (step_node& cur_fs, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp)
+  {
+    // preprev foot frame
+    hrp::Matrix33 preprev_fs_rot;
+    calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot);
+    cur_fs.worldcoords.pos = preprev_fs_rot.transpose() * (cur_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
+    hrp::Vector3 rel_cur_cp = preprev_fs_rot.transpose() * (cur_cp - preprev_fs.worldcoords.pos);
+
+    double limit_r = std::min(leg_margin[2], leg_margin[3]), new_remain_time, tmp_dt = 1e10;
+    bool is_out = false;
+    Eigen::Vector2d tmp_pos, new_pos;
+    Eigen::Vector2d tmp_off = (preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos)).head(2);
+    for (size_t i = 0; i < steppable_region.size(); i++) {
+      new_remain_time = remain_count * dt;
+      new_pos = cur_fs.worldcoords.pos.head(2);
+      if (!is_inside_convex_hull(new_pos, new_remain_time, steppable_region[i], hrp::Vector3::Zero(), false, true, limit_r, tmp_off, omega, rel_cur_cp)) {
+        if (fabs(new_remain_time - remain_count*dt) < fabs(tmp_dt) ||
+            (fabs(new_remain_time - remain_count*dt) == fabs(tmp_dt) && (new_pos - cur_fs.worldcoords.pos.head(2)).norm() < (tmp_pos - cur_fs.worldcoords.pos.head(2)).norm())
+            ) {
+          is_out = true;
+          tmp_dt = new_remain_time - remain_count*dt;
+          tmp_pos = new_pos;
+        }
+      } else {
+        is_out = false;
+        break;
+      }
+    }
+    if (is_out) {
+      cur_fs.worldcoords.pos.head(2) = tmp_pos;
+      if (tmp_dt < 0) min_time_check(tmp_dt);
+      change_step_time(tmp_dt);
+    }
+
+    // world frame
+    cur_fs.worldcoords.pos = preprev_fs.worldcoords.pos + preprev_fs_rot * cur_fs.worldcoords.pos;
+  }
+
   void gait_generator::modify_footsteps_for_recovery ()
   {
     if (isfinite(diff_cp(0)) && isfinite(diff_cp(1))) {
@@ -1196,7 +1254,7 @@ namespace rats
     calc_foot_origin_rot(cur_footstep_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot);
     hrp::Matrix33 next_footstep_rot;
     calc_foot_origin_rot(next_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
-    leg_type cur_leg = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
+    leg_type cur_sup = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
     hrp::Vector3 cur_cp = cp_filter->passFilter(cur_cog + cur_cogvel / omega);
     cur_cp = cur_footstep_rot.transpose() * (cur_cp - cur_footstep_pos);
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
@@ -1204,7 +1262,7 @@ namespace rats
     double stride_limitation_with_off[5];
     // assume that zmp_offsts is set to be symmetry
     next_step_pos(0) += rg.get_default_zmp_offset(RLEG)(0);
-    next_step_pos(1) += (rg.get_default_zmp_offset(RLEG)(1) + dcm_offset) * (cur_leg == RLEG ? -1 : 1);
+    next_step_pos(1) += (rg.get_default_zmp_offset(RLEG)(1) + dcm_offset) * (cur_sup == RLEG ? -1 : 1);
     stride_limitation_with_off[0] = overwritable_stride_limitation[0] + rg.get_default_zmp_offset(RLEG)(0);
     stride_limitation_with_off[1] = overwritable_stride_limitation[1] - rg.get_default_zmp_offset(RLEG)(1) - dcm_offset;
     stride_limitation_with_off[3] = overwritable_stride_limitation[3] - rg.get_default_zmp_offset(RLEG)(0);
@@ -1229,7 +1287,7 @@ namespace rats
           double remain_time = remain_count * dt;
           double end_cp_front = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * safe_leg_margin[0];
           double end_cp_back = std::exp(omega * remain_time) * cur_cp(0) + (std::exp(omega * remain_time) - 1) * safe_leg_margin[1];
-          double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * safe_leg_margin[3];
+          double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * safe_leg_margin[3];
           double xz_max, l_max;
           bool tmp_is_change_time = false;
           // front, back
@@ -1244,24 +1302,15 @@ namespace rats
           }
           if (tmp_is_change_time) new_remain_time = std::min(new_remain_time, (std::log((l_max - xz_max) / (cur_cp(0) - xz_max)) / omega));
           // inside
-          if ((cur_leg == RLEG ? 1 : -1) * end_cp_inside > stride_limitation_with_off[1]) {
-            xz_max = (cur_leg == RLEG ? 1 : -1) * safe_leg_margin[3];
-            l_max = (cur_leg == RLEG ? 1 : -1) * stride_limitation_with_off[1];
+          if ((cur_sup == RLEG ? 1 : -1) * end_cp_inside > stride_limitation_with_off[1]) {
+            xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
+            l_max = (cur_sup == RLEG ? 1 : -1) * stride_limitation_with_off[1];
             new_remain_time = std::min(new_remain_time, (std::log((l_max - xz_max) / (cur_cp(1) - xz_max)) / omega));
           }
           if (std::isfinite(new_remain_time)) tmp_dt = new_remain_time - remain_count*dt;
           // min time check
           if (tmp_dt < 0) {
-            if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
-              tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
-            }
-            if (remain_count*dt + tmp_dt < min_time_mgn) {
-              if (remain_count*dt < min_time_mgn) {
-                tmp_dt = 0.0;
-              } else {
-                tmp_dt = min_time_mgn - remain_count*dt;
-              }
-            }
+            min_time_check(tmp_dt);
             is_change_time = true;
           } else {
             tmp_dt = 0.0;
@@ -1271,9 +1320,9 @@ namespace rats
         {
           double inside_off = stride_limitation_with_off[4] + leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
-          double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
-          if ((cur_leg == RLEG ? 1 : -1) * inside_cp < inside_off) {
-            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
+          double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
+          if ((cur_sup == RLEG ? 1 : -1) * inside_cp < inside_off) {
+            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_sup == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
               double max_time = 1.2;
               is_change_time = true;
@@ -1284,29 +1333,14 @@ namespace rats
               }
             }
           } else if (was_enlarged_time) {
-            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_leg == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
+            new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_sup == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             tmp_dt = new_remain_time - remain_count*dt;
-            if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
-              tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
-            }
-            if (remain_count*dt + tmp_dt < min_time_mgn) {
-              if (remain_count*dt < min_time_mgn) {
-                tmp_dt = 0.0;
-              } else {
-                tmp_dt = min_time_mgn - remain_count*dt;
-              }
-            }
+            min_time_check(tmp_dt);
             is_change_time = true;
           }
         }
         if (is_change_time) {
-          remain_count += tmp_dt / dt;
-          footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
-          size_t orig_lcg_cnt = lcg.get_lcg_count();
-          lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
-          lcg.set_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt);
-          lcg.reset_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt, default_double_support_ratio_before, default_double_support_ratio_after);
-          modified_d_step_time += tmp_dt;
+          change_step_time(tmp_dt);
         }
       }
       // footstep modification
@@ -1319,29 +1353,13 @@ namespace rats
         } else if (tmp_zmp(0) < - safe_leg_margin[1]) { // rear
           d_footstep(0) = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * -1 * safe_leg_margin[1] - next_step_pos(0);
           is_modify = true;
-        } else if ((cur_leg == LLEG ? 1 : -1) * tmp_zmp(1) > safe_leg_margin[2]) { // outside
-          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? 1 : -1) * safe_leg_margin[2] - next_step_pos(1);
+        } else if ((cur_sup == LLEG ? 1 : -1) * tmp_zmp(1) > safe_leg_margin[2]) { // outside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_sup == LLEG ? 1 : -1) * safe_leg_margin[2] - next_step_pos(1);
           is_modify = true;
-        } else if ((cur_leg == LLEG ? -1 : 1) * tmp_zmp(1) > safe_leg_margin[3]) { // inside
-          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_leg == LLEG ? -1 : 1) * safe_leg_margin[3] - next_step_pos(1);
+        } else if ((cur_sup == LLEG ? -1 : 1) * tmp_zmp(1) > safe_leg_margin[3]) { // inside
+          d_footstep(1) = std::exp(omega * remain_time) * cur_cp(1) - (std::exp(omega * remain_time) - 1) * (cur_sup == LLEG ? -1 : 1) * safe_leg_margin[3] - next_step_pos(1);
           is_modify = true;
         }
-        // disturbance compensation using foot rot
-        // {
-        //   double d_footstep_mgn = 0.01, dc_gain = 0.08, dc_time_const = 100.0;
-        //   if ((footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > dc_landing_pos(0) && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) < footstep_nodes_list[footstep_nodes_list.size()-1].front().worldcoords.pos(0)) ||
-        //       (footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) < dc_landing_pos(0) && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > footstep_nodes_list[footstep_nodes_list.size()-1].front().worldcoords.pos(0))) {
-        //     if (std::fabs(d_footstep(0)) > d_footstep_mgn) {
-        //       dc_foot_rpy(1) += dc_gain * d_footstep(0);
-        //       dc_landing_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
-        //     } else {
-        //       dc_foot_rpy = calcDampingControl(dc_foot_rpy, dc_time_const);
-        //     }
-        //     footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(orig_current_foot_rpy + dc_foot_rpy);
-        //   } else {
-        //     footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(orig_current_foot_rpy);
-        //   }
-        // }
         // emergency step when standing
         if (is_emergency_step && footstep_nodes_list.size() - lcg.get_footstep_index() == 3 && is_modify
             && d_footstep.norm() > 1e-2
@@ -1351,10 +1369,11 @@ namespace rats
         }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
-        if (is_modify || is_vision_updated) {
+        if (is_modify || is_vision_updated || lr_region[cur_sup]) {
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
-          limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
+          if (lr_region[cur_sup] && lcg.get_footstep_index() > 1) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), footstep_nodes_list[get_overwritable_index()-2].front(), omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
+          else limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           if (is_vision_updated) {
             footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
@@ -1401,8 +1420,8 @@ namespace rats
       double remain_time = remain_count * dt;
       double end_cp_front = std::exp(omega * remain_time) * cur_cp(0) - (std::exp(omega * remain_time) - 1) * leg_margin[0];
       double end_cp_back = std::exp(omega * remain_time) * cur_cp(0) + (std::exp(omega * remain_time) - 1) * leg_margin[1];
-      double end_cp_outside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? -1 : 1) * (std::exp(omega * remain_time) - 1) * leg_margin[2];
-      double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_leg == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * leg_margin[3];
+      double end_cp_outside = std::exp(omega * remain_time) * cur_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * remain_time) - 1) * leg_margin[2];
+      double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * leg_margin[3];
       hrp::Vector3 new_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
       hrp::Matrix33 new_footstep_rot;
       calc_foot_origin_rot(new_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
@@ -1431,14 +1450,14 @@ namespace rats
       // y axis
       end_cp = new_footstep_pos;
       double yz_1, yz_2, l_1, l_2;
-      if ((cur_leg == RLEG ? 1 : -1) * end_cp_inside > overwritable_stride_limitation[1] + leg_margin[2]) { // inside
+      if ((cur_sup == RLEG ? 1 : -1) * end_cp_inside > overwritable_stride_limitation[1] + leg_margin[2]) { // inside
         tmp_falling_direction = 3;
         yz_1 = leg_margin[2];
         yz_2 = leg_margin[3];
         l_1 = overwritable_stride_limitation[4] + leg_margin[3];
         l_2 = -1 * overwritable_stride_limitation[1];
         end_cp(1) = end_cp_inside;
-      } else if ((cur_leg == RLEG ? -1 : 1) * end_cp_outside > leg_margin[2]) { // outside
+      } else if ((cur_sup == RLEG ? -1 : 1) * end_cp_outside > leg_margin[2]) { // outside
         tmp_falling_direction = 4;
         yz_1 = leg_margin[3];
         yz_1 = leg_margin[2];
@@ -1453,6 +1472,76 @@ namespace rats
         }
       }
     }
+  }
+
+  void gait_generator::min_time_check (double& tmp_dt)
+  {
+    if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt < min_time) {
+      tmp_dt = min_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+    }
+    if (remain_count*dt + tmp_dt < min_time_mgn) {
+      if (remain_count*dt < min_time_mgn) {
+        tmp_dt = 0.0;
+      } else {
+        tmp_dt = min_time_mgn - remain_count*dt;
+      }
+    }
+  }
+
+  void gait_generator::change_step_time (const double& tmp_dt)
+  {
+    remain_count += tmp_dt / dt;
+    footstep_nodes_list[lcg.get_footstep_index()].front().step_time += tmp_dt;
+    size_t orig_lcg_cnt = lcg.get_lcg_count();
+    lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
+    lcg.set_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt);
+    lcg.reset_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt, default_double_support_ratio_before, default_double_support_ratio_after);
+    modified_d_step_time += tmp_dt;
+  }
+
+  bool gait_generator::is_intersect (Eigen::Vector2d& r, const Eigen::Vector2d& a0, const Eigen::Vector2d& a1, const Eigen::Vector2d& b0, const Eigen::Vector2d& b1)
+  {
+    double D =  calcCrossProduct(a1 - a0, b1 - b0);
+    if (D == 0.0) return false;
+    double t =  calcCrossProduct(b0 - a0, b1 - b0) / D;
+    double s = -calcCrossProduct(a0 - b0, a1 - a0) / D;
+    r = a0 + t * (a1 - a0);
+    return (t >= 0.0 && t <= 1.0 && s >= 0.0 && s <= 1.0);
+  }
+
+  std::vector<Eigen::Vector2d> gait_generator::calc_intersect_convex (std::vector<Eigen::Vector2d>& P, std::vector<Eigen::Vector2d>& Q)
+  {
+    const int n = P.size(), m = Q.size();
+    int a = 0, b = 0, aa = 0, ba = 0;
+    enum { Pin, Qin, Unknown } in = Unknown;
+    std::vector<Eigen::Vector2d> R;
+    do {
+      int a1 = (a+n-1) % n, b1 = (b+m-1) % m;
+      double C = calcCrossProduct(P[a] - P[a1], Q[b] - Q[b1]);
+      double A = calcCrossProduct(P[a1] - Q[b], P[a] - Q[b]);
+      double B = calcCrossProduct(Q[b1] - P[a], Q[b] - P[a]);
+      Eigen::Vector2d r;
+      if (is_intersect(r, P[a1], P[a], Q[b1], Q[b])) {
+        if (in == Unknown) aa = ba = 0;
+        R.push_back(r);
+        in = B > 0 ? Pin : A > 0 ? Qin : in;
+      }
+      if (C == 0 && B == 0 && A == 0) {
+        if (in == Pin) { b = (b + 1) % m; ++ba; }
+        else           { a = (a + 1) % m; ++aa; }
+      } else if (C >= 0) {
+        if (A > 0) { if (in == Pin) R.push_back(P[a]); a = (a+1)%n; ++aa; }
+        else       { if (in == Qin) R.push_back(Q[b]); b = (b+1)%m; ++ba; }
+      } else {
+        if (B > 0) { if (in == Qin) R.push_back(Q[b]); b = (b+1)%m; ++ba; }
+        else       { if (in == Pin) R.push_back(P[a]); a = (a+1)%n; ++aa; }
+      }
+    } while ( (aa < n || ba < m) && aa < 2*n && ba < 2*m );
+    if (in == Unknown) {
+      if (is_inside_convex_hull(P[0], Q)) return P;
+      if (is_inside_convex_hull(Q[0], P)) return Q;
+    }
+    return R;
   }
 
   /* generate vector of step_node from :go-pos params

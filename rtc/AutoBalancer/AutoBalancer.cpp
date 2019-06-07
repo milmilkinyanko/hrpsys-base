@@ -68,6 +68,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_rpyIn("rpy", m_rpy),
       m_qRefSeqIn("qRefSeq", m_qRefSeq),
       m_landingHeightIn("landingHeight", m_landingHeight),
+      m_steppableRegionIn("steppableRegion", m_steppableRegion),
       m_qOut("q", m_qRef),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
@@ -119,6 +120,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("rpy", m_rpyIn);
     addInPort("qRefSeq", m_qRefSeqIn);
     addInPort("landingHeight", m_landingHeightIn);
+    addInPort("steppableRegion", m_steppableRegionIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -654,6 +656,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           hrp::Vector3 normal(hrp::Vector3(m_landingHeight.data.nx, m_landingHeight.data.ny, m_landingHeight.data.nz));
           gg->set_rel_landing_height(pos);
           gg->set_rel_landing_normal(normal);
+        }
+    }
+    if (m_steppableRegionIn.isNew()) {
+      m_steppableRegionIn.read();
+      if ((gg->get_support_leg_names().front() == "rleg" && m_steppableRegion.data.l_r == 0) ||
+          (gg->get_support_leg_names().front() == "lleg" && m_steppableRegion.data.l_r == 1))
+        {
+          gg->set_steppable_region(m_steppableRegion);
         }
     }
 

@@ -73,6 +73,11 @@ module OpenHRP
     long l_r;
   };
 
+  struct SteppableRegion
+  {
+    sequence<sequence<double> > region;
+    long l_r;
+  };
   //------------------------------------------------------------
   // Timed data types
   //------------------------------------------------------------
@@ -99,5 +104,11 @@ module OpenHRP
   {
     RTC::Time tm;
     LandingPosition data;
+  };
+
+  struct TimedSteppableRegion
+  {
+    RTC::Time tm;
+    SteppableRegion data;
   };
 };

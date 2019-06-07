@@ -163,6 +163,8 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
   OpenHRP::TimedLandingPosition m_landingHeight;
   InPort<OpenHRP::TimedLandingPosition> m_landingHeightIn;
+  OpenHRP::TimedSteppableRegion m_steppableRegion;
+  InPort<OpenHRP::TimedSteppableRegion> m_steppableRegionIn;
 
   // for debug
   TimedPoint3D m_cog;

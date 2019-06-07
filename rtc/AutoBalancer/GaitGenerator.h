@@ -11,6 +11,7 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/shared_ptr.hpp>
 #include "../TorqueFilter/IIRFilter.h"
+#include "AutoBalancerService_impl.h"
 
 #ifdef FOR_TESTGAITGENERATOR
 #warning "Compile for testGaitGenerator"
@@ -1107,8 +1108,10 @@ namespace rats
     double tmp[21];
     hrp::Vector3 rel_landing_pos;
     int cur_supporting_foot;
-    bool is_vision_updated;
+    bool is_vision_updated, lr_region[2];
+    std::vector<Eigen::Vector2d> stride_limitation_polygon;
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height, rel_landing_normal;
+    std::vector<std::vector<hrp::Vector2> > steppable_region;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
@@ -1170,6 +1173,7 @@ namespace rats
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
+        stride_limitation_polygon.resize(4);
         for (size_t i = 0; i < 4; i++) leg_margin[i] = 0.1;
         for (size_t i = 0; i < 4; i++) safe_leg_margin[i] = 0.1;
         for (size_t i = 0; i < 5; i++) stride_limitation_for_circle_type[i] = 0.2;
@@ -1200,8 +1204,11 @@ namespace rats
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot, const hrp::Vector3& n) const;
     void set_first_count_flag ();
+    void min_time_check (double& tmp_dt);
+    void change_step_time (const double& tmp_dt);
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
+    void limit_stride_vision (step_node& cur_fs, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp);
     void modify_footsteps_for_recovery ();
     void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
@@ -1273,7 +1280,7 @@ namespace rats
         emergency_flg = EMERGENCY_STOP;
       }
     };
-    double calcCrossProduct(const Eigen::Vector2d& a, const Eigen::Vector2d& b, const Eigen::Vector2d& o)
+    double calcCrossProduct(const Eigen::Vector2d& a, const Eigen::Vector2d& b, const Eigen::Vector2d& o = Eigen::Vector2d::Zero())
     {
       return (a(0) - o(0)) * (b(1) - o(1)) - (a(1) - o(1)) * (b(0) - o(0));
     };
@@ -1299,35 +1306,86 @@ namespace rats
         }
       }
     };
-    bool is_inside_support_polygon (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    // Assume that the oder of ch is CCW or CW
+    bool is_inside_polygon (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
-      // set any inner point(ip) and binary search two vertices(convex_hull[v_a], convex_hull[v_b]) between which p is.
+      bool is_inside = false;
+      for (int i = 0; i < ch.size(); i++) {
+        Eigen::Vector2d a = ch[i] - p, b = ch[(i+1)%ch.size()] - p;
+        if (a(1) > b(1)) swap(a, b);
+        if (a(1) <= 0 && 0 < b(1))
+          if (calcCrossProduct(a, b) < 0) is_inside = !is_inside;
+        // if (calcCrossProduct(a, b) == 0 && a.dot(b) <= 0) return true; // On edge
+      }
+      return is_inside;
+    }
+    bool is_inside_convex_hull (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    {
+      double tmp;
+      return is_inside_convex_hull(p, tmp, convex_hull, offset, truncate_p);
+    };
+    bool is_inside_convex_hull (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    {
+      double tmp;
+      return is_inside_convex_hull(p, tmp, ch, offset, truncate_p);
+    };
+    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& chage_time = false, const double& r = 0.0, const Eigen::Vector2d& foot_offset = Eigen::Vector2d::Zero(), const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero())
+    {
+      // set any inner point(ip) and binary search two vertices(ch[v_a], ch[v_b]) between which p is.
       p -= offset.head(2);
-      size_t n_ch = convex_hull.size();
-      Eigen::Vector2d ip = (convex_hull[0] + convex_hull[n_ch/3] + convex_hull[2*n_ch/3]) / 3.0;
+      size_t n_ch = ch.size();
+      Eigen::Vector2d ip = (ch[0] + ch[n_ch/3] + ch[2*n_ch/3]) / 3.0;
       size_t v_a = 0, v_b = n_ch;
       while (v_a + 1 < v_b) {
         size_t v_c = (v_a + v_b) / 2;
-        if (calcCrossProduct(convex_hull[v_a], convex_hull[v_c], ip) > 0) {
-          if (calcCrossProduct(convex_hull[v_a], p, ip) > 0 && calcCrossProduct(convex_hull[v_c], p, ip) < 0) v_b = v_c;
+        if (calcCrossProduct(ch[v_a], ch[v_c], ip) > 0) {
+          if (calcCrossProduct(ch[v_a], p, ip) > 0 && calcCrossProduct(ch[v_c], p, ip) < 0) v_b = v_c;
           else v_a = v_c;
         } else {
-          if (calcCrossProduct(convex_hull[v_a], p, ip) < 0 && calcCrossProduct(convex_hull[v_c], p, ip) > 0) v_a = v_c;
+          if (calcCrossProduct(ch[v_a], p, ip) < 0 && calcCrossProduct(ch[v_c], p, ip) > 0) v_a = v_c;
           else v_b = v_c;
         }
       }
       v_b %= n_ch;
-      if (calcCrossProduct(convex_hull[v_a], convex_hull[v_b], p) >= 0) {
+      if (calcCrossProduct(ch[v_a], ch[v_b], p) >= 0) {
         p += offset.head(2);
         return true;
       } else {
         if (truncate_p) {
-          if (!calc_closest_boundary_point(p, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+          if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+        } else if (chage_time) { // TODO: should consider dcm_off/zmp_offset
+          // prev foot frame (do not consider prev foot rot)
+          Eigen::Vector2d pa = ch[v_a] - foot_offset, pb = ch[v_b] - foot_offset, cp = cur_cp.head(2) - foot_offset;
+          double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]
+          double a = (pb(1) - pa(1)) / tmp, b = pa(1) - pa(0) * (pb(1) - pa(1)) / tmp;
+          p -= foot_offset;
+          double ar = (a*a+1)*r*r;
+          double A = ar - std::pow(a*cp(0)-cp(1),2.0);
+          double B = -2 * (a*b*cp(0)-b*cp(1)+ar);
+          double C = ar - b*b;
+          double ewt = std::exp(omega*t);
+          double D = A * ewt * ewt + B * ewt + C;
+          if (D >= 0) {
+            // preprev foot frame (do not consider prev foot rot)
+            p += foot_offset;
+            if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+          } else {
+            D = B*B - 4*A*C;
+            if (D >= 0) {
+              t = std::log((-B + std::sqrt(D)) / (2*A)) / omega;
+              p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * t) - a * b) / (a*a + 1);
+              p(1) = a * p(0) + b;
+            }
+            // preprev foot frame (do not consider prev foot rot)
+            p += foot_offset;
+          }
         }
         p += offset.head(2);
         return false;
       }
     };
+    std::vector<Eigen::Vector2d> calc_intersect_convex (std::vector<Eigen::Vector2d>& P, std::vector<Eigen::Vector2d>& Q);
+    bool is_intersect (Eigen::Vector2d& r, const Eigen::Vector2d& a0, const Eigen::Vector2d& a1, const Eigen::Vector2d& b0, const Eigen::Vector2d& b1);
     // Compare Vector2d for sorting lexicographically
     static bool compare_eigen2d(const Eigen::Vector2d& lv, const Eigen::Vector2d& rv)
     {
@@ -1360,25 +1418,25 @@ namespace rats
       convex_hull.resize(n_ch-1);
     };
     // Calculate closest boundary point on the convex hull
-    bool calc_closest_boundary_point (Eigen::Vector2d& p, size_t& right_idx, size_t& left_idx) {
-      size_t n_ch = convex_hull.size();
+    bool calc_closest_boundary_point (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, size_t& right_idx, size_t& left_idx) {
+      size_t n_ch = ch.size();
       Eigen::Vector2d cur_closest_point;
       for (size_t i; i < n_ch; i++) {
-        switch(calcProjectedPoint(cur_closest_point, p, convex_hull[left_idx], convex_hull[right_idx])) {
+        switch(calcProjectedPoint(cur_closest_point, p, ch[left_idx], ch[right_idx])) {
         case MIDDLE:
           p = cur_closest_point;
           return true;
         case LEFT:
           right_idx = left_idx;
           left_idx = (left_idx + 1) % n_ch;
-          if ((p - convex_hull[right_idx]).dot(convex_hull[left_idx] - convex_hull[right_idx]) <= 0) {
+          if ((p - ch[right_idx]).dot(ch[left_idx] - ch[right_idx]) <= 0) {
             p = cur_closest_point;
             return true;
           }
         case RIGHT:
           left_idx = right_idx;
           right_idx = (right_idx - 1) % n_ch;
-          if ((p - convex_hull[left_idx]).dot(convex_hull[right_idx] - convex_hull[left_idx]) <= 0) {
+          if ((p - ch[left_idx]).dot(ch[right_idx] - ch[left_idx]) <= 0) {
             p = cur_closest_point;
             return true;
           }
@@ -1515,6 +1573,17 @@ namespace rats
     void set_is_vision_updated (const bool _t) { is_vision_updated = _t; };
     void set_rel_landing_height (const hrp::Vector3& _pos) { rel_landing_height = _pos; };
     void set_rel_landing_normal (const hrp::Vector3& _n) { rel_landing_normal = _n; };
+    void set_steppable_region (const OpenHRP::TimedSteppableRegion& _region) {
+      steppable_region.resize(_region.data.region.length());
+      for (size_t i = 0; i < steppable_region.size(); i++) {
+        steppable_region[i].resize(_region.data.region[i].length()/2);;
+        for (size_t j = 0; j < steppable_region[i].size(); j++) {
+          steppable_region[i][j](0) = _region.data.region[i][2*j];
+          steppable_region[i][j](1) = _region.data.region[i][2*j+1];
+        }
+      }
+      lr_region[_region.data.l_r == 0 ? LLEG : RLEG] = true;
+    };
     void set_vertices_from_leg_margin ()
     {
       std::vector<std::vector<Eigen::Vector2d> > vec;
