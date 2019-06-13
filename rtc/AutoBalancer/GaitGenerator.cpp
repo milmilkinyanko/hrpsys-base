@@ -768,8 +768,8 @@ namespace rats
             stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
           }
-          for (size_t i = 0; i < steppable_region.size(); i++) {
-            steppable_region[i] = calc_intersect_convex(steppable_region[i], stride_limitation_polygon);
+          for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
+            steppable_region[cur_leg == RLEG ? LLEG : RLEG][i] = calc_intersect_convex(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i], stride_limitation_polygon);
           }
         }
       }
@@ -1153,15 +1153,16 @@ namespace rats
     calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot);
     cur_fs.worldcoords.pos = preprev_fs_rot.transpose() * (cur_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
     hrp::Vector3 rel_cur_cp = preprev_fs_rot.transpose() * (cur_cp - preprev_fs.worldcoords.pos);
+    leg_type cur_sup = prev_fs.l_r;
 
     double limit_r = std::min(leg_margin[2], leg_margin[3]), new_remain_time, tmp_dt = 1e10;
     bool is_out = false;
     Eigen::Vector2d tmp_pos, new_pos;
     Eigen::Vector2d tmp_off = (preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos)).head(2);
-    for (size_t i = 0; i < steppable_region.size(); i++) {
+    for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
-      if (!is_inside_convex_hull(new_pos, new_remain_time, steppable_region[i], hrp::Vector3::Zero(), false, true, limit_r, tmp_off, omega, rel_cur_cp)) {
+      if (!is_inside_convex_hull(new_pos, new_remain_time, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, tmp_off, omega, rel_cur_cp)) {
         if (fabs(new_remain_time - remain_count*dt) < fabs(tmp_dt) ||
             (fabs(new_remain_time - remain_count*dt) == fabs(tmp_dt) && (new_pos - cur_fs.worldcoords.pos.head(2)).norm() < (tmp_pos - cur_fs.worldcoords.pos.head(2)).norm())
             ) {

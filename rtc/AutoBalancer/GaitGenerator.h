@@ -1111,7 +1111,7 @@ namespace rats
     bool is_vision_updated, lr_region[2];
     std::vector<Eigen::Vector2d> stride_limitation_polygon;
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height, rel_landing_normal;
-    std::vector<std::vector<hrp::Vector2> > steppable_region;
+    std::vector<std::vector<std::vector<hrp::Vector2> > > steppable_region;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
@@ -1174,6 +1174,7 @@ namespace rats
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
         stride_limitation_polygon.resize(4);
+        steppable_region.resize(2);
         for (size_t i = 0; i < 4; i++) leg_margin[i] = 0.1;
         for (size_t i = 0; i < 4; i++) safe_leg_margin[i] = 0.1;
         for (size_t i = 0; i < 5; i++) stride_limitation_for_circle_type[i] = 0.2;
@@ -1574,15 +1575,16 @@ namespace rats
     void set_rel_landing_height (const hrp::Vector3& _pos) { rel_landing_height = _pos; };
     void set_rel_landing_normal (const hrp::Vector3& _n) { rel_landing_normal = _n; };
     void set_steppable_region (const OpenHRP::TimedSteppableRegion& _region) {
-      steppable_region.resize(_region.data.region.length());
-      for (size_t i = 0; i < steppable_region.size(); i++) {
-        steppable_region[i].resize(_region.data.region[i].length()/2);;
-        for (size_t j = 0; j < steppable_region[i].size(); j++) {
-          steppable_region[i][j](0) = _region.data.region[i][2*j];
-          steppable_region[i][j](1) = _region.data.region[i][2*j+1];
+      leg_type next_sup = (_region.data.l_r == 0 ? LLEG : RLEG);
+      steppable_region[next_sup].resize(_region.data.region.length());
+      for (size_t i = 0; i < steppable_region[next_sup].size(); i++) {
+        steppable_region[next_sup][i].resize(_region.data.region[i].length()/2);;
+        for (size_t j = 0; j < steppable_region[next_sup][i].size(); j++) {
+          steppable_region[next_sup][i][j](0) = _region.data.region[i][2*j];
+          steppable_region[next_sup][i][j](1) = _region.data.region[i][2*j+1];
         }
       }
-      lr_region[_region.data.l_r == 0 ? LLEG : RLEG] = true;
+      lr_region[next_sup] = true;
     };
     void set_vertices_from_leg_margin ()
     {
