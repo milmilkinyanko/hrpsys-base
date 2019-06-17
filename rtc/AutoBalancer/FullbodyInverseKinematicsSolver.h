@@ -58,7 +58,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
           ALL_DOF(J_DOF+BASE_DOF){
             dq_weight_all = hrp::dvector::Ones(ALL_DOF);
             dq_all = q_ref = q_ref_constraint_weight = hrp::dvector::Zero(ALL_DOF);
-            q_ref_max_dq = hrp::dvector::Constant(ALL_DOF, 0.017); // 1deg
+            q_ref_max_dq = hrp::dvector::Constant(ALL_DOF, 0.00174532); // 0.1deg
             cur_momentum_around_COM = cur_momentum_around_COM_filtered = hrp::Vector3::Zero();
 //            jlim_avoid_weight_old = hrp::dvector::Constant(ALL_DOF, 1e12);
             jlim_avoid_weight_old = hrp::dvector::Constant(ALL_DOF, 0);

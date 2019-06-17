@@ -1439,7 +1439,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,1e-4,1e-4,1; // COMMON
+        tmp.constraint_weight << 0,0,0,1e-4,1e-4,1e-4; // COMMON
         if(transition_interpolator_ratio < 1.0) tmp.constraint_weight << 0,0,0,1,1,1;//transition中に回転フリーは危ない
         ik_tgt_list.push_back(tmp);
     }{
@@ -1449,7 +1449,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = ikp["rleg"].localR;
         tmp.targetPos = ikp["rleg"].target_p0;
         tmp.targetRpy = hrp::rpyFromRot(ikp["rleg"].target_r0);
-        tmp.constraint_weight << 1,1,3,3,3,1;
+        tmp.constraint_weight << 1,1,1,1,1,1;
         ik_tgt_list.push_back(tmp);
     }{
         IKConstraint tmp;
@@ -1458,7 +1458,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = ikp["lleg"].localR;
         tmp.targetPos = ikp["lleg"].target_p0;
         tmp.targetRpy = hrp::rpyFromRot(ikp["lleg"].target_r0);
-        tmp.constraint_weight << 1,1,3,3,3,1;
+        tmp.constraint_weight << 1,1,1,1,1,1;
         ik_tgt_list.push_back(tmp);
     }{
 //        IKConstraint tmp;
@@ -1537,7 +1537,7 @@ void AutoBalancer::solveFullbodyIK ()
         if (!cog_constraint_interpolator->isEmpty()) {
           cog_constraint_interpolator->get(&cog_z_constraint, true);
         }
-        tmp.constraint_weight << 3,3,cog_z_constraint,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
+        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-5;
