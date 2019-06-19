@@ -1493,7 +1493,7 @@ void AutoBalancer::solveFullbodyIK ()
         m_tmp.data[26] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-5, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
+        double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-6, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
         // roll
         if (gg->get_use_roll_flywheel()) {
           if (!prev_roll_state) {
