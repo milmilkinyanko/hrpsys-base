@@ -70,6 +70,7 @@ public:
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > target_ee_diff_p_filter, target_ee_diff_r_filter;
     hrp::Vector3 target_ee_diff_p, d_pos_swing, d_rpy_swing, prev_d_pos_swing, prev_d_rpy_swing;
     hrp::Matrix33 target_ee_diff_r;
+    double remain_time;
     // IK parameter
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;
@@ -140,6 +141,9 @@ public:
   std::vector<double> diff_q;
   interpolator *transition_interpolator;
   size_t falling_direction;
+  std::map<std::string, interpolator*> swing_modification_interpolator;
+  std::vector<bool> is_foot_touch;
+  std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),

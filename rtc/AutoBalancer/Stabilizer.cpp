@@ -70,6 +70,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     ikp.eefm_swing_pos_spring_gain = hrp::Vector3(0.0, 0.0, 0.0);
     ikp.eefm_swing_pos_time_const = hrp::Vector3(1.5, 1.5, 1.5);
     ikp.eefm_ee_moment_limit = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
+    ikp.remain_time = 0.0;
     if (ikp.ee_name.find("leg") == std::string::npos) { // Arm default
       ikp.eefm_ee_forcemoment_distribution_weight = Eigen::Matrix<double, 6,1>::Zero();
     } else { // Leg default
@@ -121,6 +122,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   detection_count_to_air = static_cast<int>(0.0 / dt);
   transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   transition_interpolator->setName(std::string(print_str)+" transition_interpolator");
+  is_foot_touch.resize(stikp.size(), false);
+  touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
+  touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -841,6 +845,9 @@ void Stabilizer::sync_2_idle ()
 void Stabilizer::stopSTEmergency()
 {
   std::cerr << "[" << print_str << "] stop stabilizer mode for emergency" << std::endl;
+  for ( std::map<std::string, interpolator*>::iterator it = swing_modification_interpolator.begin(); it != swing_modification_interpolator.end(); it++ ) {
+    it->second->clear();
+  }
   double tmp_ratio = 1.0;
   transition_interpolator->clear();
   transition_interpolator->set(&tmp_ratio);
@@ -1680,9 +1687,15 @@ void Stabilizer::calcSwingEEModification ()
     }
     if (ref_contact_states[contact_states_index_map[stikp[i].ee_name]] || act_contact_states[contact_states_index_map[stikp[i].ee_name]]) {
       // If actual contact or target contact is ON, do not use swing ee compensation. Exponential zero retrieving.
-      stikp[i].d_rpy_swing = calcDampingControl(stikp[i].d_rpy_swing, stikp[i].eefm_swing_rot_time_const);
-      stikp[i].d_pos_swing = calcDampingControl(stikp[i].d_pos_swing, stikp[i].eefm_swing_pos_time_const);
-    } else {
+      if (!is_foot_touch[i] && is_walking) {
+        double tmp_ratio = 1.0;
+        swing_modification_interpolator[stikp[i].ee_name]->clear();
+        swing_modification_interpolator[stikp[i].ee_name]->set(&tmp_ratio);
+        tmp_ratio = 0.0;
+        swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time, true);
+        is_foot_touch[i] = true;
+      }
+    } else if (swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
       /* position */
       {
         hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p) * dt + stikp[i].d_pos_swing;
@@ -1703,6 +1716,16 @@ void Stabilizer::calcSwingEEModification ()
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
         stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
       }
+      is_foot_touch[i] = false;
+      touchdown_d_pos[i] = stikp[i].d_pos_swing;
+      touchdown_d_rpy[i] = stikp[i].d_rpy_swing;
+    }
+    if (!swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
+      double tmp_ratio = 0.0;
+      swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time, true);
+      swing_modification_interpolator[stikp[i].ee_name]->get(&tmp_ratio, true);
+      stikp[i].d_pos_swing = touchdown_d_pos[i] * tmp_ratio;
+      stikp[i].d_rpy_swing = touchdown_d_rpy[i] * tmp_ratio;
     }
     stikp[i].prev_d_pos_swing = stikp[i].d_pos_swing;
     stikp[i].prev_d_rpy_swing = stikp[i].d_rpy_swing;

@@ -303,7 +303,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         std::cerr << "[" << m_profile.instance_name << "]   offset_pos = " << tp.localPos.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   has_toe_joint = " << (tp.has_toe_joint?"true":"false") << std::endl;
         contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
-        if (( ee_name == "lleg" ) || ( ee_name == "rleg" )) touchdown_transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt, interpolator::HOFFARBIB)));
+        if (( ee_name == "lleg" ) || ( ee_name == "rleg" )) touchdown_transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt, interpolator::CUBICSPLINE)));
+        st->swing_modification_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt, interpolator::CUBICSPLINE)));
       }
       m_contactStates.data.length(num);
       m_toeheelRatio.data.length(num);
@@ -512,6 +513,9 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
+    delete it->second;
+  }
+  for ( std::map<std::string, interpolator*>::iterator it = st->swing_modification_interpolator.begin(); it != st->swing_modification_interpolator.end(); it++ ) {
     delete it->second;
   }
   if (st->szd == NULL) {
@@ -1394,6 +1398,7 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
                                                      ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
                                                       ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
                                                      gg->get_default_step_time() + m_dt : 0);
+      st->stikp[i].remain_time = remain_time;
       if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
         if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
           double tmp_ratio = 1.0;
