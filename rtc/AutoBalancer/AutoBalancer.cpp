@@ -1398,7 +1398,7 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
                                                      ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
                                                       ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
                                                      gg->get_default_step_time() + m_dt : 0);
-      st->stikp[i].remain_time = remain_time;
+      if (st->stikp.size() > i) st->stikp[i].remain_time = remain_time;
       if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
         if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
           double tmp_ratio = 1.0;
