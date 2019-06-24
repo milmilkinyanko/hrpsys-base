@@ -1687,7 +1687,7 @@ void Stabilizer::calcSwingEEModification ()
     }
     if (ref_contact_states[contact_states_index_map[stikp[i].ee_name]] || act_contact_states[contact_states_index_map[stikp[i].ee_name]]) {
       // If actual contact or target contact is ON, do not use swing ee compensation. Exponential zero retrieving.
-      if (!is_foot_touch[i] && is_single_walking) {
+      if (!is_foot_touch[i] && is_walking) {
         double tmp_ratio = 1.0;
         swing_modification_interpolator[stikp[i].ee_name]->clear();
         swing_modification_interpolator[stikp[i].ee_name]->set(&tmp_ratio);

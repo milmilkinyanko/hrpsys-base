@@ -1390,7 +1390,7 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
 
 void AutoBalancer::stopFootForEarlyTouchDown ()
 {
-  double remain_time;
+  double remain_time = 0.0;
   bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
