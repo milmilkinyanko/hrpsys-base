@@ -1100,7 +1100,7 @@ namespace rats
                                   sqrt(stride_r_limit / stride_r) * (cur_fs.worldcoords.pos(1) + footstep_param.leg_default_translate_pos[cur_leg == LLEG ? RLEG : LLEG](1) - footstep_param.leg_default_translate_pos[cur_leg](1));
     }
     if (cur_fs.worldcoords.pos(0) > limit[0]) cur_fs.worldcoords.pos(0) = limit[0];
-    if (cur_fs.worldcoords.pos(0) < -1 * limit[0]) cur_fs.worldcoords.pos(0) = -1 * limit[3];
+    if (cur_fs.worldcoords.pos(0) < -1 * limit[3]) cur_fs.worldcoords.pos(0) = -1 * limit[3];
     if ((cur_leg == LLEG ? 1 : -1) * cur_fs.worldcoords.pos(1) > limit[1]) cur_fs.worldcoords.pos(1) = (cur_leg == LLEG ? 1 : -1) * limit[1];
     // inside limitation
     std::vector<double> cur_leg_vertices_y;
