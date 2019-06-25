@@ -485,7 +485,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     is_emergency_step_mode = false;
 
-    cog_z_constraint = 1e-1;
+    cog_z_constraint = 1e-3;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -1498,7 +1498,7 @@ void AutoBalancer::solveFullbodyIK ()
         m_tmp.data[26] = prev_momentum(1);
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-6, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
+        double roll_weight, pitch_weight, fly_weight = 1e-2, normal_weight = 1e-7, weight_fly_interpolator_time = 0.05, weight_normal_interpolator_time = 1.5;
         // roll
         if (gg->get_use_roll_flywheel()) {
           if (!prev_roll_state) {
@@ -1545,7 +1545,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
-        double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-5;
+        double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
             if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
