@@ -554,14 +554,21 @@ namespace rats
 
     class rectangle_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
     {
+      double way_point_offset;
       double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current)
       {
         std::vector<hrp::Vector3> rectangle_path;
         double max_height = std::max(start(2), goal(2))+height;
+        hrp::Vector3 diff_vec = goal - start;
         rectangle_path.push_back(current);
         switch (spt) {
         case LIFTOFF:
-          rectangle_path.push_back(hrp::Vector3(current(0), current(1), max_height));
+          if (diff_vec(2) > 2e-2) { // 2cm
+            diff_vec(2) = 0.0;
+            rectangle_path.push_back(hrp::Vector3(current(0), current(1), max_height) - way_point_offset * diff_vec.normalized());
+          } else {
+            rectangle_path.push_back(hrp::Vector3(current(0), current(1), max_height));
+          }
           rectangle_path.push_back(hrp::Vector3(goal(0), goal(1), max_height));
           break;
         case TOUCHDOWN:
@@ -573,6 +580,9 @@ namespace rats
         rectangle_path.push_back(goal);
         return calc_antecedent_path_base(rectangle_path);
       };
+    public:
+      rectangle_delay_hoffarbib_trajectory_generator () : delay_hoffarbib_trajectory_generator(), way_point_offset(0.05) {};
+      ~rectangle_delay_hoffarbib_trajectory_generator () {};
     };
 
     class stair_delay_hoffarbib_trajectory_generator : public delay_hoffarbib_trajectory_generator
