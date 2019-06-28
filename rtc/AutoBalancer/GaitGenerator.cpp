@@ -646,8 +646,10 @@ namespace rats
     foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
-    prev_ref_cp = cur_refcog; // assume that robot is stopping when starting walking
+    prev_act_cp = cur_cog; // assume that robot is stopping when starting walking
     fx = hrp::Vector3::Zero();
+    sum_fx = hrp::Vector3::Zero();
+    fx_count = 0;
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
     zmp_filter->reset(rg.get_refzmp_cur());
     // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
@@ -775,20 +777,28 @@ namespace rats
       }
       // dc fx
       hrp::Vector3 prev_fx = fx;
+      hrp::Vector3 tmp_fx = hrp::Vector3::Zero();
       double cur_omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
       double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - refzmp)(2));
       act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
       ref_cp = cur_refcog + cur_refcogvel / ref_omega;
-      hrp::Vector3 ref_cpvel = (ref_cp - prev_ref_cp) / dt;
-      fx = hrp::Vector3::Zero();
+      hrp::Vector3 act_cpvel = (act_cp - prev_act_cp) / dt;
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) {
-        fx.head(2) = (total_mass * cur_omega * (ref_cpvel - cur_omega * (act_cp - refzmp))).head(2);
-        if (isnan(fx(0)) || isnan(fx(1))) fx.head(2) = prev_fx.head(2);
+        tmp_fx.head(2) = (total_mass * cur_omega * (act_cpvel - cur_omega * (act_cp - refzmp))).head(2);
+        if (isfinite(tmp_fx(0)) && isfinite(tmp_fx(1))) {
+          sum_fx += tmp_fx;
+          fx_count++;
+        }
+        if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
+          des_fx = sum_fx / fx_count;
+          fx_count = 0;
+          sum_fx = hrp::Vector3::Zero();
+        }
       }
-      tmp[15] = fx(0);
-      tmp[16] = fx(1);
+      tmp[15] = tmp_fx(0);
+      tmp[16] = tmp_fx(1);
       // fx = fx_filter->passFilter(fx);
-      fx = prev_fx + dc_gain * (fx - prev_fx);
+      fx = prev_fx + dc_gain * (des_fx - prev_fx);
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
@@ -807,7 +817,7 @@ namespace rats
         rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos);
       }
 
-      prev_ref_cp = ref_cp;
+      prev_act_cp = act_cp;
       tmp[17] = fx(0);
       tmp[18] = fx(1);
       tmp[19] = dc_off(0);
