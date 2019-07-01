@@ -369,6 +369,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
     cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
     cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
+    limit_cog_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -480,7 +482,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     use_act_states = false;
     gg->use_act_states = st->use_act_states = true;
 
-    ik_converged_count = 0;
+    is_after_walking = false;
     prev_roll_state = prev_pitch_state = false;
 
     is_emergency_step_mode = false;
@@ -512,6 +514,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete st->transition_interpolator;
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
+  delete limit_cog_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
@@ -1039,6 +1042,7 @@ void AutoBalancer::getTargetParameters()
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
     if (gg_is_walking) {
       ref_cog = gg->get_cog();
+      orig_cog = ref_cog;
     } else {
       ref_cog = tmp_foot_mid_pos;
     }
@@ -1067,7 +1071,7 @@ void AutoBalancer::getTargetParameters()
               m_force[i].data[j] = m_ref_force[i].data[j];
           }
       }
-      ik_converged_count = 0;
+      is_after_walking = false;
   }
   // Just for stop walking
   if (gg_is_walking && !gg_solved) stopWalking ();
@@ -1628,14 +1632,19 @@ void AutoBalancer::solveSimpleFullbodyIK ()
 
 void AutoBalancer::limit_cog (hrp::Vector3& cog)
 {
-  if (transition_interpolator->isEmpty() && !gg_is_walking && ik_converged_count > 0) {
-    double lvlimit = -1 * 1e-3 * m_dt, uvlimit = 1 * 1e-3 * m_dt; // 1 [mm/s]
-    for (size_t i = 0; i < 2; i++) {
-      vlimit(cog(i), prev_ref_cog(i) + lvlimit, prev_ref_cog(i) + uvlimit);
-    }
-    ik_converged_count--;
+  if (transition_interpolator->isEmpty() && !gg_is_walking && is_after_walking) {
+    double tmp_ratio = 0.0, tmp_time = 5.0;
+    limit_cog_interpolator->clear();
+    limit_cog_interpolator->set(&tmp_ratio);
+    tmp_ratio = 1.0;
+    limit_cog_interpolator->setGoal(&tmp_ratio, tmp_time, true);
+    is_after_walking = false;
   }
-  prev_ref_cog = cog;
+  if (!limit_cog_interpolator->isEmpty()) {
+    double tmp_ratio;
+    limit_cog_interpolator->get(&tmp_ratio, true);
+    cog = cog * tmp_ratio + orig_cog * (1.0 - tmp_ratio);
+  }
 }
 
 bool AutoBalancer::vlimit(double& ret, const double llimit_value, const double ulimit_value)
@@ -1696,7 +1705,6 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   tmp_ratio = 1.0;
   transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
   prev_ref_zmp = ref_zmp;
-  prev_ref_cog = ref_cog;
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }
@@ -1774,7 +1782,7 @@ bool AutoBalancer::startWalking ()
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
-    ik_converged_count = 5.0 / m_dt; // 5.0 [s]
+    is_after_walking = true;
   }
   return true;
 }

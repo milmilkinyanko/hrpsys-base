@@ -286,7 +286,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, prev_ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -311,6 +311,7 @@ class AutoBalancer
   interpolator *pitch_weight_interpolator;
   interpolator *go_vel_interpolator;
   interpolator *cog_constraint_interpolator;
+  interpolator *limit_cog_interpolator;
   hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
   hrp::Matrix33 input_baseRot, ref_baseRot;
 
@@ -334,7 +335,7 @@ class AutoBalancer
   hrp::Link* additional_force_applied_link;
   hrp::Vector3 additional_force_applied_point_offset;
 
-  size_t ik_converged_count;
+  bool is_after_walking;
   hrp::Vector3 dif_ref_act_cog;
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vertices;
   bool use_act_states;
