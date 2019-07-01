@@ -369,7 +369,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
     cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
     cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
-    limit_cog_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    limit_cog_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE, 0);
     limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
 
     // setting stride limitations from conf file
@@ -484,6 +484,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     is_after_walking = false;
     prev_roll_state = prev_pitch_state = false;
+    prev_orig_cog = orig_cog = hrp::Vector3::Zero();
 
     is_emergency_step_mode = false;
 
@@ -1041,6 +1042,7 @@ void AutoBalancer::getTargetParameters()
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
     if (gg_is_walking) {
+      prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();
       orig_cog = ref_cog;
     } else {
@@ -1633,17 +1635,24 @@ void AutoBalancer::solveSimpleFullbodyIK ()
 void AutoBalancer::limit_cog (hrp::Vector3& cog)
 {
   if (transition_interpolator->isEmpty() && !gg_is_walking && is_after_walking) {
-    double tmp_ratio = 0.0, tmp_time = 5.0;
+    std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
+    double tmp_time = 5.0;
+    for (size_t i = 0; i < 3; i++) {
+      start_pos[i] = orig_cog(i);
+      start_vel[i] = (orig_cog(i) - prev_orig_cog(i)) / m_dt;
+      goal_pos[i] = cog(i);
+    }
     limit_cog_interpolator->clear();
-    limit_cog_interpolator->set(&tmp_ratio);
-    tmp_ratio = 1.0;
-    limit_cog_interpolator->setGoal(&tmp_ratio, tmp_time, true);
+    limit_cog_interpolator->set(start_pos.data(), start_vel.data());
+    limit_cog_interpolator->setGoal(goal_pos.data(), tmp_time, true);
     is_after_walking = false;
   }
   if (!limit_cog_interpolator->isEmpty()) {
-    double tmp_ratio;
-    limit_cog_interpolator->get(&tmp_ratio, true);
-    cog = cog * tmp_ratio + orig_cog * (1.0 - tmp_ratio);
+    std::vector<double> tmp_v(3);
+    limit_cog_interpolator->get(tmp_v.data(), true);
+    for (size_t i = 0; i < 3; i++) {
+      cog(i) = tmp_v[i];
+    }
   }
 }
 
