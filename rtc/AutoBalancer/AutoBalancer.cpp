@@ -1271,6 +1271,13 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 }
             }
         }
+    } else if (!limit_cog_interpolator->isEmpty()) {
+      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+             && it->first.find("arm") != std::string::npos ) {
+          it->second.target_p0 = it->second.target_p0 - limited_dif_cog;
+        }
+      }
     }
 };
 
@@ -1471,25 +1478,28 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.targetRpy = hrp::rpyFromRot(ikp["lleg"].target_r0);
         tmp.constraint_weight << 1,1,1,1,1,1;
         ik_tgt_list.push_back(tmp);
-    }{
-//        IKConstraint tmp;
-//        tmp.target_link_name = ikp["rarm"].target_link->name;
-//        tmp.localPos = ikp["rarm"].localPos;
-//        tmp.localR = ikp["rarm"].localR;
-//        tmp.targetPos = ikp["rarm"].target_p0;
-//        tmp.targetRpy = hrp::rpyFromRot(ikp["rarm"].target_r0);
-//        tmp.constraint_weight << 1,1,1,1,1,1;
-//        ik_tgt_list.push_back(tmp);
-    }{
-//        IKConstraint tmp;
-//        tmp.target_link_name = ikp["larm"].target_link->name;
-//        tmp.localPos = ikp["larm"].localPos;
-//        tmp.localR = ikp["larm"].localR;
-//        tmp.targetPos = ikp["larm"].target_p0;
-//        tmp.targetRpy = hrp::rpyFromRot(ikp["larm"].target_r0);
-//        tmp.constraint_weight << 1,1,1,1,1,1;
-//        ik_tgt_list.push_back(tmp);
-    }{
+    }
+    if (ikp["rarm"].is_active) {
+       IKConstraint tmp;
+       tmp.target_link_name = ikp["rarm"].target_link->name;
+       tmp.localPos = ikp["rarm"].localPos;
+       tmp.localR = ikp["rarm"].localR;
+       tmp.targetPos = ikp["rarm"].target_p0;
+       tmp.targetRpy = hrp::rpyFromRot(ikp["rarm"].target_r0);
+       tmp.constraint_weight << 1e-1,1e-1,1e-1,1e-1,1e-1,1e-1;
+       ik_tgt_list.push_back(tmp);
+    }
+    if (ikp["larm"].is_active) {
+       IKConstraint tmp;
+       tmp.target_link_name = ikp["larm"].target_link->name;
+       tmp.localPos = ikp["larm"].localPos;
+       tmp.localR = ikp["larm"].localR;
+       tmp.targetPos = ikp["larm"].target_p0;
+       tmp.targetRpy = hrp::rpyFromRot(ikp["larm"].target_r0);
+       tmp.constraint_weight << 1e-1,1e-1,1e-1,1e-1,1e-1,1e-1;
+       ik_tgt_list.push_back(tmp);
+    }
+    {
         IKConstraint tmp;
         tmp.target_link_name = "COM";
         tmp.localPos = hrp::Vector3::Zero();
@@ -1596,7 +1606,7 @@ void AutoBalancer::solveFullbodyIK ()
     if(m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(m_robot->link("CHEST_P")->jointId) = 10;
     // fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
     fik->rootlink_rpy_llimit << deg2rad(-5), deg2rad(-30), -DBL_MAX;
-    fik->rootlink_rpy_ulimit << deg2rad(5), deg2rad(30), DBL_MAX;
+    fik->rootlink_rpy_ulimit << deg2rad(5), deg2rad(45), DBL_MAX;
 
   int loop_result = 0;
   const int IK_MAX_LOOP = 1;
@@ -1648,11 +1658,13 @@ void AutoBalancer::limit_cog (hrp::Vector3& cog)
     is_after_walking = false;
   }
   if (!limit_cog_interpolator->isEmpty()) {
+    limited_dif_cog = cog;
     std::vector<double> tmp_v(3);
     limit_cog_interpolator->get(tmp_v.data(), true);
     for (size_t i = 0; i < 3; i++) {
       cog(i) = tmp_v[i];
     }
+    limited_dif_cog -= cog;
   }
 }
 
