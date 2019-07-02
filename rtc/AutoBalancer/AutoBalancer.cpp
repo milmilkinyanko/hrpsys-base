@@ -1451,14 +1451,14 @@ void AutoBalancer::solveFullbodyIK ()
 
     std::vector<IKConstraint> ik_tgt_list;
     {
+        double tmp_const = 1e-4 * transition_interpolator_ratio + 1 * (1.0 - transition_interpolator_ratio);
         IKConstraint tmp;
         tmp.target_link_name = "WAIST";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,1e-4,1e-4,1e-4; // COMMON
-        if(transition_interpolator_ratio < 1.0) tmp.constraint_weight << 0,0,0,1,1,1;//transition中に回転フリーは危ない
+        tmp.constraint_weight << 0,0,0,tmp_const,tmp_const,tmp_const; // COMMON
         ik_tgt_list.push_back(tmp);
     }{
         IKConstraint tmp;
@@ -1480,23 +1480,25 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
     }
     if (ikp["rarm"].is_active) {
+       double tmp_const = 1e-1 * transition_interpolator_ratio;
        IKConstraint tmp;
        tmp.target_link_name = ikp["rarm"].target_link->name;
        tmp.localPos = ikp["rarm"].localPos;
        tmp.localR = ikp["rarm"].localR;
        tmp.targetPos = ikp["rarm"].target_p0;
        tmp.targetRpy = hrp::rpyFromRot(ikp["rarm"].target_r0);
-       tmp.constraint_weight << 1e-1,1e-1,1e-1,1e-1,1e-1,1e-1;
+       tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
        ik_tgt_list.push_back(tmp);
     }
     if (ikp["larm"].is_active) {
+       double tmp_const = 1e-1 * transition_interpolator_ratio;
        IKConstraint tmp;
        tmp.target_link_name = ikp["larm"].target_link->name;
        tmp.localPos = ikp["larm"].localPos;
        tmp.localR = ikp["larm"].localR;
        tmp.targetPos = ikp["larm"].target_p0;
        tmp.targetRpy = hrp::rpyFromRot(ikp["larm"].target_r0);
-       tmp.constraint_weight << 1e-1,1e-1,1e-1,1e-1,1e-1,1e-1;
+       tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
        ik_tgt_list.push_back(tmp);
     }
     {
@@ -1558,7 +1560,7 @@ void AutoBalancer::solveFullbodyIK ()
         if (!cog_constraint_interpolator->isEmpty()) {
           cog_constraint_interpolator->get(&cog_z_constraint, true);
         }
-        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight,pitch_weight,0; // consider angular momentum (COMMON)
+        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight*transition_interpolator_ratio,pitch_weight*transition_interpolator_ratio,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
@@ -1589,7 +1591,6 @@ void AutoBalancer::solveFullbodyIK ()
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
 
-        if(transition_interpolator_ratio < 1.0) tmp.constraint_weight.tail(3).fill(0);// disable angular momentum control in transition
 //        tmp.rot_precision = 1e-1;//angular momentum precision
         ik_tgt_list.push_back(tmp);
     }
