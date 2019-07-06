@@ -1170,6 +1170,7 @@ namespace rats
     Eigen::Vector2d tmp_pos, new_pos;
     Eigen::Vector2d tmp_off = (preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos)).head(2);
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
+      if (steppable_region[cur_sup][i].size() < 3) continue;
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
       if (!is_inside_convex_hull(new_pos, new_remain_time, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, tmp_off, omega, rel_cur_cp)) {
