@@ -1653,7 +1653,6 @@ void AutoBalancer::limit_cog (hrp::Vector3& cog)
       start_vel[i] = (orig_cog(i) - prev_orig_cog(i)) / m_dt;
       goal_pos[i] = cog(i);
     }
-    limit_cog_interpolator->clear();
     limit_cog_interpolator->set(start_pos.data(), start_vel.data());
     limit_cog_interpolator->setGoal(goal_pos.data(), tmp_time, true);
     is_after_walking = false;
@@ -1805,6 +1804,7 @@ bool AutoBalancer::startWalking ()
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
     is_after_walking = true;
+    limit_cog_interpolator->clear();
   }
   return true;
 }
