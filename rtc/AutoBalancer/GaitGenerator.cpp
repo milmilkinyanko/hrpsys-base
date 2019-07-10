@@ -1173,17 +1173,19 @@ namespace rats
     double limit_r = std::min(safe_leg_margin[2], safe_leg_margin[3]), new_remain_time, tmp_dt = 1e10;
     bool is_out = false;
     Eigen::Vector2d tmp_pos, new_pos;
+    hrp::Vector3 tmp_short;
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       if (steppable_region[cur_sup][i].size() < 3) continue;
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
-      if (!is_inside_convex_hull(new_pos, new_remain_time, short_of_footstep, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, omega, rel_cur_cp, prev_fs_pos, prev_fs_rot, cur_sup)) {
+      if (!is_inside_convex_hull(new_pos, new_remain_time, tmp_short, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, omega, rel_cur_cp, prev_fs_pos, prev_fs_rot, cur_sup)) {
         if (fabs(new_remain_time - remain_count*dt) < fabs(tmp_dt) ||
             (fabs(new_remain_time - remain_count*dt) == fabs(tmp_dt) && (new_pos - cur_fs.worldcoords.pos.head(2)).norm() < (tmp_pos - cur_fs.worldcoords.pos.head(2)).norm())
             ) {
           is_out = true;
           tmp_dt = new_remain_time - remain_count*dt;
           tmp_pos = new_pos;
+          short_of_footstep = tmp_short;
         }
       } else {
         is_out = false;
