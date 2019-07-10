@@ -1156,24 +1156,28 @@ namespace rats
     cur_fs.worldcoords.pos = prev_fs.worldcoords.pos + prev_fs_rot * cur_fs.worldcoords.pos;
   };
 
-  void gait_generator::limit_stride_vision (step_node& cur_fs, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp)
+  void gait_generator::limit_stride_vision (step_node& cur_fs, hrp::Vector3& short_of_footstep, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp)
   {
     // preprev foot frame
-    hrp::Matrix33 preprev_fs_rot;
+    hrp::Matrix33 preprev_fs_rot, prev_fs_rot;
+    hrp::Vector3 prev_fs_pos;
     calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot);
     cur_fs.worldcoords.pos = preprev_fs_rot.transpose() * (cur_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
+    prev_fs_pos = preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
+    calc_foot_origin_rot(prev_fs_rot, prev_fs.worldcoords.rot);
+    prev_fs_rot = prev_fs_rot.transpose() * prev_fs_rot;
+    short_of_footstep = hrp::Vector3::Zero();
     hrp::Vector3 rel_cur_cp = preprev_fs_rot.transpose() * (cur_cp - preprev_fs.worldcoords.pos);
     leg_type cur_sup = prev_fs.l_r;
 
-    double limit_r = std::min(leg_margin[2], leg_margin[3]), new_remain_time, tmp_dt = 1e10;
+    double limit_r = std::min(safe_leg_margin[2], safe_leg_margin[3]), new_remain_time, tmp_dt = 1e10;
     bool is_out = false;
     Eigen::Vector2d tmp_pos, new_pos;
-    Eigen::Vector2d tmp_off = (preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos)).head(2);
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       if (steppable_region[cur_sup][i].size() < 3) continue;
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
-      if (!is_inside_convex_hull(new_pos, new_remain_time, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, tmp_off, omega, rel_cur_cp)) {
+      if (!is_inside_convex_hull(new_pos, new_remain_time, short_of_footstep, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, omega, rel_cur_cp, prev_fs_pos, prev_fs_rot, cur_sup)) {
         if (fabs(new_remain_time - remain_count*dt) < fabs(tmp_dt) ||
             (fabs(new_remain_time - remain_count*dt) == fabs(tmp_dt) && (new_pos - cur_fs.worldcoords.pos.head(2)).norm() < (tmp_pos - cur_fs.worldcoords.pos.head(2)).norm())
             ) {
@@ -1188,12 +1192,12 @@ namespace rats
     }
     if (is_out) {
       cur_fs.worldcoords.pos.head(2) = tmp_pos;
-      if (tmp_dt < 0) min_time_check(tmp_dt);
       change_step_time(tmp_dt);
     }
 
     // world frame
     cur_fs.worldcoords.pos = preprev_fs.worldcoords.pos + preprev_fs_rot * cur_fs.worldcoords.pos;
+    short_of_footstep = preprev_fs_rot * short_of_footstep;
   }
 
   void gait_generator::modify_footsteps_for_recovery ()
@@ -1384,7 +1388,7 @@ namespace rats
         if (is_modify || is_vision_updated || lr_region[cur_sup]) {
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
-          if (lr_region[cur_sup] && lcg.get_footstep_index() > 1) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), footstep_nodes_list[get_overwritable_index()-2].front(), omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
+          if (lr_region[cur_sup] && lcg.get_footstep_index() > 1) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), short_of_footstep, footstep_nodes_list[get_overwritable_index()-1].front(), footstep_nodes_list[get_overwritable_index()-2].front(), omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
           else limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           if (is_vision_updated) {
@@ -1392,7 +1396,7 @@ namespace rats
             calc_foot_origin_rot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
           }
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
-          short_of_footstep = d_footstep - short_of_footstep;
+          if (!(lr_region[cur_sup] && lcg.get_footstep_index() > 1)) short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
           }

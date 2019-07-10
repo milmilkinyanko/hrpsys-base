@@ -1219,7 +1219,7 @@ namespace rats
     void change_step_time (const double& tmp_dt);
     void limit_stride (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
-    void limit_stride_vision (step_node& cur_fs, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp);
+    void limit_stride_vision (step_node& cur_fs, hrp::Vector3& short_of_footstep, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp);
     void modify_footsteps_for_recovery ();
     void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
@@ -1333,14 +1333,16 @@ namespace rats
     bool is_inside_convex_hull (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
       double tmp;
-      return is_inside_convex_hull(p, tmp, convex_hull, offset, truncate_p);
+      hrp::Vector3 tmp_pos;
+      return is_inside_convex_hull(p, tmp, tmp_pos, convex_hull, offset, truncate_p);
     };
     bool is_inside_convex_hull (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
       double tmp;
-      return is_inside_convex_hull(p, tmp, ch, offset, truncate_p);
+      hrp::Vector3 tmp_pos;
+      return is_inside_convex_hull(p, tmp, tmp_pos, ch, offset, truncate_p);
     };
-    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& chage_time = false, const double& r = 0.0, const Eigen::Vector2d& foot_offset = Eigen::Vector2d::Zero(), const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero())
+    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, hrp::Vector3& short_of_footstep, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& chage_time = false, const double& r = 0.0, const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero(), const hrp::Vector3& prev_fs_pos = hrp::Vector3::Zero(), const hrp::Matrix33& prev_fs_rot = hrp::Matrix33::Ones(), const leg_type cur_sup = RLEG)
     {
       // set any inner point(ip) and binary search two vertices(ch[v_a], ch[v_b]) between which p is.
       p -= offset.head(2);
@@ -1366,29 +1368,100 @@ namespace rats
           if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
         } else if (chage_time) { // TODO: should consider dcm_off/zmp_offset
           // prev foot frame (do not consider prev foot rot)
-          Eigen::Vector2d pa = ch[v_a] - foot_offset, pb = ch[v_b] - foot_offset, cp = cur_cp.head(2) - foot_offset;
+          Eigen::Vector2d pa = ch[v_a] - prev_fs_pos.head(2), pb = ch[v_b] - prev_fs_pos.head(2), cp = cur_cp.head(2) - prev_fs_pos.head(2);
           double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]
           double a = (pb(1) - pa(1)) / tmp, b = pa(1) - pa(0) * (pb(1) - pa(1)) / tmp;
-          p -= foot_offset;
+          p -= prev_fs_pos.head(2);
           double ar = (a*a+1)*r*r;
           double A = ar - std::pow(a*cp(0)-cp(1),2.0);
           double B = -2 * (a*b*cp(0)-b*cp(1)+ar);
           double C = ar - b*b;
           double ewt = std::exp(omega*t);
           double D = A * ewt * ewt + B * ewt + C;
+          double new_remain_time = t, tmp_dt = 0.0;
           if (D >= 0) {
-            // preprev foot frame (do not consider prev foot rot)
-            p += foot_offset;
+            // preprev foot frame
+            p += prev_fs_pos.head(2);
             if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
           } else {
             D = B*B - 4*A*C;
             if (D >= 0) {
-              t = std::log((-B + std::sqrt(D)) / (2*A)) / omega;
-              p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * t) - a * b) / (a*a + 1);
+              double tmp_t = std::log((-B + std::sqrt(D)) / (2*A)) / omega;
+              if (isnan(tmp_t)) tmp_t = std::log((-B - std::sqrt(D)) / (2*A)) / omega;
+              p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * tmp_t) - a * b) / (a*a + 1);
               p(1) = a * p(0) + b;
             }
-            // preprev foot frame (do not consider prev foot rot)
-            p += foot_offset;
+            // preprev foot frame
+            p += prev_fs_pos.head(2);
+          }
+          // project to line segment
+          for (size_t i = 0; i < 2; i++) {
+            if (p(i) > std::max(ch[v_a](i), ch[v_b](i)))      p(i) = std::max(ch[v_a](i), ch[v_b](i));
+            else if (p(i) < std::min(ch[v_a](i), ch[v_b](i))) p(i) = std::min(ch[v_a](i), ch[v_b](i));
+          }
+          // prev foot frame (consider prev foot rot)
+          hrp::Vector3 end_cp = prev_fs_rot.transpose() * (hrp::Vector3(p(0), p(1), 0) - prev_fs_pos);
+          hrp::Vector3 rel_cp = prev_fs_rot.transpose() * (cur_cp - prev_fs_pos);
+          double end_cp_front = std::exp(omega * t) * rel_cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
+          double end_cp_back = std::exp(omega * t) * rel_cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
+          double end_cp_outside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
+          double end_cp_inside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
+          bool is_change_time = false;
+          double xz_max, l_max;
+          // calc remain_time
+          if (end_cp(0) < end_cp_front) {
+            xz_max = safe_leg_margin[0];
+            l_max = end_cp(0);
+            double tmp_t = std::log((l_max - xz_max) / (rel_cp(0) - xz_max)) / omega;
+            if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
+            is_change_time = true;
+          } else if (end_cp(0) > end_cp_back) {
+            xz_max = -1 * safe_leg_margin[1];
+            l_max = end_cp(0);
+            double tmp_t = std::log((l_max - xz_max) / (rel_cp(0) - xz_max)) / omega;
+            if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
+            is_change_time = true;
+          }
+          if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) < (cur_sup == RLEG ? -1 : 1) * end_cp_outside) {
+            xz_max = (cur_sup == RLEG ? -1 : 1) * safe_leg_margin[2];
+            l_max = end_cp(1);
+            double tmp_t = std::log((l_max - xz_max) / (rel_cp(1) - xz_max)) / omega;
+            if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
+            is_change_time = true;
+          } else if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) > (cur_sup == RLEG ? -1 : 1) * end_cp_inside) {
+            xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
+            l_max = end_cp(1);
+            double tmp_t = std::log((l_max - xz_max) / (rel_cp(1) - xz_max)) / omega;
+            if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
+            is_change_time = true;
+          }
+          if (is_change_time) {
+            if (tmp_dt < 0) min_time_check(tmp_dt);
+            new_remain_time = t + tmp_dt;
+
+            // calc target pos according new_remain_time
+            hrp::Vector3 target_p = end_cp;
+            end_cp_front = std::exp(omega * t) * rel_cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
+            end_cp_back = std::exp(omega * t) * rel_cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
+            end_cp_outside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
+            end_cp_inside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
+            if (end_cp(0) < end_cp_front) {
+              xz_max = safe_leg_margin[0];
+              target_p(0) = std::exp(omega * new_remain_time) * rel_cp(0) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+            } else if (end_cp(0) > end_cp_back) {
+              xz_max = -1 * safe_leg_margin[1];
+              target_p(0) = std::exp(omega * new_remain_time) * rel_cp(0) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+            }
+            if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) < (cur_sup == RLEG ? -1 : 1) * end_cp_outside) {
+              xz_max = (cur_sup == RLEG ? -1 : 1) * safe_leg_margin[2];
+              target_p(1) = std::exp(omega * new_remain_time) * rel_cp(1) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+            } else if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) > (cur_sup == RLEG ? -1 : 1) * end_cp_inside) {
+              xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
+              target_p(1) = std::exp(omega * new_remain_time) * rel_cp(1) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+            }
+            // preprev foot frame
+            target_p = prev_fs_pos + prev_fs_rot * target_p;
+            short_of_footstep.head(2) = target_p.head(2) - p;
           }
         }
         p += offset.head(2);
