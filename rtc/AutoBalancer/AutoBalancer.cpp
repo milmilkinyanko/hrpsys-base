@@ -888,7 +888,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
     }
 
-    if (gg_is_walking && gg->get_lcg_count() > 0) {
+    if (gg_is_walking) {
       hrp::Vector3 off = hrp::Vector3(0.0, 0.0, 0.0);
       hrp::Vector3 pos;
       int l_r; // rleg: 0, lleg: 1

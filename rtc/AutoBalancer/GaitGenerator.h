@@ -1342,7 +1342,7 @@ namespace rats
       hrp::Vector3 tmp_pos;
       return is_inside_convex_hull(p, tmp, tmp_pos, ch, offset, truncate_p);
     };
-    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, hrp::Vector3& short_of_footstep, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& chage_time = false, const double& r = 0.0, const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero(), const hrp::Vector3& prev_fs_pos = hrp::Vector3::Zero(), const hrp::Matrix33& prev_fs_rot = hrp::Matrix33::Ones(), const leg_type cur_sup = RLEG)
+    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, hrp::Vector3& short_of_footstep, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& change_time = false, const double& r = 0.0, const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero(), const hrp::Vector3& prev_fs_pos = hrp::Vector3::Zero(), const hrp::Matrix33& prev_fs_rot = hrp::Matrix33::Ones(), const leg_type cur_sup = RLEG)
     {
       // set any inner point(ip) and binary search two vertices(ch[v_a], ch[v_b]) between which p is.
       p -= offset.head(2);
@@ -1366,7 +1366,7 @@ namespace rats
       } else {
         if (truncate_p) {
           if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
-        } else if (chage_time) { // TODO: should consider dcm_off/zmp_offset
+        } else if (change_time) { // TODO: should consider dcm_off/zmp_offset
           // prev foot frame (do not consider prev foot rot)
           Eigen::Vector2d pa = ch[v_a] - prev_fs_pos.head(2), pb = ch[v_b] - prev_fs_pos.head(2), cp = cur_cp.head(2) - prev_fs_pos.head(2);
           double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]

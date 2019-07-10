@@ -750,15 +750,16 @@ namespace rats
 
     if (is_preview) update_preview_controller(solved);
     else { // foot guided
-      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_footstep_index() > 1) {
+      if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_footstep_index() > 0) {
         leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
         lr_region[cur_leg] = false;
         if (lr_region[cur_leg == RLEG ? LLEG : RLEG]) {
           hrp::Matrix33 prev_fs_rot, preprev_fs_rot;
-          hrp::Vector3 prev_fs_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos, preprev_fs_pos = footstep_nodes_list[get_overwritable_index()-2].front().worldcoords.pos;
+          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[get_overwritable_index()-2].front());
+          hrp::Vector3 prev_fs_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
           hrp::Vector3 ez = hrp::Vector3::UnitZ();
           calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot, ez);
-          calc_foot_origin_rot(preprev_fs_rot, footstep_nodes_list[get_overwritable_index()-2].front().worldcoords.rot, ez);
+          calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot, ez);
           if (cur_leg == RLEG) {
             stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
@@ -809,12 +810,13 @@ namespace rats
         min_time = orig_min_time;
       }
       // calc landing pos relative to supporting foot for vision
-      if (lcg.get_footstep_index() > 0) {
+      {
         cur_supporting_foot = (footstep_nodes_list[lcg.get_footstep_index()].front().l_r == LLEG ? 0 : 1);
         hrp::Matrix33 cur_rot;
         hrp::Vector3 ez = hrp::Vector3::UnitZ();
-        calc_foot_origin_rot(cur_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
-        rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos);
+        step_node cur_sup_fs(lcg.get_footstep_index() > 0 ? footstep_nodes_list[lcg.get_footstep_index()-1].front() : lcg.get_support_leg_steps().front());
+        calc_foot_origin_rot(cur_rot, cur_sup_fs.worldcoords.rot, ez);
+        rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - cur_sup_fs.worldcoords.pos);
       }
 
       prev_act_cp = act_cp;
@@ -1160,14 +1162,14 @@ namespace rats
   {
     // preprev foot frame
     hrp::Matrix33 preprev_fs_rot, prev_fs_rot;
-    hrp::Vector3 prev_fs_pos;
+    hrp::Vector3 prev_fs_pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
     calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot);
-    cur_fs.worldcoords.pos = preprev_fs_rot.transpose() * (cur_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
-    prev_fs_pos = preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs.worldcoords.pos);
+    cur_fs.worldcoords.pos = preprev_fs_rot.transpose() * (cur_fs.worldcoords.pos - preprev_fs_pos);
+    prev_fs_pos = preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs_pos);
     calc_foot_origin_rot(prev_fs_rot, prev_fs.worldcoords.rot);
     prev_fs_rot = prev_fs_rot.transpose() * prev_fs_rot;
     short_of_footstep = hrp::Vector3::Zero();
-    hrp::Vector3 rel_cur_cp = preprev_fs_rot.transpose() * (cur_cp - preprev_fs.worldcoords.pos);
+    hrp::Vector3 rel_cur_cp = preprev_fs_rot.transpose() * (cur_cp - preprev_fs_pos);
     leg_type cur_sup = prev_fs.l_r;
 
     double limit_r = std::min(safe_leg_margin[2], safe_leg_margin[3]), new_remain_time, tmp_dt = 1e10;
@@ -1198,7 +1200,7 @@ namespace rats
     }
 
     // world frame
-    cur_fs.worldcoords.pos = preprev_fs.worldcoords.pos + preprev_fs_rot * cur_fs.worldcoords.pos;
+    cur_fs.worldcoords.pos = preprev_fs_pos + preprev_fs_rot * cur_fs.worldcoords.pos;
     short_of_footstep = preprev_fs_rot * short_of_footstep;
   }
 
@@ -1388,9 +1390,10 @@ namespace rats
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
         if (is_modify || is_vision_updated || lr_region[cur_sup]) {
+          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[get_overwritable_index()-2].front());
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
-          if (lr_region[cur_sup] && lcg.get_footstep_index() > 1) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), short_of_footstep, footstep_nodes_list[get_overwritable_index()-1].front(), footstep_nodes_list[get_overwritable_index()-2].front(), omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
+          if (lr_region[cur_sup]) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), short_of_footstep, footstep_nodes_list[get_overwritable_index()-1].front(), preprev_fs, omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
           else limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           if (is_vision_updated) {
@@ -1398,7 +1401,7 @@ namespace rats
             calc_foot_origin_rot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
           }
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
-          if (!(lr_region[cur_sup] && lcg.get_footstep_index() > 1)) short_of_footstep = d_footstep - short_of_footstep;
+          if (!(lr_region[cur_sup])) short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
           }
