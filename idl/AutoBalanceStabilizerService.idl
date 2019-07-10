@@ -1,12 +1,12 @@
 /**
- * @file AutoBalancerService.idl
- * @brief Services for the autobalancer interface
+ * @file AutoBalanceStabilizerService.idl
+ * @brief Services for the AutoBalanceStabilizer interface
  */
 //#include "OpenHRPCommon.idl"
 module OpenHRP
 {
-  
-  interface AutoBalancerService
+
+  interface AutoBalanceStabilizerService
   {
     typedef sequence<double, 3> DblSequence3;
     //typedef sequence<double, 4> DblSequence4;
@@ -526,7 +526,7 @@ module OpenHRP
       sequence< sequence<double, 3> > foot_origin_offset;
       /// Emergency signal checking mode
       EmergencyCheckMode emergency_check_mode;
-      sequence<AutoBalancerService::Footstep> end_effector_list;
+      sequence<AutoBalanceStabilizerService::Footstep> end_effector_list;
       /// whether an emergency stop is used while walking
       boolean is_estop_while_walking;
       /// Sequence for all end-effectors' ik limb parameters
@@ -656,7 +656,7 @@ module OpenHRP
 
     /**
      * @brief Adjust Footsteps.
-     * @param 
+     * @param
      * @return true if set successfully, false otherwise
      */
     boolean adjustFootSteps(in Footstep rfootstep, in Footstep lfootstep);

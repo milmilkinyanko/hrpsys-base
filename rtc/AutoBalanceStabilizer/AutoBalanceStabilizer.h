@@ -1,14 +1,14 @@
 // -*- C++ -*-
 /*!
- * @file  AutoBalancer.h
- * @brief autobalancer component
+ * @file  AutoBalanceStabilizer.h
+ * @brief autobalancestabilizer component
  * @date  $Date$
  *
  * $Id$
  */
 
-#ifndef AUTOBALANCER_H
-#define AUTOBALANCER_H
+#ifndef AUTOBALANCESTABILIZER_H
+#define AUTOBALANCESTABILIZER_H
 
 #include <mutex>
 
@@ -34,8 +34,8 @@
 #include "Stabilizer.h"
 // Service implementation headers
 // <rtc-template block="service_impl_h">
-#include "AutoBalancerService_impl.h"
-#include "SimpleFullbodyInverseKinematicsSolver.h" // TODO: This should be included after AutoBalancerService_impl.h
+#include "AutoBalanceStabilizerService_impl.h"
+#include "SimpleFullbodyInverseKinematicsSolver.h" // TODO: This should be included after AutoBalanceStabilizerService_impl.h
 
 
 // </rtc-template>
@@ -74,12 +74,12 @@ using paramsToStabilizer = paramsFromAutoBalancer;
 //     return RTC::RTC_OK;
 // }
 
-class AutoBalancer
+class AutoBalanceStabilizer
   : public RTC::DataFlowComponentBase
 {
   public:
-    AutoBalancer(RTC::Manager* manager);
-    virtual ~AutoBalancer();
+    AutoBalanceStabilizer(RTC::Manager* manager);
+    virtual ~AutoBalanceStabilizer();
 
     // The initialize action (on CREATED->ALIVE transition)
     // formaer rtc_init_entry()
@@ -132,28 +132,28 @@ class AutoBalancer
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
     bool emergencyStop ();
-    bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
-    bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
-    bool setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepSequence& fs, const OpenHRP::AutoBalancerService::StepParamSequence& sps, CORBA::Long overwrite_fs_idx);
-    bool setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
+    bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
+    bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
+    bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, const OpenHRP::AutoBalanceStabilizerService::StepParamSequence& sps, CORBA::Long overwrite_fs_idx);
+    bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
     void waitFootSteps();
     void waitFootStepsEarly(const double tm);
-    bool startAutoBalancer(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
+    bool startAutoBalancer(const ::OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);
     bool stopAutoBalancer();
-    bool setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
-    bool getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
-    bool setAutoBalancerParam(const OpenHRP::AutoBalancerService::AutoBalancerParam& i_param);
-    bool getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalancerParam& i_param);
-    bool getFootstepParam(OpenHRP::AutoBalancerService::FootstepParam& i_param);
-    bool adjustFootSteps(const OpenHRP::AutoBalancerService::Footstep& rfootstep, const OpenHRP::AutoBalancerService::Footstep& lfootstep);
-    bool getRemainingFootstepSequence(OpenHRP::AutoBalancerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx);
-    bool getGoPosFootstepsSequence(const double& x, const double& y, const double& th, OpenHRP::AutoBalancerService::FootstepsSequence_out o_footstep);
+    bool setGaitGeneratorParam(const OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param);
+    bool getGaitGeneratorParam(OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param);
+    bool setAutoBalancerParam(const OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param);
+    bool getAutoBalancerParam(OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param);
+    bool getFootstepParam(OpenHRP::AutoBalanceStabilizerService::FootstepParam& i_param);
+    bool adjustFootSteps(const OpenHRP::AutoBalanceStabilizerService::Footstep& rfootstep, const OpenHRP::AutoBalanceStabilizerService::Footstep& lfootstep);
+    bool getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx);
+    bool getGoPosFootstepsSequence(const double& x, const double& y, const double& th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep);
     bool releaseEmergencyStop();
     void distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp);
 
     // Stabilizer
-    void getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param);
-    void setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_param);
+    void getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param);
+    void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param);
     void startStabilizer(void);
     void stopStabilizer(void);
 
@@ -241,13 +241,13 @@ class AutoBalancer
 
     // CORBA Port declaration
     // <rtc-template block="corbaport_declare">
-    RTC::CorbaPort m_AutoBalancerServicePort;
+    RTC::CorbaPort m_AutoBalanceStabilizerServicePort;
 
     // </rtc-template>
 
     // Service declaration
     // <rtc-template block="service_declare">
-    AutoBalancerService_impl m_service0;
+    AutoBalanceStabilizerService_impl m_service0;
 
     // </rtc-template>
 
@@ -268,7 +268,7 @@ class AutoBalancer
     void getTargetParameters();
     void getActualParameters();
     void solveFullbodyIK ();
-    void startABCparam(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
+    void startABCparam(const ::OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);
     void stopABCparam();
     void waitABCTransition();
     // Functions to calculate parameters for ABC output.
@@ -289,7 +289,7 @@ class AutoBalancer
     void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
     bool startWalking ();
     void stopWalking ();
-    void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
+    void copyRatscoords2Footstep(OpenHRP::AutoBalanceStabilizerService::Footstep& out_fs, const rats::coordinates& in_fs);
     // static balance point offsetting
     void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);
     void calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height);
@@ -359,7 +359,7 @@ class AutoBalancer
 
 extern "C"
 {
-    void AutoBalancerInit(RTC::Manager* manager);
+    void AutoBalanceStabilizerInit(RTC::Manager* manager);
 };
 
-#endif // AUTOBALANCER_H
+#endif // AUTOBALANCESTABILIZER_H

@@ -1,7 +1,7 @@
 // -*- C++ -*-
 /*!
- * @file  AutoBalancer.cpp
- * @brief autobalancer component
+ * @file  AutoBalanceStabilizer.cpp
+ * @brief autobalancestabilizer component
  * @date  $Date$
  *
  * $Id$
@@ -11,7 +11,7 @@
 #include "hrpsys/util/Hrpsys.h"
 #include <hrpModel/Sensor.h>
 #include <hrpUtil/MatrixSolvers.h>
-#include "AutoBalancer.h"
+#include "AutoBalanceStabilizer.h"
 #include "Utility.h"
 
 // TODO: use inline function
@@ -24,11 +24,11 @@ using namespace rats;
 
 // Module specification
 // <rtc-template block="module_spec">
-static const char* autobalancer_spec[] =
+static const char* autobalancestabilizer_spec[] =
     {
-        "implementation_id", "AutoBalancer",
-        "type_name",         "AutoBalancer",
-        "description",       "autobalancer component",
+        "implementation_id", "AutoBalanceStabilizer",
+        "type_name",         "AutoBalanceStabilizer",
+        "description",       "autobalancestabilizer component",
         "version",           HRPSYS_PACKAGE_VERSION,
         "vendor",            "AIST",
         "category",          "example",
@@ -53,7 +53,7 @@ static std::ostream& operator<<(std::ostream& os, const struct RTC::Time &tm)
     return os;
 }
 
-AutoBalancer::AutoBalancer(RTC::Manager* manager)
+AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       // <rtc-template block="initializer">
       m_qCurrentIn("qCurrent", m_qCurrent),
@@ -112,7 +112,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_footOriginActCogOut("footOriginActCog", m_footOriginActCog),
       m_actContactStatesOut("actContactStates", m_actContactStates),
 
-      m_AutoBalancerServicePort("AutoBalancerService"),
+      m_AutoBalanceStabilizerServicePort("AutoBalanceStabilizerService"),
       // </rtc-template>
       loop(0),
       control_mode(MODE_IDLE),
@@ -132,15 +132,15 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       is_hand_fix_mode(false),
       m_debugLevel(0)
 {
-    m_service0.autobalancer(this);
+    m_service0.autobalancestabilizer(this);
 }
 
-AutoBalancer::~AutoBalancer()
+AutoBalanceStabilizer::~AutoBalanceStabilizer()
 {
 }
 
 
-RTC::ReturnCode_t AutoBalancer::onInitialize()
+RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
 {
     std::cerr << "[" << m_profile.instance_name << "] onInitialize()" << std::endl;
     bindParameter("debugLevel", m_debugLevel, "0");
@@ -181,11 +181,11 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
 
     // Set service provider to Ports
-    m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
+    m_AutoBalanceStabilizerServicePort.registerProvider("service0", "AutoBalanceStabilizerService", m_service0);
 
     // Set service consumers to Ports
     // Set CORBA Service Ports
-    addPort(m_AutoBalancerServicePort);
+    addPort(m_AutoBalanceStabilizerServicePort);
 
     // </rtc-template>
     // <rtc-template block="bind_config">
@@ -502,32 +502,32 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 }
 
 
-RTC::ReturnCode_t AutoBalancer::onFinalize()
+RTC::ReturnCode_t AutoBalanceStabilizer::onFinalize()
 {
     return RTC::RTC_OK;
 }
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onStartup(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onStartup(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onShutdown(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onShutdown(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
-RTC::ReturnCode_t AutoBalancer::onActivated(RTC::UniqueId ec_id)
+RTC::ReturnCode_t AutoBalanceStabilizer::onActivated(RTC::UniqueId ec_id)
 {
     std::cerr << "[" << m_profile.instance_name<< "] onActivated(" << ec_id << ")" << std::endl;
     return RTC::RTC_OK;
 }
 
-RTC::ReturnCode_t AutoBalancer::onDeactivated(RTC::UniqueId ec_id)
+RTC::ReturnCode_t AutoBalanceStabilizer::onDeactivated(RTC::UniqueId ec_id)
 {
     std::cerr << "[" << m_profile.instance_name<< "] onDeactivated(" << ec_id << ")" << std::endl;
     Guard guard(m_mutex);
@@ -539,9 +539,9 @@ RTC::ReturnCode_t AutoBalancer::onDeactivated(RTC::UniqueId ec_id)
     return RTC::RTC_OK;
 }
 
-RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
+RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 {
-    // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
+    // std::cerr << "AutoBalanceStabilizer::onExecute(" << ec_id << ")" << std::endl;
     readInportData();
     loop++;
 
@@ -802,7 +802,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     return RTC::RTC_OK;
 }
 
-void AutoBalancer::readInportData()
+void AutoBalanceStabilizer::readInportData()
 {
     if (m_qCurrentIn.isNew()) m_qCurrentIn.read();
     if (m_rpyIn.isNew()) m_rpyIn.read();
@@ -854,7 +854,7 @@ void AutoBalancer::readInportData()
     }
 }
 
-void AutoBalancer::getTargetParameters()
+void AutoBalanceStabilizer::getTargetParameters()
 {
     // joint angles
     for (unsigned int i = 0; i < m_robot->numJoints(); i++) {
@@ -956,7 +956,7 @@ void AutoBalancer::getTargetParameters()
     if (gg_is_walking && !gg_solved) stopWalking();
 }
 
-void AutoBalancer::getOutputParametersForWalking ()
+void AutoBalanceStabilizer::getOutputParametersForWalking ()
 {
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
@@ -996,7 +996,7 @@ void AutoBalancer::getOutputParametersForWalking ()
     }
 }
 
-void AutoBalancer::getOutputParametersForABC ()
+void AutoBalanceStabilizer::getOutputParametersForABC ()
 {
     // double support by default
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
@@ -1024,7 +1024,7 @@ void AutoBalancer::getOutputParametersForABC ()
     }
 }
 
-void AutoBalancer::getOutputParametersForIDLE ()
+void AutoBalanceStabilizer::getOutputParametersForIDLE ()
 {
     // Set contactStates and controlSwingSupportTime
     if (m_optionalData.data.length() >= contact_states_index_map.size()*2) {
@@ -1049,7 +1049,7 @@ void AutoBalancer::getOutputParametersForIDLE ()
     }
 }
 
-void AutoBalancer::interpolateLegNamesAndZMPOffsets()
+void AutoBalanceStabilizer::interpolateLegNamesAndZMPOffsets()
 {
     if (!zmp_offset_interpolator->isEmpty()) {
         double *default_zmp_offsets_output = new double[ikp.size()*3]; // TODO: new doubleを消す
@@ -1072,7 +1072,7 @@ void AutoBalancer::interpolateLegNamesAndZMPOffsets()
     }
 }
 
-void AutoBalancer::calcFixCoordsForAdjustFootstep (coordinates& tmp_fix_coords)
+void AutoBalanceStabilizer::calcFixCoordsForAdjustFootstep (coordinates& tmp_fix_coords)
 {
     double tmp = 0.0;
     adjust_footstep_interpolator->get(&tmp, true);
@@ -1090,9 +1090,9 @@ void AutoBalancer::calcFixCoordsForAdjustFootstep (coordinates& tmp_fix_coords)
     //fix_leg_coords = tmp_fix_coords;
 }
 
-void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
+void AutoBalanceStabilizer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
 {
-    /* update ref_forces ;; StateHolder's absolute -> AutoBalancer's absolute */
+    /* update ref_forces ;; StateHolder's absolute -> AutoBalanceStabilizer's absolute */
     for (size_t i = 0; i < m_ref_forceIn.size(); i++) {
       // hrp::Matrix33 eeR;
       // hrp::Link* parentlink;
@@ -1111,7 +1111,7 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 }
 
-void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
+void AutoBalanceStabilizer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
 {
     // Move hand for hand fix mode
     //   If arms' ABCIKparam.is_active is true, move hands according to cog velocity.
@@ -1147,7 +1147,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     }
 }
 
-void AutoBalancer::calculateOutputRefForces ()
+void AutoBalanceStabilizer::calculateOutputRefForces ()
 {
     // TODO : need to be updated for multicontact and other walking
     if (leg_names.size() == 2) {
@@ -1172,7 +1172,7 @@ void AutoBalancer::calculateOutputRefForces ()
     prev_ref_zmp = ref_zmp;
 }
 
-hrp::Vector3 AutoBalancer::calcFootMidPosUsingZMPWeightMap ()
+hrp::Vector3 AutoBalanceStabilizer::calcFootMidPosUsingZMPWeightMap ()
 {
     hrp::Vector3 tmp_foot_mid_pos(hrp::Vector3::Zero());
     std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
@@ -1189,7 +1189,7 @@ hrp::Vector3 AutoBalancer::calcFootMidPosUsingZMPWeightMap ()
     return tmp_foot_mid_pos;
 }
 
-void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coords)
+void AutoBalanceStabilizer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coords)
 {
     // TODO : check frame and robot state for this calculation
     if ( gg_is_walking && gg->get_lcg_count() == gg->get_overwrite_check_timing()+2 ) {
@@ -1202,7 +1202,7 @@ void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coor
     // }
 }
 
-void AutoBalancer::calcReferenceJointAnglesForIK ()
+void AutoBalanceStabilizer::calcReferenceJointAnglesForIK ()
 {
     fik->overwrite_ref_ja_index_vec.clear();
     // Fix for toe joint
@@ -1218,7 +1218,7 @@ void AutoBalancer::calcReferenceJointAnglesForIK ()
 }
 
 // TODO: delete
-hrp::Matrix33 AutoBalancer::OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2)
+hrp::Matrix33 AutoBalanceStabilizer::OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2)
 {
     hrp::Vector3 vv = axis1.cross(axis2);
     if (fabs(vv.norm()-0.0) < 1e-5) {
@@ -1229,7 +1229,7 @@ hrp::Matrix33 AutoBalancer::OrientRotationMatrix (const hrp::Matrix33& rot, cons
     }
 }
 
-void AutoBalancer::fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot)
+void AutoBalanceStabilizer::fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot)
 {
     // get current foot mid pos + rot
     std::vector<coordinates> foot_coords;
@@ -1250,7 +1250,7 @@ void AutoBalancer::fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matri
 }
 
 // TODO: rename or delete
-void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
+void AutoBalanceStabilizer::fixLegToCoords2 (coordinates& tmp_fix_coords)
 {
     // Tempolarily modify tmp_fix_coords
     // This will be removed after seq outputs adequate waistRPY discussed in https://github.com/fkanehiro/hrpsys-base/issues/272
@@ -1270,7 +1270,7 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
-void AutoBalancer::solveFullbodyIK ()
+void AutoBalanceStabilizer::solveFullbodyIK ()
 {
     // Set ik target params
     fik->target_root_p = target_root_p;
@@ -1298,41 +1298,41 @@ void AutoBalancer::solveFullbodyIK ()
 
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onAborting(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onAborting(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onError(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onError(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onReset(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onReset(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onStateUpdate(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onStateUpdate(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
 /*
-  RTC::ReturnCode_t AutoBalancer::onRateChanged(RTC::UniqueId ec_id)
+  RTC::ReturnCode_t AutoBalanceStabilizer::onRateChanged(RTC::UniqueId ec_id)
   {
   return RTC::RTC_OK;
   }
 */
 
-void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence& limbs)
+void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
 {
     std::cerr << "[" << m_profile.instance_name << "] start auto balancer mode" << std::endl;
     Guard guard(m_mutex);
@@ -1355,7 +1355,7 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
     control_mode = MODE_SYNC_TO_ABC;
 }
 
-void AutoBalancer::stopABCparam()
+void AutoBalanceStabilizer::stopABCparam()
 {
     std::cerr << "[" << m_profile.instance_name << "] stop auto balancer mode" << std::endl;
     //Guard guard(m_mutex);
@@ -1367,7 +1367,7 @@ void AutoBalancer::stopABCparam()
     control_mode = MODE_SYNC_TO_IDLE;
 }
 
-bool AutoBalancer::startWalking ()
+bool AutoBalanceStabilizer::startWalking ()
 {
     if ( control_mode != MODE_ABC ) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
@@ -1401,7 +1401,7 @@ bool AutoBalancer::startWalking ()
     return true;
 }
 
-void AutoBalancer::stopWalking ()
+void AutoBalanceStabilizer::stopWalking ()
 {
   std::vector<coordinates> tmp_end_coords_list;
   for (std::vector<string>::iterator it = leg_names.begin(); it != leg_names.end(); it++) {
@@ -1413,7 +1413,7 @@ void AutoBalancer::stopWalking ()
   gg_is_walking = false;
 }
 
-bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSequence& limbs)
+bool AutoBalanceStabilizer::startAutoBalancer (const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
 {
   if (control_mode == MODE_IDLE) {
     fik->resetIKFailParam();
@@ -1425,7 +1425,7 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
   }
 }
 
-bool AutoBalancer::stopAutoBalancer ()
+bool AutoBalanceStabilizer::stopAutoBalancer ()
 {
   if (control_mode == MODE_ABC) {
     stopABCparam();
@@ -1436,33 +1436,33 @@ bool AutoBalancer::stopAutoBalancer ()
   }
 }
 
-void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param)
+void AutoBalanceStabilizer::getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param)
 {
     st->getStabilizerParam(i_param);
 }
 
-void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_param)
+void AutoBalanceStabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param)
 {
     st->setStabilizerParam(i_param);
 }
 
-void AutoBalancer::startStabilizer(void)
+void AutoBalanceStabilizer::startStabilizer(void)
 {
     st->startStabilizer();
 }
 
-void AutoBalancer::stopStabilizer(void)
+void AutoBalanceStabilizer::stopStabilizer(void)
 {
     st->stopStabilizer();
 }
 
-void AutoBalancer::waitABCTransition()
+void AutoBalanceStabilizer::waitABCTransition()
 {
     while (!transition_interpolator->isEmpty()) usleep(1000);
     usleep(1000);
 }
 
-bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
+bool AutoBalanceStabilizer::goPos(const double& x, const double& y, const double& th)
 {
     if (is_stop_mode) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos while stopping mode." << std::endl;
@@ -1492,7 +1492,7 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
     return ret;
 }
 
-bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& vth)
+bool AutoBalanceStabilizer::goVelocity(const double& vx, const double& vy, const double& vth)
 {
   gg->set_all_limbs(leg_names);
   bool ret = true;
@@ -1528,14 +1528,14 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
   return ret;
 }
 
-bool AutoBalancer::goStop ()
+bool AutoBalanceStabilizer::goStop ()
 {
   gg->finalize_velocity_mode();
   waitFootSteps();
   return true;
 }
 
-bool AutoBalancer::emergencyStop ()
+bool AutoBalanceStabilizer::emergencyStop ()
 {
   std::cerr << "[" << m_profile.instance_name << "] emergencyStop" << std::endl;
   // is_stop_mode = true;
@@ -1544,7 +1544,7 @@ bool AutoBalancer::emergencyStop ()
   return true;
 }
 
-bool AutoBalancer::releaseEmergencyStop ()
+bool AutoBalanceStabilizer::releaseEmergencyStop ()
 {
   if (is_stop_mode) {
       std::cerr << "[" << m_profile.instance_name << "] releaseEmergencyStop" << std::endl;
@@ -1553,9 +1553,9 @@ bool AutoBalancer::releaseEmergencyStop ()
   return true;
 }
 
-bool AutoBalancer::setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx)
+bool AutoBalanceStabilizer::setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx)
 {
-  OpenHRP::AutoBalancerService::StepParamsSequence spss;
+  OpenHRP::AutoBalanceStabilizerService::StepParamsSequence spss;
   spss.length(fss.length());
   // If gg_is_walking is false, initial footstep will be double support. So, set 0 for step_height and toe heel angles.
   // If gg_is_walking is true, do not set to 0.
@@ -1571,7 +1571,7 @@ bool AutoBalancer::setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSeq
   return setFootStepsWithParam(fss, spss, overwrite_fs_idx);
 }
 
-bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
+bool AutoBalanceStabilizer::setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
 {
     if (!is_stop_mode) {
         std::cerr << "[" << m_profile.instance_name << "] setFootStepsList" << std::endl;
@@ -1667,7 +1667,7 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
     }
 }
 
-void AutoBalancer::waitFootSteps()
+void AutoBalanceStabilizer::waitFootSteps()
 {
   //while (gg_is_walking) usleep(10);
   while (gg_is_walking || !transition_interpolator->isEmpty() )
@@ -1676,7 +1676,7 @@ void AutoBalancer::waitFootSteps()
   gg->set_offset_velocity_param(0,0,0);
 }
 
-void AutoBalancer::waitFootStepsEarly(const double tm)
+void AutoBalanceStabilizer::waitFootStepsEarly(const double tm)
 {
   if (!gg_is_walking) { return;}
   while ( !gg->is_finalizing(tm)|| !transition_interpolator->isEmpty() )
@@ -1685,7 +1685,7 @@ void AutoBalancer::waitFootStepsEarly(const double tm)
   gg->set_offset_velocity_param(0,0,0);
 }
 
-bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)
+bool AutoBalanceStabilizer::setGaitGeneratorParam(const OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param)
 {
   std::cerr << "[" << m_profile.instance_name << "] setGaitGeneratorParam" << std::endl;
   if (i_param.stride_parameter.length() == 4) { // Support old stride_parameter definitions
@@ -1716,19 +1716,19 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   // gg->set_default_double_support_ratio_swing_after(i_param.default_double_support_ratio_after);
   // gg->set_default_double_support_ratio_swing_before(i_param.default_double_support_ratio_swing_before);
   // gg->set_default_double_support_ratio_swing_after(i_param.default_double_support_ratio_swing_after);
-  if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::SHUFFLING) {
+  if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::SHUFFLING) {
     gg->set_default_orbit_type(SHUFFLING);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::CYCLOID) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::CYCLOID) {
     gg->set_default_orbit_type(CYCLOID);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::RECTANGLE) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::RECTANGLE) {
     gg->set_default_orbit_type(RECTANGLE);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::STAIR) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::STAIR) {
     gg->set_default_orbit_type(STAIR);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::CYCLOIDDELAY) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::CYCLOIDDELAY) {
     gg->set_default_orbit_type(CYCLOIDDELAY);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::CYCLOIDDELAYKICK) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::CYCLOIDDELAYKICK) {
     gg->set_default_orbit_type(CYCLOIDDELAYKICK);
-  } else if (i_param.default_orbit_type == OpenHRP::AutoBalancerService::CROSS) {
+  } else if (i_param.default_orbit_type == OpenHRP::AutoBalanceStabilizerService::CROSS) {
     gg->set_default_orbit_type(CROSS);
   }
   gg->set_swing_trajectory_delay_time_offset(i_param.swing_trajectory_delay_time_offset);
@@ -1762,9 +1762,9 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_modify_footsteps(i_param.modify_footsteps);
   gg->set_cp_check_margin(i_param.cp_check_margin);
   gg->set_margin_time_ratio(i_param.margin_time_ratio);
-  if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::SQUARE) {
+  if (i_param.stride_limitation_type == OpenHRP::AutoBalanceStabilizerService::SQUARE) {
     gg->set_stride_limitation_type(SQUARE);
-  } else if (i_param.stride_limitation_type == OpenHRP::AutoBalancerService::CIRCLE) {
+  } else if (i_param.stride_limitation_type == OpenHRP::AutoBalanceStabilizerService::CIRCLE) {
     gg->set_stride_limitation_type(CIRCLE);
   }
 
@@ -1773,7 +1773,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   return true;
 };
 
-bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)
+bool AutoBalanceStabilizer::getGaitGeneratorParam(OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param)
 {
   gg->get_stride_parameters(i_param.stride_parameter[0], i_param.stride_parameter[1], i_param.stride_parameter[2], i_param.stride_parameter[3], i_param.stride_parameter[4], i_param.stride_parameter[5]);
   std::vector<hrp::Vector3> off;
@@ -1796,19 +1796,19 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.default_double_support_ratio = i_param.default_double_support_ratio_before + i_param.default_double_support_ratio_after;
   i_param.default_double_support_static_ratio = i_param.default_double_support_static_ratio_before + i_param.default_double_support_static_ratio_after;
   if (gg->get_default_orbit_type() == SHUFFLING) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::SHUFFLING;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::SHUFFLING;
   } else if (gg->get_default_orbit_type() == CYCLOID) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::CYCLOID;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::CYCLOID;
   } else if (gg->get_default_orbit_type() == RECTANGLE) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::RECTANGLE;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::RECTANGLE;
   } else if (gg->get_default_orbit_type() == STAIR) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::STAIR;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::STAIR;
   } else if (gg->get_default_orbit_type() == CYCLOIDDELAY) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::CYCLOIDDELAY;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::CYCLOIDDELAY;
   } else if (gg->get_default_orbit_type() == CYCLOIDDELAYKICK) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::CYCLOIDDELAYKICK;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::CYCLOIDDELAYKICK;
   } else if (gg->get_default_orbit_type() == CROSS) {
-    i_param.default_orbit_type = OpenHRP::AutoBalancerService::CROSS;
+    i_param.default_orbit_type = OpenHRP::AutoBalanceStabilizerService::CROSS;
   }
 
   hrp::Vector3 tmpv = gg->get_stair_trajectory_way_point_offset();
@@ -1857,14 +1857,14 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   }
   i_param.margin_time_ratio = gg->get_margin_time_ratio();
   if (gg->get_stride_limitation_type() == SQUARE) {
-    i_param.stride_limitation_type = OpenHRP::AutoBalancerService::SQUARE;
+    i_param.stride_limitation_type = OpenHRP::AutoBalanceStabilizerService::SQUARE;
   } else if (gg->get_stride_limitation_type() == CIRCLE) {
-    i_param.stride_limitation_type = OpenHRP::AutoBalancerService::CIRCLE;
+    i_param.stride_limitation_type = OpenHRP::AutoBalanceStabilizerService::CIRCLE;
   }
   return true;
 };
 
-bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::AutoBalancerParam& i_param)
+bool AutoBalanceStabilizer::setAutoBalancerParam(const OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param)
 {
   Guard guard(m_mutex);
   std::cerr << "[" << m_profile.instance_name << "] setAutoBalancerParam" << std::endl;
@@ -1882,16 +1882,16 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   }
   if (control_mode == MODE_IDLE) {
     switch (i_param.use_force_mode) {
-    case OpenHRP::AutoBalancerService::MODE_NO_FORCE:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_NO_FORCE:
         use_force = MODE_NO_FORCE;
         break;
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE:
         use_force = MODE_REF_FORCE;
         break;
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE_WITH_FOOT:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_WITH_FOOT:
         use_force = MODE_REF_FORCE_WITH_FOOT;
         break;
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
         use_force = MODE_REF_FORCE_RFU_EXT_MOMENT;
         break;
     default:
@@ -1948,15 +1948,15 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   } else {
       std::cerr << "[" << m_profile.instance_name << "] cannot change end-effectors except during MODE_IDLE" << std::endl;
   }
-  if (i_param.default_gait_type == OpenHRP::AutoBalancerService::BIPED) {
+  if (i_param.default_gait_type == OpenHRP::AutoBalanceStabilizerService::BIPED) {
       gait_type = BIPED;
-  } else if (i_param.default_gait_type == OpenHRP::AutoBalancerService::TROT) {
+  } else if (i_param.default_gait_type == OpenHRP::AutoBalanceStabilizerService::TROT) {
       gait_type = TROT;
-  } else if (i_param.default_gait_type == OpenHRP::AutoBalancerService::PACE) {
+  } else if (i_param.default_gait_type == OpenHRP::AutoBalanceStabilizerService::PACE) {
       gait_type = PACE;
-  } else if (i_param.default_gait_type == OpenHRP::AutoBalancerService::CRAWL) {
+  } else if (i_param.default_gait_type == OpenHRP::AutoBalanceStabilizerService::CRAWL) {
       gait_type = CRAWL;
-  } else if (i_param.default_gait_type == OpenHRP::AutoBalancerService::GALLOP) {
+  } else if (i_param.default_gait_type == OpenHRP::AutoBalanceStabilizerService::GALLOP) {
       gait_type = GALLOP;
   }
   // Ref force balancing
@@ -2013,7 +2013,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   return true;
 };
 
-bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalancerParam& i_param)
+bool AutoBalanceStabilizer::getAutoBalancerParam(OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param)
 {
   i_param.default_zmp_offsets.length(ikp.size());
   for (size_t i = 0; i < ikp.size(); i++) {
@@ -2023,17 +2023,17 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       }
   }
   switch(control_mode) {
-  case MODE_IDLE: i_param.controller_mode = OpenHRP::AutoBalancerService::MODE_IDLE; break;
-  case MODE_ABC: i_param.controller_mode = OpenHRP::AutoBalancerService::MODE_ABC; break;
-  case MODE_SYNC_TO_IDLE: i_param.controller_mode = OpenHRP::AutoBalancerService::MODE_SYNC_TO_IDLE; break;
-  case MODE_SYNC_TO_ABC: i_param.controller_mode = OpenHRP::AutoBalancerService::MODE_SYNC_TO_ABC; break;
+  case MODE_IDLE: i_param.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_IDLE; break;
+  case MODE_ABC: i_param.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_ABC; break;
+  case MODE_SYNC_TO_IDLE: i_param.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_SYNC_TO_IDLE; break;
+  case MODE_SYNC_TO_ABC: i_param.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_SYNC_TO_ABC; break;
   default: break;
   }
   switch(use_force) {
-  case MODE_NO_FORCE: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_NO_FORCE; break;
-  case MODE_REF_FORCE: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE; break;
-  case MODE_REF_FORCE_WITH_FOOT: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE_WITH_FOOT; break;
-  case MODE_REF_FORCE_RFU_EXT_MOMENT: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT; break;
+  case MODE_NO_FORCE: i_param.use_force_mode = OpenHRP::AutoBalanceStabilizerService::MODE_NO_FORCE; break;
+  case MODE_REF_FORCE: i_param.use_force_mode = OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE; break;
+  case MODE_REF_FORCE_WITH_FOOT: i_param.use_force_mode = OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_WITH_FOOT; break;
+  case MODE_REF_FORCE_RFU_EXT_MOMENT: i_param.use_force_mode = OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_RFU_EXT_MOMENT; break;
   default: break;
   }
   i_param.graspless_manip_mode = graspless_manip_mode;
@@ -2064,11 +2064,11 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
       }
   }
   switch(gait_type) {
-  case BIPED:  i_param.default_gait_type = OpenHRP::AutoBalancerService::BIPED;  break;
-  case TROT:   i_param.default_gait_type = OpenHRP::AutoBalancerService::TROT;   break;
-  case PACE:   i_param.default_gait_type = OpenHRP::AutoBalancerService::PACE;   break;
-  case CRAWL:  i_param.default_gait_type = OpenHRP::AutoBalancerService::CRAWL;  break;
-  case GALLOP: i_param.default_gait_type = OpenHRP::AutoBalancerService::GALLOP; break;
+  case BIPED:  i_param.default_gait_type = OpenHRP::AutoBalanceStabilizerService::BIPED;  break;
+  case TROT:   i_param.default_gait_type = OpenHRP::AutoBalanceStabilizerService::TROT;   break;
+  case PACE:   i_param.default_gait_type = OpenHRP::AutoBalanceStabilizerService::PACE;   break;
+  case CRAWL:  i_param.default_gait_type = OpenHRP::AutoBalanceStabilizerService::CRAWL;  break;
+  case GALLOP: i_param.default_gait_type = OpenHRP::AutoBalanceStabilizerService::GALLOP; break;
   default: break;
   }
   // FIK
@@ -2094,7 +2094,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   return true;
 };
 
-void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs)
+void AutoBalanceStabilizer::copyRatscoords2Footstep(OpenHRP::AutoBalanceStabilizerService::Footstep& out_fs, const rats::coordinates& in_fs)
 {
   memcpy(out_fs.pos, in_fs.pos.data(), sizeof(double)*3);
   Eigen::Quaternion<double> qt(in_fs.rot);
@@ -2104,7 +2104,7 @@ void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footste
   out_fs.rot[3] = qt.z();
 };
 
-bool AutoBalancer::getFootstepParam(OpenHRP::AutoBalancerService::FootstepParam& i_param)
+bool AutoBalanceStabilizer::getFootstepParam(OpenHRP::AutoBalanceStabilizerService::FootstepParam& i_param)
 {
   copyRatscoords2Footstep(i_param.support_leg_coords, gg->get_support_leg_steps().front().worldcoords);
   copyRatscoords2Footstep(i_param.swing_leg_coords, gg->get_swing_leg_steps().front().worldcoords);
@@ -2112,20 +2112,20 @@ bool AutoBalancer::getFootstepParam(OpenHRP::AutoBalancerService::FootstepParam&
   copyRatscoords2Footstep(i_param.swing_leg_dst_coords, gg->get_swing_leg_dst_steps().front().worldcoords);
   copyRatscoords2Footstep(i_param.dst_foot_midcoords, gg->get_dst_foot_midcoords());
   if (gg->get_support_leg_names().front() == "rleg") {
-    i_param.support_leg = OpenHRP::AutoBalancerService::RLEG;
+    i_param.support_leg = OpenHRP::AutoBalanceStabilizerService::RLEG;
   } else {
-    i_param.support_leg = OpenHRP::AutoBalancerService::LLEG;
+    i_param.support_leg = OpenHRP::AutoBalanceStabilizerService::LLEG;
   }
   switch ( gg->get_current_support_states().front() ) {
-  case BOTH: i_param.support_leg_with_both = OpenHRP::AutoBalancerService::BOTH; break;
-  case RLEG: i_param.support_leg_with_both = OpenHRP::AutoBalancerService::RLEG; break;
-  case LLEG: i_param.support_leg_with_both = OpenHRP::AutoBalancerService::LLEG; break;
+  case BOTH: i_param.support_leg_with_both = OpenHRP::AutoBalanceStabilizerService::BOTH; break;
+  case RLEG: i_param.support_leg_with_both = OpenHRP::AutoBalanceStabilizerService::RLEG; break;
+  case LLEG: i_param.support_leg_with_both = OpenHRP::AutoBalanceStabilizerService::LLEG; break;
   default: break;
   }
   return true;
 };
 
-bool AutoBalancer::adjustFootSteps(const OpenHRP::AutoBalancerService::Footstep& rfootstep, const OpenHRP::AutoBalancerService::Footstep& lfootstep)
+bool AutoBalanceStabilizer::adjustFootSteps(const OpenHRP::AutoBalanceStabilizerService::Footstep& rfootstep, const OpenHRP::AutoBalanceStabilizerService::Footstep& lfootstep)
 {
   std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
             << "] adjustFootSteps" << std::endl;
@@ -2189,10 +2189,10 @@ bool AutoBalancer::adjustFootSteps(const OpenHRP::AutoBalancerService::Footstep&
   return true;
 };
 
-bool AutoBalancer::getRemainingFootstepSequence(OpenHRP::AutoBalancerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx)
+bool AutoBalanceStabilizer::getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx)
 {
     std::cerr << "[" << m_profile.instance_name << "] getRemainingFootstepSequence" << std::endl;
-    o_footstep = new OpenHRP::AutoBalancerService::FootstepSequence;
+    o_footstep = new OpenHRP::AutoBalanceStabilizerService::FootstepSequence;
     if (gg_is_walking) {
         std::vector< std::vector<step_node> > fsnl = gg->get_remaining_footstep_nodes_list();
         o_current_fs_idx = gg->get_footstep_index();
@@ -2205,10 +2205,10 @@ bool AutoBalancer::getRemainingFootstepSequence(OpenHRP::AutoBalancerService::Fo
     return true;
 };
 
-bool AutoBalancer::getGoPosFootstepsSequence(const double& x, const double& y, const double& th, OpenHRP::AutoBalancerService::FootstepsSequence_out o_footstep)
+bool AutoBalanceStabilizer::getGoPosFootstepsSequence(const double& x, const double& y, const double& th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep)
 {
     std::cerr << "[" << m_profile.instance_name << "] getGoPosFootstepsSequence" << std::endl;
-    o_footstep = new OpenHRP::AutoBalancerService::FootstepsSequence;
+    o_footstep = new OpenHRP::AutoBalanceStabilizerService::FootstepsSequence;
     if (gg_is_walking) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot call getGoPosFootstepsSequence in walking" << std::endl;
         return false;
@@ -2240,7 +2240,7 @@ bool AutoBalancer::getGoPosFootstepsSequence(const double& x, const double& y, c
     }
 };
 
-void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height)
+void AutoBalanceStabilizer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height)
 {
     hrp::Vector3 target_sbp = hrp::Vector3(0, 0, 0);
     hrp::Vector3 tmpcog = m_robot->calcCM();
@@ -2253,7 +2253,7 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
     }
 };
 
-void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
+void AutoBalanceStabilizer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
     hrp::Vector3 denom, nume;
     /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
@@ -2311,7 +2311,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
 #define deg2rad(deg) (deg * M_PI / 180)
 #endif
 
-hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_coords)
+hrp::Vector3 AutoBalanceStabilizer::calc_vel_from_hand_error (const coordinates& tmp_fix_coords)
 {
     if (graspless_manip_mode) {
         hrp::Vector3 dp,dr;
@@ -2351,7 +2351,7 @@ hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_
     }
 }
 
-bool AutoBalancer::calc_inital_support_legs(const double& y, std::vector<coordinates>& initial_support_legs_coords, std::vector<leg_type>& initial_support_legs, coordinates& start_ref_coords)
+bool AutoBalanceStabilizer::calc_inital_support_legs(const double& y, std::vector<coordinates>& initial_support_legs_coords, std::vector<leg_type>& initial_support_legs, coordinates& start_ref_coords)
 {
     switch(gait_type) {
     case BIPED:
@@ -2402,7 +2402,7 @@ void calcWeightedLinearEquation(hrp::dvector& ret, const hrp::dmatrix& A, const 
     //ret = W2 * Aw.colPivHouseholderQr().solve(b);
 };
 
-void AutoBalancer::distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp)
+void AutoBalanceStabilizer::distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp)
 {
     // apply inverse system
     // TODO : fix 0.055 (zmp delay)
@@ -2502,16 +2502,16 @@ void AutoBalancer::distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zm
     }
 };
 
-std::string AutoBalancer::getUseForceModeString ()
+std::string AutoBalanceStabilizer::getUseForceModeString ()
 {
     switch (use_force) {
-    case OpenHRP::AutoBalancerService::MODE_NO_FORCE:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_NO_FORCE:
         return "MODE_NO_FORCE";
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE:
         return "MODE_REF_FORCE";
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE_WITH_FOOT:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_WITH_FOOT:
         return "MODE_REF_FORCE_WITH_FOOT";
-    case OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
+    case OpenHRP::AutoBalanceStabilizerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
         return "MODE_REF_FORCE_RFU_EXT_MOMENT";
     default:
         return "";
@@ -2521,11 +2521,11 @@ std::string AutoBalancer::getUseForceModeString ()
 //
 extern "C"
 {
-void AutoBalancerInit(RTC::Manager* manager)
+void AutoBalanceStabilizerInit(RTC::Manager* manager)
 {
-    RTC::Properties profile(autobalancer_spec);
+    RTC::Properties profile(autobalancestabilizer_spec);
     manager->registerFactory(profile,
-                             RTC::Create<AutoBalancer>,
-                             RTC::Delete<AutoBalancer>);
+                             RTC::Create<AutoBalanceStabilizer>,
+                             RTC::Delete<AutoBalanceStabilizer>);
 }
 };

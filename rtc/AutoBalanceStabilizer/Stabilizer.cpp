@@ -26,8 +26,8 @@ Stabilizer::Stabilizer(hrp::BodyPtr _robot, const std::string& _comp_name, const
       comp_name(_comp_name),
       dt(_dt),
       control_mode(MODE_IDLE),
-      st_algorithm(OpenHRP::AutoBalancerService::TPCC),
-      emergency_check_mode(OpenHRP::AutoBalancerService::NO_CHECK)
+      st_algorithm(OpenHRP::AutoBalanceStabilizerService::TPCC),
+      emergency_check_mode(OpenHRP::AutoBalanceStabilizerService::NO_CHECK)
 {
 }
 
@@ -241,7 +241,7 @@ void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
           if (transition_count == 0 && on_ground) sync_2_st();
           break;
       case MODE_ST:
-          if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+          if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
               calcEEForceMomentControl();
           } else {
               calcTPCC();
@@ -313,7 +313,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     m_robot->calcForwardKinematics();
 
     ref_zmp = target_root_R * abc_param.zmp_ref + target_root_p; // base frame -> world frame
-    if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         // apply inverse system
         const hrp::Vector3 modified_ref_zmp = ref_zmp + eefm_zmp_delay_time_const[0] * (ref_zmp - prev_ref_zmp) / dt;
         prev_ref_zmp = ref_zmp;
@@ -360,7 +360,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
                   << std::endl;
     }
 
-    if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         // Reference foot_origin frame =>
         // initialize for new_refzmp
         new_refzmp = ref_zmp;
@@ -398,7 +398,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         // <= Reference foot_origin frame
     } else {
         ref_cogvel = (ref_cog - prev_ref_cog) / dt;
-    } // st_algorithm == OpenHRP::AutoBalancerService::EEFM
+    } // st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM
 
     prev_ref_cog = ref_cog;
     // Calc swing support limb gain param
@@ -411,7 +411,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
     // Actual world frame =>
     hrp::Vector3 foot_origin_pos;
     hrp::Matrix33 foot_origin_rot;
-    if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         copyJointAnglesToRobotModel(m_robot, sensor_param.q_current);
 
         // tempolary
@@ -440,7 +440,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
     act_cog = m_robot->calcCM();
     // zmp
     on_ground = false;
-    if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         on_ground = calcZMP(act_zmp, zmp_origin_off + foot_origin_pos(2));
     } else {
         on_ground = calcZMP(act_zmp, ref_zmp(2));
@@ -455,7 +455,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
     // convert absolute (in st) -> root-link relative
     rel_act_zmp = m_robot->rootLink()->R.transpose() * (act_zmp - m_robot->rootLink()->p);
-    if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         // Actual foot_origin frame =>
         act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
         act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
@@ -581,28 +581,28 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
             }
 
             // Distribute ZMP into each EE force/moment at each COP
-            if (st_algorithm == OpenHRP::AutoBalancerService::EEFM) {
+            if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM) {
                 // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
                 szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
                                                  ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
                                                  new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                  eefm_gravitational_acceleration * total_mass, dt,
                                                  DEBUGP(loop), comp_name);
-            } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQP) {
+            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQP) {
                 szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
                                                    ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
                                                    new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                    eefm_gravitational_acceleration * total_mass, dt,
                                                    DEBUGP(loop), comp_name,
-                                                   (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP));
-            } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP) {
+                                                   (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP));
+            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP) {
                 szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
                                                               ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
                                                               new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                               eefm_gravitational_acceleration * total_mass, dt,
                                                               DEBUGP(loop), comp_name,
-                                                              (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP), is_contact_list);
-            } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP2) {
+                                                              (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP), is_contact_list);
+            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2) {
                 szd->distributeZMPToForceMomentsPseudoInverse2(tmp_ref_force, tmp_ref_moment,
                                                                ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
                                                                new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
@@ -744,7 +744,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
             calcDiffFootOriginExtMoment();
         }
-    } // st_algorithm != OpenHRP::AutoBalancerService::TPCC
+    } // st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC
 
     copyJointAnglesToRobotModel(m_robot, qrefv);
     m_robot->rootLink()->p = target_root_p;
@@ -979,16 +979,16 @@ void Stabilizer::calcStateForEmergencySignal()
     // TODO: 組み合わせにする？ CP かつ TILTみたいな
     // Total check for emergency signal
     switch (emergency_check_mode) {
-      case OpenHRP::AutoBalancerService::NO_CHECK:
+      case OpenHRP::AutoBalanceStabilizerService::NO_CHECK:
           is_emergency = false;
           break;
-      case OpenHRP::AutoBalancerService::COP:
+      case OpenHRP::AutoBalanceStabilizerService::COP:
           is_emergency = calcIfCOPisOutside() && is_seq_interpolating;
           break;
-      case OpenHRP::AutoBalancerService::CP:
+      case OpenHRP::AutoBalanceStabilizerService::CP:
           is_emergency = calcIfCPisOutside();
           break;
-      case OpenHRP::AutoBalancerService::TILT:
+      case OpenHRP::AutoBalanceStabilizerService::TILT:
           is_emergency = calcFalling();
           break;
       default:
@@ -998,8 +998,8 @@ void Stabilizer::calcStateForEmergencySignal()
     // TODO: TILTがない
     if (DEBUGP(loop)) {
         std::cerr << "[" << comp_name << "] EmergencyCheck ("
-                  << (emergency_check_mode == OpenHRP::AutoBalancerService::NO_CHECK ? "NO_CHECK":
-                      (emergency_check_mode == OpenHRP::AutoBalancerService::COP ? "COP" :
+                  << (emergency_check_mode == OpenHRP::AutoBalanceStabilizerService::NO_CHECK ? "NO_CHECK":
+                      (emergency_check_mode == OpenHRP::AutoBalanceStabilizerService::COP ? "COP" :
                        "CP"))
                   << ") " << (is_emergency ? "emergency" : "non-emergency") << std::endl;
     }
@@ -1417,18 +1417,18 @@ void Stabilizer::stopStabilizer()
     std::cerr << "[" << comp_name << "] " << "Stop ST DONE"  << std::endl;
 }
 
-std::string Stabilizer::getStabilizerAlgorithmString(OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm)
+std::string Stabilizer::getStabilizerAlgorithmString(OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm)
 {
     switch (_st_algorithm) {
-    case OpenHRP::AutoBalancerService::TPCC:
+    case OpenHRP::AutoBalanceStabilizerService::TPCC:
         return "TPCC";
-    case OpenHRP::AutoBalancerService::EEFM:
+    case OpenHRP::AutoBalanceStabilizerService::EEFM:
         return "EEFM";
-    case OpenHRP::AutoBalancerService::EEFMQP:
+    case OpenHRP::AutoBalanceStabilizerService::EEFMQP:
         return "EEFMQP";
-    case OpenHRP::AutoBalancerService::EEFMQPCOP:
+    case OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP:
         return "EEFMQPCOP";
-    case OpenHRP::AutoBalancerService::EEFMQPCOP2:
+    case OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2:
         return "EEFMQPCOP2";
     default:
         return "";
@@ -1436,7 +1436,7 @@ std::string Stabilizer::getStabilizerAlgorithmString(OpenHRP::AutoBalancerServic
 }
 
 void Stabilizer::setBoolSequenceParam(std::vector<bool>& st_bool_values,
-                                      const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values,
+                                      const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values,
                                       const std::string& prop_name)
 {
     const std::vector<bool> prev_values(st_bool_values);
@@ -1472,7 +1472,7 @@ void Stabilizer::setBoolSequenceParam(std::vector<bool>& st_bool_values,
 
 // TODO: 上のを合わせられない?
 void Stabilizer::setBoolSequenceParamWithCheckContact(std::vector<bool>& st_bool_values,
-                                                      const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values,
+                                                      const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values,
                                                       const std::string& prop_name)
 {
     std::vector<bool> prev_values(st_bool_values);
@@ -1532,7 +1532,7 @@ void Stabilizer::waitSTTransition()
     usleep(10);
 }
 
-void Stabilizer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_stp)
+void Stabilizer::getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp)
 {
     std::cerr << "[" << comp_name << "] getStabilizerParam" << std::endl;
 
@@ -1674,11 +1674,11 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPara
     i_stp.contact_decision_threshold = contact_decision_threshold;
     i_stp.is_estop_while_walking = is_estop_while_walking;
     switch(control_mode) {
-      case MODE_IDLE: i_stp.controller_mode = OpenHRP::AutoBalancerService::MODE_IDLE; break;
-      case MODE_AIR: i_stp.controller_mode = OpenHRP::AutoBalancerService::MODE_AIR; break;
-      case MODE_ST: i_stp.controller_mode = OpenHRP::AutoBalancerService::MODE_ST; break;
-      case MODE_SYNC_TO_IDLE: i_stp.controller_mode = OpenHRP::AutoBalancerService::MODE_SYNC_TO_IDLE; break;
-      case MODE_SYNC_TO_AIR: i_stp.controller_mode = OpenHRP::AutoBalancerService::MODE_SYNC_TO_AIR; break;
+      case MODE_IDLE: i_stp.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_IDLE; break;
+      case MODE_AIR: i_stp.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_AIR; break;
+      case MODE_ST: i_stp.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_ST; break;
+      case MODE_SYNC_TO_IDLE: i_stp.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_SYNC_TO_IDLE; break;
+      case MODE_SYNC_TO_AIR: i_stp.controller_mode = OpenHRP::AutoBalanceStabilizerService::MODE_SYNC_TO_AIR; break;
       default: break;
     }
     i_stp.emergency_check_mode = emergency_check_mode;
@@ -1694,7 +1694,7 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPara
     }
     for (size_t i = 0; i < stikp_size; i++) {
         const rats::coordinates cur_ee = rats::coordinates(stikp.at(i).localp, stikp.at(i).localR);
-        OpenHRP::AutoBalancerService::Footstep ret_ee;
+        OpenHRP::AutoBalanceStabilizerService::Footstep ret_ee;
         // position
         memcpy(ret_ee.pos, cur_ee.pos.data(), sizeof(double)*3);
         // rotation
@@ -1711,7 +1711,7 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPara
     }
     i_stp.ik_limb_parameters.length(jpe_v.size());
     for (size_t i = 0; i < jpe_v.size(); i++) {
-        OpenHRP::AutoBalancerService::IKLimbParameters& ilp = i_stp.ik_limb_parameters[i];
+        OpenHRP::AutoBalanceStabilizerService::IKLimbParameters& ilp = i_stp.ik_limb_parameters[i];
         ilp.ik_optional_weight_vector.length(jpe_v[i]->numJoints());
         std::vector<double> ov;
         ov.resize(jpe_v[i]->numJoints());
@@ -1727,7 +1727,7 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPara
     }
 }
 
-void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_stp)
+void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp)
 {
     std::cerr << "[" << comp_name << "] setStabilizerParam" << std::endl;
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -1958,7 +1958,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabiliz
     } else {
         std::cerr << "[" << comp_name << "]   st_algorithm cannot be changed to [" << getStabilizerAlgorithmString(st_algorithm) << "] during MODE_AIR or MODE_ST." << std::endl;
     }
-    std::cerr << "[" << comp_name << "]   emergency_check_mode changed to [" << (emergency_check_mode == OpenHRP::AutoBalancerService::NO_CHECK?"NO_CHECK": (emergency_check_mode == OpenHRP::AutoBalancerService::COP?"COP":"CP") ) << "]" << std::endl;
+    std::cerr << "[" << comp_name << "]   emergency_check_mode changed to [" << (emergency_check_mode == OpenHRP::AutoBalanceStabilizerService::NO_CHECK?"NO_CHECK": (emergency_check_mode == OpenHRP::AutoBalanceStabilizerService::COP?"COP":"CP") ) << "]" << std::endl;
     std::cerr << "[" << comp_name << "]   transition_time = " << transition_time << "[s]" << std::endl;
     std::cerr << "[" << comp_name << "]   cop_check_margin = " << cop_check_margin << "[m], "
               << "cp_check_margin = [" << cp_check_margin[0] << ", " << cp_check_margin[1] << ", " << cp_check_margin[2] << ", " << cp_check_margin[3] << "] [m], "
@@ -1978,7 +1978,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabiliz
         }
         if (is_ik_limb_parameter_valid_length) {
             for (size_t i = 0; i < jpe_v.size(); i++) {
-                const OpenHRP::AutoBalancerService::IKLimbParameters& ilp = i_stp.ik_limb_parameters[i];
+                const OpenHRP::AutoBalanceStabilizerService::IKLimbParameters& ilp = i_stp.ik_limb_parameters[i];
                 std::vector<double> ov;
                 ov.resize(jpe_v[i]->numJoints());
                 for (size_t j = 0; j < jpe_v[i]->numJoints(); j++) {

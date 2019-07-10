@@ -1,6 +1,6 @@
 // -*- C++ -*-
 /*!
- * @file AutoBalancerComp.cpp
+ * @file AutoBalanceStabilizerComp.cpp
  * @brief Standalone component
  * @date $Date$
  *
@@ -10,16 +10,16 @@
 #include <rtm/Manager.h>
 #include <iostream>
 #include <string>
-#include "AutoBalancer.h"
+#include "AutoBalanceStabilizer.h"
 
 
 void MyModuleInit(RTC::Manager* manager)
 {
-  AutoBalancerInit(manager);
+  AutoBalanceStabilizerInit(manager);
   RTC::RtcBase* comp;
 
   // Create a component
-  comp = manager->createComponent("AutoBalancer");
+  comp = manager->createComponent("AutoBalanceStabilizer");
 
 
   // Example

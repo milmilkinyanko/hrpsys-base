@@ -16,7 +16,7 @@
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
-#include "hrpsys/idl/AutoBalancerService.hh"
+#include "hrpsys/idl/AutoBalanceStabilizerService.hh"
 #include "TwoDofController.h"
 #include "ZMPDistributor.h"
 
@@ -71,11 +71,11 @@ class Stabilizer
     void calcTPCC();
     void calcEEForceMomentControl();
     void calcSwingEEModification ();
-    void getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_stp);
-    void setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_stp);
-    void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
-    void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalancerService::BoolSequence& output_bool_values, const std::string& prop_name);
-    std::string getStabilizerAlgorithmString (OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm);
+    void getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
+    void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
+    void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
+    void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
+    std::string getStabilizerAlgorithmString (OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm);
     void waitSTTransition();
     // funcitons for calc final torque output
     void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
@@ -98,7 +98,7 @@ class Stabilizer
     {
         return (transition_time / dt);
     }
-    // TODO: tmporarary function: delete this function after merging autobalancer IK and stabilizer IK
+    // TODO: tmporarary function: delete this function after merging autobalancestabilizer IK and stabilizer IK
     void addSTIKParam(const std::string& ee_name, const std::string& target_name,
                       const std::string& ee_base, const std::string& sensor_name,
                       const hrp::Vector3& localp, const hrp::Matrix33& localR)
@@ -213,7 +213,7 @@ class Stabilizer
     std::vector<double> prev_act_force_z;
     double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
     std::unique_ptr<FirstOrderLowPassFilter<hrp::Vector3>> act_cogvel_filter;
-    OpenHRP::AutoBalancerService::STAlgorithm st_algorithm;
+    OpenHRP::AutoBalanceStabilizerService::STAlgorithm st_algorithm;
     std::unique_ptr<SimpleZMPDistributor> szd;
     std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
     std::vector<hrp::Vector3> contact_cop_info;
@@ -244,7 +244,7 @@ class Stabilizer
     hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
     double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
     std::vector<double> cp_check_margin, tilt_margin;
-    OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
+    OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode;
 };
 
 #endif // ABS_STABILIZER_H
