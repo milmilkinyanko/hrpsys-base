@@ -1381,7 +1381,7 @@ namespace rats
             && d_footstep.norm() > 1e-2
             ) {
           leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
-          footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
+          footstep_nodes_list.push_back(boost::assign::list_of(step_node(cur_leg==RLEG?LLEG:RLEG, footstep_nodes_list[lcg.get_footstep_index()+1].front().worldcoords, lcg.get_default_step_height(), default_step_time, 0, 0)));
         }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
