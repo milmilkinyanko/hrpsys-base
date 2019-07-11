@@ -268,6 +268,11 @@ class HrpsysConfigurator(object):
     octd_svc = None
     octd_version = None
 
+    # AutoBalanceStabilizer
+    abst = None
+    abst_svc = None
+    abst_version = None
+
     # rtm manager
     ms = None
 
@@ -329,6 +334,8 @@ class HrpsysConfigurator(object):
             self.kinematics_only_mode = True
             if self.abc:
                 connectPorts(self.abc.port("basePoseOut"), self.rh.port("basePoseRef"))
+            elif self.abst:
+                connectPorts(self.abst.port("basePoseOut"), self.rh.port("basePoseRef"))
             else:
                 connectPorts(self.sh.port("basePoseOut"), self.rh.port("basePoseRef"))
 
@@ -410,6 +417,23 @@ class HrpsysConfigurator(object):
             if self.octd:
                 connectPorts(self.abc.port("contactStates"), self.octd.port("contactStates"))
 
+        # connection for AutoBalanceStabilizer
+        if rtm.findPort(self.rh.ref, "lfsensor") and \
+           rtm.findPort(self.rh.ref, "rfsensor") and self.abst:
+            connectPorts(self.sh.port("basePosOut"), self.abst.port("basePosIn"))
+            connectPorts(self.sh.port("baseRpyOut"), self.abst.port("baseRpyIn"))
+            connectPorts(self.sh.port("zmpOut"), self.abst.port("refZmpIn"))
+            connectPorts(self.sh.port("optionalDataOut"), self.abst.port("optionalData"))
+            connectPorts(self.rh.port("q"), self.abst.port("qCurrent"))
+            connectPorts(self.kf.port("rpy"), self.abst.port("rpy"))
+            connectPorts(self.abst.port("accRef"), self.kf.port("accRef"))
+            if self.es:
+                connectPorts(self.abst.port("emergencySignal"), self.es.port("emergencySignal"))
+            if self.rfu:
+                connectPorts(self.abst.port("diffFootOriginExtMoment"), self.rfu.port("diffFootOriginExtMoment"))
+                connectPorts(self.rfu.port("refFootOriginExtMoment"), self.abst.port("refFootOriginExtMoment"))
+                connectPorts(self.rfu.port("refFootOriginExtMomentIsHoldValue"), self.abst.port("refFootOriginExtMomentIsHoldValue"))
+
         # ref force moment connection
         for sen in self.getForceSensorNames():
             if self.abc and self.st:
@@ -429,6 +453,9 @@ class HrpsysConfigurator(object):
             if self.abc:
                 connectPorts(ref_force_port_from,
                              self.abc.port("ref_" + sen))
+            if self.abst:
+                connectPorts(ref_force_port_from,
+                             self.abst.port("ref_" + sen))
             if self.es:
                 connectPorts(self.sh.port(sen+"Out"),
                              self.es.port(sen+"In"))
@@ -457,6 +484,9 @@ class HrpsysConfigurator(object):
                 if self.st:
                     connectPorts(self.rmfo.port("off_" + sen.name),
                                  self.st.port(sen.name))
+                if self.abst:
+                    connectPorts(self.rmfo.port("off_" + sen.name),
+                                 self.abst.port(sen.name))
         elif self.ic: # if the robot does not have rmfo and kf, but have ic
             for sen in filter(lambda x: x.type == "Force", self.sensors):
                 connectPorts(self.rh.port(sen.name),
@@ -572,6 +602,8 @@ class HrpsysConfigurator(object):
                 connectPorts(self.kf.port("rpy"), self.acf.port("rpyIn"))
             if self.abc:
                 connectPorts(self.abc.port("basePosOut"), self.acf.port("posIn"))
+            if self.abst:
+                connectPorts(self.abst.port("basePosOut"), self.acf.port("posIn"))
 
     def activateComps(self):
         '''!@brief
@@ -752,6 +784,7 @@ class HrpsysConfigurator(object):
             ['ic', "ImpedanceController"],
             ['abc', "AutoBalancer"],
             ['st', "Stabilizer"],
+            ['abst', "AutoBalanceStabilizer"],
             ['co', "CollisionDetector"],
             ['tc', "TorqueController"],
             ['te', "ThermoEstimator"],
@@ -767,7 +800,7 @@ class HrpsysConfigurator(object):
         '''!@brief
         Get list of controller list that need to control joint angles
         '''
-        controller_list = [self.es, self.ic, self.gc, self.abc, self.st, self.co,
+        controller_list = [self.es, self.ic, self.gc, self.abc, self.st, self.abst, self.co,
                            self.tc, self.hes, self.el]
         return filter(lambda c: c != None, controller_list)  # only return existing controllers
 
@@ -923,6 +956,18 @@ class HrpsysConfigurator(object):
                 self.connectLoggerPort(self.rfu, "ref_"+sen.name+"Out")
         if self.octd != None:
             self.connectLoggerPort(self.octd, "octdData")
+        if self.abst != None:
+            self.connectLoggerPort(self.abst, 'q')
+            self.connectLoggerPort(self.abst, 'refZmpOut')
+            self.connectLoggerPort(self.abst, 'refCogOut')
+            self.connectLoggerPort(self.abst, 'baseTformOut')
+            self.connectLoggerPort(self.abst, 'controlSwingSupportTime')
+            self.connectLoggerPort(self.abst, 'originNewRefZmp')
+            self.connectLoggerPort(self.abst, 'refContactStates')
+            self.connectLoggerPort(self.abst, 'actContactStates')
+            self.connectLoggerPort(self.abst, 'footOriginRefCog')
+            self.connectLoggerPort(self.abst, 'footOriginActCog')
+
         self.log_svc.clear()
         ## parallel running log process (outside from rtcd) for saving logs by emergency signal
         if self.log and (self.log_use_owned_ec or not isinstance(self.log.owned_ecs[0], OpenRTM._objref_ExtTrigExecutionContextService)):

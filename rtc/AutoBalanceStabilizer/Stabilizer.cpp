@@ -144,7 +144,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
     total_mass = m_robot->totalMass();
     ref_zmp_aux = hrp::Vector3::Zero();
 
-    controlSwingSupportTime.resize(ee_num, 1.0);
+    control_swing_support_time.resize(ee_num, 1.0);
     for (size_t i = 0; i < ee_num; i++) {
         target_ee_p.push_back(hrp::Vector3::Zero());
         target_ee_R.push_back(hrp::Matrix33::Identity());
@@ -266,13 +266,13 @@ void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
 
 void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
 {
-    // Ref: qRef, zmpRef, baseRpy, basePos, controlSwingSupportTime, ref_wrenches
+    // Ref: qRef, zmpRef, baseRpy, basePos, control_swing_support_time, ref_wrenches
     // m_COPInfo ?
     // Act: rpy, wrenches,
 
     ref_contact_states = abc_param.ref_contact_states;
     toe_heel_ratio = abc_param.toe_heel_ratio;
-    controlSwingSupportTime = abc_param.controlSwingSupportTime;
+    control_swing_support_time = abc_param.control_swing_support_time;
     is_walking = abc_param.is_walking;
     sbp_cog_offset = abc_param.sbp_cog_offset;
 
@@ -711,9 +711,9 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                     } else {
                         double remain_swing_time;
                         if ( !ref_contact_states[contact_states_index_map["rleg"]] ) { // rleg swing
-                            remain_swing_time = controlSwingSupportTime[contact_states_index_map["rleg"]];
+                            remain_swing_time = control_swing_support_time[contact_states_index_map["rleg"]];
                         } else { // lleg swing
-                            remain_swing_time = controlSwingSupportTime[contact_states_index_map["lleg"]];
+                            remain_swing_time = control_swing_support_time[contact_states_index_map["lleg"]];
                         }
                         const double swing_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time - eefm_pos_margin_time) / eefm_pos_transition_time)); // 0=>1
                         // Temporarily use first pos damping gain (stikp[0])
@@ -937,7 +937,7 @@ bool Stabilizer::calcFalling() // TODO: rename
                     if (m_will_fall_counter[i] % static_cast <int>(1.0/dt) == 0 ) { // once per 1.0[s]
                         std::cerr << "[" << comp_name << "] ["
                                   << "] " << stikp[i].ee_name << " cannot support total weight, "
-                                  << "swgsuptime : " << controlSwingSupportTime[i] << ", state : " << ref_contact_states[i]
+                                  << "swgsuptime : " << control_swing_support_time[i] << ", state : " << ref_contact_states[i]
                                   << ", otherwise robot will fall down toward " << "(" << projected_normal.at(i)(0) << "," << projected_normal.at(i)(1) << ") direction" << std::endl;
                     }
                     m_will_fall_counter[i]++;
@@ -1004,6 +1004,13 @@ void Stabilizer::calcStateForEmergencySignal()
                   << ") " << (is_emergency ? "emergency" : "non-emergency") << std::endl;
     }
 
+    if (reset_emergency_flag) {
+        emergency_signal = 0;
+        reset_emergency_flag = false;
+    } else if (is_emergency) {
+        emergency_signal = 1;
+    }
+
     rel_ee_pos.clear();
     rel_ee_rot.clear();
     rel_ee_name.clear();
@@ -1054,7 +1061,7 @@ void Stabilizer::calcSwingSupportLimbGain ()
             // ikp.support_time += dt;
             // ikp.support_time = std::min(3600.0, ikp.support_time);
             if (ikp.support_time > eefm_pos_transition_time) {
-                ikp.swing_support_gain = (controlSwingSupportTime[i] / eefm_pos_transition_time);
+                ikp.swing_support_gain = (control_swing_support_time[i] / eefm_pos_transition_time);
             } else {
                 ikp.swing_support_gain = (ikp.support_time / eefm_pos_transition_time);
             }
@@ -1075,7 +1082,7 @@ void Stabilizer::calcSwingSupportLimbGain ()
         for (size_t i = 0; i < stikp_size; i++) std::cerr << ref_contact_states[i] << " ";
 
         std::cerr << "], sstime = [";
-        for (size_t i = 0; i < stikp_size; i++) std::cerr << controlSwingSupportTime[i] << " ";
+        for (size_t i = 0; i < stikp_size; i++) std::cerr << control_swing_support_time[i] << " ";
 
         std::cerr << "], toe_heel_ratio = [";
         for (size_t i = 0; i < stikp_size; i++) std::cerr << toe_heel_ratio[i] << " ";

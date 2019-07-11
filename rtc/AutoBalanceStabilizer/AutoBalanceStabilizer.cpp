@@ -57,59 +57,32 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       // <rtc-template block="initializer">
       m_qCurrentIn("qCurrent", m_qCurrent),
-      m_rpyIn("rpy", m_rpy), // from KF
       m_qRefIn("qRef", m_qRef),
+      m_rpyIn("rpy", m_rpy), // from KF
       m_basePosIn("basePosIn", m_basePos),
       m_baseRpyIn("baseRpyIn", m_baseRpy),
-      m_zmpIn("zmpIn", m_zmp),
+      m_refZmpIn("refZmpIn", m_refZmp),
       m_optionalDataIn("optionalData", m_optionalData),
-      m_emergencySignalIn("emergencySignal", m_emergencySignal),
-      m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
-      m_actContactStatesIn("actContactStates", m_actContactStates),
 
-      // Stabi
-      // m_tauOut("tau", m_tau),
-      // m_zmpOut("zmp", m_zmp), // for stabi (act ZMP?) TODO: 要確認
-      // m_refCPOut("refCapturePoint", m_refCP),
-      // m_actCPOut("actCapturePoint", m_actCP),
-      // m_diffCPOut("diffCapturePoint", m_diffCP),
-      // m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
-      // m_actContactStatesOut("actContactStates", m_actContactStates),
-      // m_COPInfoOut("COPInfo", m_COPInfo),
-      // m_emergencySignalOut("emergencySignal", m_emergencySignal), // いらない？
-      // Debug
-      // m_originRefZmpOut("originRefZmp", m_originRefZmp),
-      // m_originRefCogOut("originRefCog", m_originRefCog),
-      // m_originRefCogVelOut("originRefCogVel", m_originRefCogVel),
-      // m_originNewZmpOut("originNewZmp", m_originNewZmp),
-      // m_originActZmpOut("originActZmp", m_originActZmp),
-      // m_originActCogOut("originActCog", m_originActCog),
-      // m_originActCogVelOut("originActCogVel", m_originActCogVel),
-      // m_actBaseRpyOut("actBaseRpy", m_actBaseRpy),
-      // m_currentBasePosOut("currentBasePos", m_currentBasePos),
-      // m_currentBaseRpyOut("currentBaseRpy", m_currentBaseRpy),
-      // m_allRefWrenchOut("allRefWrench", m_allRefWrench),
-      // m_allEECompOut("allEEComp", m_allEEComp),
-      // m_debugDataOut("debugData", m_debugData),
-      // Stabi
       m_qOut("q", m_qRef),
-      m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
       m_baseRpyOut("baseRpyOut", m_baseRpy),
-      m_baseTformOut("baseTformOut", m_baseTform),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
-      m_contactStatesOut("contactStates", m_contactStates),
-      m_toeheelRatioOut("toeheelRatio", m_toeheelRatio),
+      m_emergencySignalOut("emergencySignal", m_emergencySignal),
+
+      // Out port for debugging
+      m_refZmpOut("refZmpOut", m_refZmp),
+      m_baseTformOut("baseTformOut", m_baseTform),
+      m_refCogOut("refCogOut", m_refCog),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
-      m_walkingStatesOut("walkingStates", m_walkingStates),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
-      m_cogOut("cogOut", m_cog),
       m_originNewRefZmpOut("originNewRefZmp", m_originNewRefZmp),
       m_footOriginRefCogOut("footOriginRefCog", m_footOriginRefCog),
       m_footOriginActCogOut("footOriginActCog", m_footOriginActCog),
+      m_refContactStatesOut("refContactStates", m_refContactStates),
       m_actContactStatesOut("actContactStates", m_actContactStates),
 
       m_AutoBalanceStabilizerServicePort("AutoBalanceStabilizerService"),
@@ -149,36 +122,34 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     // <rtc-template block="registration">
     // Set InPort buffers
     addInPort("qCurrent", m_qCurrentIn);
-    addInPort("rpy", m_rpyIn);
     addInPort("qRef", m_qRefIn);
+    addInPort("rpy", m_rpyIn);
     addInPort("basePosIn", m_basePosIn);
     addInPort("baseRpyIn", m_baseRpyIn);
-    addInPort("zmpIn", m_zmpIn);
+    addInPort("refZmpIn", m_refZmpIn);
     addInPort("optionalData", m_optionalDataIn);
-    addInPort("emergencySignal", m_emergencySignalIn);
-    addInPort("diffCapturePoint", m_diffCPIn);
-    addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
     addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
-    addOutPort("zmpOut", m_zmpOut);
     addOutPort("basePosOut", m_basePosOut);
     addOutPort("baseRpyOut", m_baseRpyOut);
-    addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
-    addOutPort("contactStates", m_contactStatesOut);
-    addOutPort("toeheelRatio", m_toeheelRatioOut);
+    addOutPort("emergencySignal", m_emergencySignalOut);
+
+    // Out port for debugging
+    addOutPort("refZmpOut", m_refZmpOut);
+    addOutPort("baseTformOut", m_baseTformOut);
+    addOutPort("refCogOut", m_refCogOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
-    addOutPort("cogOut", m_cogOut);
+    addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("originNewRefZmp", m_originNewRefZmpOut);
     addOutPort("footOriginRefCog", m_footOriginRefCogOut);
     addOutPort("footOriginActCog", m_footOriginActCogOut);
+    addOutPort("refContactStates", m_refContactStatesOut);
     addOutPort("actContactStates", m_actContactStatesOut);
-    addOutPort("walkingStates", m_walkingStatesOut);
-    addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
 
     // Set service provider to Ports
     m_AutoBalanceStabilizerServicePort.registerProvider("service0", "AutoBalanceStabilizerService", m_service0);
@@ -317,25 +288,24 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
             contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
         }
 
-        m_contactStates.data.length(ee_num);
+        m_refContactStates.data.length(ee_num);
         if (ikp.find("rleg") != ikp.end() && ikp.find("lleg") != ikp.end()) {
-            m_contactStates.data[contact_states_index_map["rleg"]] = true;
-            m_contactStates.data[contact_states_index_map["lleg"]] = true;
+            m_refContactStates.data[contact_states_index_map["rleg"]] = true;
+            m_refContactStates.data[contact_states_index_map["lleg"]] = true;
         }
         if (ikp.find("rarm") != ikp.end() && ikp.find("larm") != ikp.end()) {
-            m_contactStates.data[contact_states_index_map["rarm"]] = false;
-            m_contactStates.data[contact_states_index_map["larm"]] = false;
+            m_refContactStates.data[contact_states_index_map["rarm"]] = false;
+            m_refContactStates.data[contact_states_index_map["larm"]] = false;
         }
 
         m_controlSwingSupportTime.data.length(ee_num);
-        m_toeheelRatio.data.length(ee_num);
         m_actContactStates.data.length(ee_num);
         for (size_t i = 0; i < ee_num; i++) {
             m_controlSwingSupportTime.data[i] = 1.0;
-            m_toeheelRatio.data[i] = rats::no_using_toe_heel_ratio;
             m_actContactStates.data[i] = false;
         }
 
+        toe_heel_ratio.resize(ee_num, rats::no_using_toe_heel_ratio);
         // TODO: 場所や初期化の見直し
         st->initStabilizer(prop, ee_num);
     }
@@ -412,21 +382,18 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         }
     }
 
-    // TODO: default constructor
-    m_walkingStates.data = false;
-
     // load virtual force sensors
     readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
     // ref force port
     const unsigned int num_vfsensors = m_vfs.size();
     const unsigned int num_fsensors  = num_pfsensors + num_vfsensors;
     // check number of force sensors
-    if (num_fsensors < m_contactStates.data.length()) {
+    if (num_fsensors < m_refContactStates.data.length()) {
         std::cerr << "[" << m_profile.instance_name
                   << "] WARNING! This robot model has less force sensors("
                   << num_fsensors
                   << ") than end-effector settings("
-                  << m_contactStates.data.length()
+                  << m_refContactStates.data.length()
                   << ") !"
                   << std::endl;
     }
@@ -459,6 +426,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         std::cerr << "[" << m_profile.instance_name << "]   name = " << port_name << std::endl;
         ref_forces.push_back(hrp::Vector3::Zero());
         ref_moments.push_back(hrp::Vector3::Zero());
+
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
         registerInPort(sensor_names[i].c_str(), *m_wrenchesIn[i]);
@@ -543,6 +511,11 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 {
     // std::cerr << "AutoBalanceStabilizer::onExecute(" << ec_id << ")" << std::endl;
     readInportData();
+
+    // Set Stabilizer data
+    gg->set_diff_cp(st->calcDiffCP());
+    gg->set_act_contact_states(st->getActContactStates());
+
     loop++;
 
     if (!is_legged_robot) {
@@ -633,13 +606,9 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     // TODO: Rotをわざわざrpyにして渡すのはNG
     const hrp::Vector3 baseRpy = hrp::rpyFromRot(ref_baseRot);
     // TODO: 関数化
-    std::vector<bool> ref_contact_states(m_contactStates.data.length());
-    for (size_t i = 0; i < m_contactStates.data.length(); ++i) {
-        ref_contact_states[i] = m_contactStates.data[i];
-    }
-    std::vector<double> toe_heel_ratio(m_toeheelRatio.data.length());
-    for (size_t i = 0; i < m_toeheelRatio.data.length(); ++i) {
-        toe_heel_ratio[i] = m_toeheelRatio.data[i];
+    std::vector<bool> ref_contact_states(m_refContactStates.data.length());
+    for (size_t i = 0; i < m_refContactStates.data.length(); ++i) {
+        ref_contact_states[i] = m_refContactStates.data[i];
     }
     std::vector<double> control_swing_support_time(m_controlSwingSupportTime.data.length());
     for (size_t i = 0; i < m_controlSwingSupportTime.data.length(); ++i) {
@@ -705,41 +674,17 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         m_basePose.data.orientation.y = m_baseRpy.data.y;
         m_basePoseOut.write();
 
-        m_zmp.tm = m_qRef.tm;
-        m_zmp.data.x = rel_ref_zmp(0);
-        m_zmp.data.y = rel_ref_zmp(1);
-        m_zmp.data.z = rel_ref_zmp(2);
-        m_zmpOut.write();
+        m_refZmp.tm = m_qRef.tm;
+        m_refZmp.data.x = rel_ref_zmp(0);
+        m_refZmp.data.y = rel_ref_zmp(1);
+        m_refZmp.data.z = rel_ref_zmp(2);
+        m_refZmpOut.write();
 
-        m_cog.tm = m_qRef.tm;
-        m_cog.data.x = ref_cog(0);
-        m_cog.data.y = ref_cog(1);
-        m_cog.data.z = ref_cog(2);
-        m_cogOut.write();
-
-        m_originNewRefZmp.tm = m_qRef.tm;
-        m_originNewRefZmp.data.x = st_log_data.new_ref_zmp(0);
-        m_originNewRefZmp.data.y = st_log_data.new_ref_zmp(1);
-        m_originNewRefZmp.data.z = st_log_data.new_ref_zmp(2);
-        m_originNewRefZmpOut.write();
-
-        m_footOriginRefCog.tm = m_qRef.tm;
-        m_footOriginRefCog.data.x = st_log_data.origin_ref_cog(0);
-        m_footOriginRefCog.data.y = st_log_data.origin_ref_cog(1);
-        m_footOriginRefCog.data.z = st_log_data.origin_ref_cog(2);
-        m_footOriginRefCogOut.write();
-
-        m_footOriginActCog.tm = m_qRef.tm;
-        m_footOriginActCog.data.x = st_log_data.origin_act_cog(0);
-        m_footOriginActCog.data.y = st_log_data.origin_act_cog(1);
-        m_footOriginActCog.data.z = st_log_data.origin_act_cog(2);
-        m_footOriginActCogOut.write();
-
-        m_actContactStates.tm = m_qRef.tm;
-        for (size_t i = 0; i < st_log_data.act_contact_states.size(); ++i) {
-            m_actContactStates.data[i] = st_log_data.act_contact_states[i];
-        }
-        m_actContactStatesOut.write();
+        m_refCog.tm = m_qRef.tm;
+        m_refCog.data.x = ref_cog(0);
+        m_refCog.data.y = ref_cog(1);
+        m_refCog.data.z = ref_cog(2);
+        m_refCogOut.write();
 
         m_sbpCogOffset.tm = m_qRef.tm;
         m_sbpCogOffset.data.x = sbp_cog_offset(0);
@@ -764,17 +709,10 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         }
 
         // control parameters
-        m_contactStates.tm = m_qRef.tm;
-        m_contactStatesOut.write();
+        m_refContactStates.tm = m_qRef.tm;
+        m_refContactStatesOut.write();
         m_controlSwingSupportTime.tm = m_qRef.tm;
         m_controlSwingSupportTimeOut.write();
-
-        m_toeheelRatio.tm = m_qRef.tm;
-        m_toeheelRatioOut.write();
-
-        m_walkingStates.tm = m_qRef.tm;
-        m_walkingStates.data = gg_is_walking;
-        m_walkingStatesOut.write();
 
         for (unsigned int i = 0; i < m_ref_forceOut.size(); i++){
             m_force[i].tm = m_qRef.tm;
@@ -788,6 +726,39 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
             m_limbCOPOffset[i].data.z = limb_cop_offsets[i][2];
             m_limbCOPOffsetOut[i]->write();
         }
+
+        // Data from Stabilizer
+        m_originNewRefZmp.tm = m_qRef.tm;
+        m_originNewRefZmp.data.x = st_log_data.new_ref_zmp(0);
+        m_originNewRefZmp.data.y = st_log_data.new_ref_zmp(1);
+        m_originNewRefZmp.data.z = st_log_data.new_ref_zmp(2);
+        m_originNewRefZmpOut.write();
+
+        m_footOriginRefCog.tm = m_qRef.tm;
+        m_footOriginRefCog.data.x = st_log_data.origin_ref_cog(0);
+        m_footOriginRefCog.data.y = st_log_data.origin_ref_cog(1);
+        m_footOriginRefCog.data.z = st_log_data.origin_ref_cog(2);
+        m_footOriginRefCogOut.write();
+
+        m_footOriginActCog.tm = m_qRef.tm;
+        m_footOriginActCog.data.x = st_log_data.origin_act_cog(0);
+        m_footOriginActCog.data.y = st_log_data.origin_act_cog(1);
+        m_footOriginActCog.data.z = st_log_data.origin_act_cog(2);
+        m_footOriginActCogOut.write();
+
+        {
+            m_actContactStates.tm = m_qRef.tm;
+            const std::vector<bool> act_contact_states = st->getActContactStates();
+            const size_t contact_size = act_contact_states.size();
+            for (size_t i = 0; i < contact_size; ++i) {
+                m_actContactStates.data[i] = act_contact_states[i];
+            }
+            m_actContactStatesOut.write();
+        }
+
+        m_emergencySignal.tm = m_qRef.tm;
+        m_emergencySignal.data = st->getEmergencySignal();
+        m_emergencySignalOut.write();
     }
 
     {
@@ -805,8 +776,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 void AutoBalanceStabilizer::readInportData()
 {
     if (m_qCurrentIn.isNew()) m_qCurrentIn.read();
-    if (m_rpyIn.isNew()) m_rpyIn.read();
     if (m_qRefIn.isNew()) m_qRefIn.read();
+    if (m_rpyIn.isNew()) m_rpyIn.read();
     if (m_basePosIn.isNew()) {
         m_basePosIn.read();
         input_basePos(0) = m_basePos.data.x;
@@ -817,11 +788,11 @@ void AutoBalanceStabilizer::readInportData()
         m_baseRpyIn.read();
         input_baseRot = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);
     }
-    if (m_zmpIn.isNew()) {
-        m_zmpIn.read();
-        input_zmp(0) = m_zmp.data.x;
-        input_zmp(1) = m_zmp.data.y;
-        input_zmp(2) = m_zmp.data.z;
+    if (m_refZmpIn.isNew()) {
+        m_refZmpIn.read();
+        input_zmp(0) = m_refZmp.data.x;
+        input_zmp(1) = m_refZmp.data.y;
+        input_zmp(2) = m_refZmp.data.z;
     }
 
     const size_t num_fsensors = m_wrenchesIn.size();
@@ -830,28 +801,8 @@ void AutoBalanceStabilizer::readInportData()
         if (m_wrenchesIn[i]->isNew()) m_wrenchesIn[i]->read();
     }
     if (m_optionalDataIn.isNew()) m_optionalDataIn.read();
-    if (m_emergencySignalIn.isNew()) {
-        m_emergencySignalIn.read();
-        // if (!is_stop_mode) {
-        //     std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
-        //     is_stop_mode = true;
-        //     gg->emergency_stop();
-        // }
-    }
-    if (m_diffCPIn.isNew()) {
-        m_diffCPIn.read();
-        gg->set_diff_cp(hrp::Vector3(m_diffCP.data.x, m_diffCP.data.y, m_diffCP.data.z));
-    }
     if (m_refFootOriginExtMomentIn.isNew()) m_refFootOriginExtMomentIn.read();
     if (m_refFootOriginExtMomentIsHoldValueIn.isNew()) m_refFootOriginExtMomentIsHoldValueIn.read();
-    if (m_actContactStatesIn.isNew()) {
-        m_actContactStatesIn.read();
-        std::vector<bool> act_contacts(m_actContactStates.data.length());
-        for (size_t i = 0; i < m_actContactStates.data.length(); i++) {
-            act_contacts[i] = m_actContactStates.data[i];
-        }
-        gg->set_act_contact_states(act_contacts);
-    }
 }
 
 void AutoBalanceStabilizer::getTargetParameters()
@@ -966,7 +917,7 @@ void AutoBalanceStabilizer::getOutputParametersForWalking ()
             gg->get_swing_support_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
 
             // Set contactStates
-            m_contactStates.data[idx] = gg->get_current_support_state_from_ee_name(it->first);
+            m_refContactStates.data[idx] = gg->get_current_support_state_from_ee_name(it->first);
 
             // Set controlSwingSupportTime
             m_controlSwingSupportTime.data[idx] = gg->get_current_swing_time_from_ee_name(it->first);
@@ -977,21 +928,19 @@ void AutoBalanceStabilizer::getOutputParametersForWalking ()
             limb_cop_offsets[idx] = foot_zmp_offset;
 
             // Set toe heel ratio which can be used force moment distribution
-            double tmp = m_toeheelRatio.data[idx]; // TODO: delete tmp
-            gg->get_current_toe_heel_ratio_from_ee_name(tmp, it->first);
-            m_toeheelRatio.data[idx] = tmp;
+            gg->get_current_toe_heel_ratio_from_ee_name(toe_heel_ratio[idx], it->first);
         } else { // Not included in leg_names
             // Set EE coords
             it->second.target_p0 = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
             it->second.target_r0 = it->second.target_link->R * it->second.localR;
             // contactStates is OFF other than leg_names
-            m_contactStates.data[idx] = false;
+            m_refContactStates.data[idx] = false;
             // controlSwingSupportTime is not used while double support period, 1.0 is neglected
             m_controlSwingSupportTime.data[idx] = 1.0;
             // Set limbCOPOffset
             limb_cop_offsets[idx] = default_zmp_offsets[idx];
             // Set toe heel ratio which can be used force moment distribution
-            m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
+            toe_heel_ratio[idx] = rats::no_using_toe_heel_ratio;
         }
     }
 }
@@ -1011,16 +960,16 @@ void AutoBalanceStabilizer::getOutputParametersForABC ()
         // Set contactStates
         std::vector<std::string>::const_iterator dst = std::find_if(leg_names.begin(), leg_names.end(), (boost::lambda::_1 == it->first));
         if (dst != leg_names.end()) {
-            m_contactStates.data[idx] = true;
+            m_refContactStates.data[idx] = true;
         } else {
-            m_contactStates.data[idx] = false;
+            m_refContactStates.data[idx] = false;
         }
         // controlSwingSupportTime is not used while double support period, 1.0 is neglected
         m_controlSwingSupportTime.data[idx] = 1.0;
         // Set limbCOPOffset
         limb_cop_offsets[idx] = default_zmp_offsets[idx];
         // Set toe heel ratio is not used while double support
-        m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
+        toe_heel_ratio[idx] = rats::no_using_toe_heel_ratio;
     }
 }
 
@@ -1029,15 +978,15 @@ void AutoBalanceStabilizer::getOutputParametersForIDLE ()
     // Set contactStates and controlSwingSupportTime
     if (m_optionalData.data.length() >= contact_states_index_map.size()*2) {
         // current optionalData is contactstates x limb and controlSwingSupportTime x limb
-        //   If contactStates in optionalData is 1.0, m_contactStates is true. Otherwise, false.
+        //   If contactStates in optionalData is 1.0, m_refContactStates is true. Otherwise, false.
         for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-            m_contactStates.data[contact_states_index_map[it->first]] = isOptionalDataContact(it->first);
+            m_refContactStates.data[contact_states_index_map[it->first]] = isOptionalDataContact(it->first);
             m_controlSwingSupportTime.data[contact_states_index_map[it->first]] = m_optionalData.data[contact_states_index_map[it->first]+contact_states_index_map.size()];
         }
         // If two feet have no contact, force set double support contact
-        if ( !m_contactStates.data[contact_states_index_map["rleg"]] && !m_contactStates.data[contact_states_index_map["lleg"]] ) {
-            m_contactStates.data[contact_states_index_map["rleg"]] = true;
-            m_contactStates.data[contact_states_index_map["lleg"]] = true;
+        if ( !m_refContactStates.data[contact_states_index_map["rleg"]] && !m_refContactStates.data[contact_states_index_map["lleg"]] ) {
+            m_refContactStates.data[contact_states_index_map["rleg"]] = true;
+            m_refContactStates.data[contact_states_index_map["lleg"]] = true;
         }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1045,7 +994,7 @@ void AutoBalanceStabilizer::getOutputParametersForIDLE ()
         // Set limbCOPOffset
         limb_cop_offsets[idx] = hrp::Vector3::Zero();
         // Set toe heel ratio is not used while double support
-        m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
+        toe_heel_ratio[idx] = rats::no_using_toe_heel_ratio;
     }
 }
 
@@ -1279,6 +1228,8 @@ void AutoBalanceStabilizer::solveFullbodyIK ()
     for (auto& fikp : fik->ikp) {
         fikp.second.target_p0 = ikp[fikp.first].target_p0;
         fikp.second.target_r0 = ikp[fikp.first].target_r0;
+        // std::cerr << "ikp target_p0: " << ikp[fikp.first].target_p0.transpose() << std::endl;
+        // std::cerr << "ikp target_r0:\n" << ikp[fikp.first].target_r0 << std::endl;
     }
 
     for (auto& abc_ikp : ikp) {
@@ -1292,6 +1243,10 @@ void AutoBalanceStabilizer::solveFullbodyIK ()
     hrp::Vector3 tmp_input_sbp = hrp::Vector3::Zero(); // TODO: rename
     static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
     const hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
+
+    // std::cerr << "target_root_p: " << target_root_p.transpose() << std::endl;
+    // std::cerr << "target_root_R:\n" << target_root_R << std::endl;
+    // std::cerr << "ref_cog: " << ref_cog.transpose() << std::endl << std::endl;
 
     fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
 }
@@ -2413,7 +2368,7 @@ void AutoBalanceStabilizer::distributeReferenceZMPToWrenches (const hrp::Vector3
     for (size_t i = 0 ; i < leg_names.size(); i++) {
         ABCIKparam& tmpikp = ikp[leg_names[i]];
         cop_pos.push_back(tmpikp.target_p0 + tmpikp.target_r0 * tmpikp.localR * default_zmp_offsets[i]);
-        limb_gains.push_back(m_contactStates.data[contact_states_index_map[leg_names[i]]] ? 1.0 : 0.0);
+        limb_gains.push_back(m_refContactStates.data[contact_states_index_map[leg_names[i]]] ? 1.0 : 0.0);
     }
     size_t ee_num = leg_names.size();
     size_t state_dim = 6*ee_num;

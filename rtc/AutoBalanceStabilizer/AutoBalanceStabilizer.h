@@ -175,18 +175,12 @@ class AutoBalanceStabilizer
     InPort<TimedPoint3D> m_basePosIn;
     TimedOrientation3D m_baseRpy;
     InPort<TimedOrientation3D> m_baseRpyIn;
-    TimedPoint3D m_zmp;
-    InPort<TimedPoint3D> m_zmpIn;
+    TimedPoint3D m_refZmp;
+    InPort<TimedPoint3D> m_refZmpIn;
     TimedDoubleSeq m_optionalData;
     InPort<TimedDoubleSeq> m_optionalDataIn;
     std::vector<TimedDoubleSeq> m_ref_force;
     std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
-    TimedLong m_emergencySignal;
-    InPort<TimedLong> m_emergencySignalIn;
-    TimedPoint3D m_diffCP;
-    InPort<TimedPoint3D> m_diffCPIn;
-    TimedBooleanSeq m_actContactStates;
-    InPort<TimedBooleanSeq> m_actContactStatesIn;
     TimedPoint3D m_refFootOriginExtMoment;
     InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
     TimedBoolean m_refFootOriginExtMomentIsHoldValue;
@@ -194,11 +188,11 @@ class AutoBalanceStabilizer
     std::vector<TimedDoubleSeq> m_wrenches;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
     // for debug
-    TimedPoint3D m_cog;
+    TimedPoint3D m_refCog;
     TimedPoint3D m_originNewRefZmp;
     TimedPoint3D m_footOriginRefCog;
     TimedPoint3D m_footOriginActCog;
-    // TimedBooleanSeq m_actContactStates;
+    TimedBooleanSeq m_actContactStates;
 
     // </rtc-template>
 
@@ -207,7 +201,7 @@ class AutoBalanceStabilizer
     OutPort<TimedDoubleSeq> m_qOut;
     // TimedDoubleSeq m_tau;
     // OutPort<TimedDoubleSeq> m_tauOut;
-    OutPort<TimedPoint3D> m_zmpOut;
+    OutPort<TimedPoint3D> m_refZmpOut;
     OutPort<TimedPoint3D> m_basePosOut;
     OutPort<TimedOrientation3D> m_baseRpyOut;
     TimedDoubleSeq m_baseTform;
@@ -216,22 +210,20 @@ class AutoBalanceStabilizer
     OutPort<TimedPose3D> m_basePoseOut;
     TimedAcceleration3D m_accRef;
     OutPort<TimedAcceleration3D> m_accRefOut;
-    TimedBooleanSeq m_contactStates;
-    OutPort<TimedBooleanSeq> m_contactStatesOut;
-    TimedDoubleSeq m_toeheelRatio;
-    OutPort<TimedDoubleSeq> m_toeheelRatioOut;
+    TimedBooleanSeq m_refContactStates;
+    OutPort<TimedBooleanSeq> m_refContactStatesOut;
     TimedDoubleSeq m_controlSwingSupportTime;
     OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
-    TimedBoolean m_walkingStates;
-    OutPort<TimedBoolean> m_walkingStatesOut;
     TimedPoint3D m_sbpCogOffset;
     OutPort<TimedPoint3D> m_sbpCogOffsetOut;
     std::vector<TimedDoubleSeq> m_force;
     std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
     std::vector<TimedPoint3D> m_limbCOPOffset; // TODO: delete
     std::vector<OutPort<TimedPoint3D> *> m_limbCOPOffsetOut;
+    TimedLong m_emergencySignal;
+    OutPort<TimedLong> m_emergencySignalOut;
     // for debug
-    OutPort<TimedPoint3D> m_cogOut;
+    OutPort<TimedPoint3D> m_refCogOut;
     OutPort<TimedPoint3D> m_originNewRefZmpOut;
     OutPort<TimedPoint3D> m_footOriginRefCogOut;
     OutPort<TimedPoint3D> m_footOriginActCogOut;
@@ -332,7 +324,8 @@ class AutoBalanceStabilizer
     std::unique_ptr<interpolator> adjust_footstep_interpolator;
     std::unique_ptr<interpolator> leg_names_interpolator;
 
-    hrp::Vector3 input_zmp, input_basePos;
+    hrp::Vector3 input_zmp;
+    hrp::Vector3 input_basePos;
     hrp::Matrix33 input_baseRot;
 
     // static balance point offsetting
@@ -354,6 +347,9 @@ class AutoBalanceStabilizer
     // Used for ref force balancing.
     hrp::Link* additional_force_applied_link;
     hrp::Vector3 additional_force_applied_point_offset;
+
+    // For stabilizer
+    std::vector<double> toe_heel_ratio;
 };
 
 

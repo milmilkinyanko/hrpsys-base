@@ -28,7 +28,7 @@ struct paramsFromAutoBalancer {
     bool is_walking;
     std::vector<bool> ref_contact_states;
     std::vector<double> toe_heel_ratio;
-    std::vector<double> controlSwingSupportTime; // TODO: rename
+    std::vector<double> control_swing_support_time;
     std::vector<hrp::dvector6> wrenches_ref;
     std::vector<hrp::Vector3> limb_cop_offsets;
     hrp::Vector3 sbp_cog_offset;
@@ -44,7 +44,6 @@ struct stabilizerLogData {
     hrp::Vector3 new_ref_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
-    std::vector<bool> act_contact_states;
 };
 
 class Stabilizer
@@ -115,8 +114,12 @@ class Stabilizer
 
     stabilizerLogData getStabilizerLogData() const
     {
-        return stabilizerLogData{new_refzmp, ref_cog, act_cog, act_contact_states};
+        return stabilizerLogData{new_refzmp, ref_cog, act_cog};
     }
+
+    hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }
+    int getEmergencySignal() const { return emergency_signal; }
+    std::vector<bool> getActContactStates() const { return act_contact_states; }
 
   private:
     bool calcIfCOPisOutside();
@@ -199,7 +202,7 @@ class Stabilizer
     int m_is_falling_counter;
     std::vector<int> m_will_fall_counter;
     int is_air_counter, detection_count_to_air;
-    bool is_legged_robot, on_ground, is_emergency, is_seq_interpolating, reset_emergency_flag, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
+    bool is_legged_robot, on_ground, is_seq_interpolating, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
     bool is_walking, is_estop_while_walking;
     hrp::Vector3 current_root_p, target_root_p;
     hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot, act_Rs;
@@ -218,7 +221,7 @@ class Stabilizer
     std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
     std::vector<hrp::Vector3> contact_cop_info;
     std::vector<hrp::dvector6> wrenches;
-    std::vector<double> controlSwingSupportTime;
+    std::vector<double> control_swing_support_time;
 
     // TPCC
     double k_tpcc_p[2], k_tpcc_x[2], d_rpy[2], k_brot_p[2], k_brot_tc[2];
@@ -244,6 +247,11 @@ class Stabilizer
     hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
     double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
     std::vector<double> cp_check_margin, tilt_margin;
+
+    // Emergency
+    bool is_emergency;
+    bool reset_emergency_flag;
+    int emergency_signal;
     OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode;
 };
 
