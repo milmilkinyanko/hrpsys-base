@@ -1388,8 +1388,10 @@ namespace rats
             if (D >= 0) {
               double tmp_t = std::log((-B + std::sqrt(D)) / (2*A)) / omega;
               if (isnan(tmp_t)) tmp_t = std::log((-B - std::sqrt(D)) / (2*A)) / omega;
-              p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * tmp_t) - a * b) / (a*a + 1);
-              p(1) = a * p(0) + b;
+              if (isfinite(tmp_t)) {
+                p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * tmp_t) - a * b) / (a*a + 1);
+                p(1) = a * p(0) + b;
+              }
             }
             // preprev foot frame
             p += prev_fs_pos.head(2);
