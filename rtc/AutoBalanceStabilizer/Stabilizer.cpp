@@ -338,11 +338,12 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         ref_force[i]  = abc_param.wrenches_ref[i].head<3>();
         ref_moment[i] = abc_param.wrenches_ref[i].tail<3>();
         ref_total_force += ref_force[i];
-        // Force/moment diff control
         ref_total_moment += (target_ee_p[i] - ref_zmp).cross(ref_force[i]);
+#ifndef FORCE_MOMENT_DIFF_CONTROL
         // Force/moment control
-        // ref_total_moment += (target_ee_p[i]-ref_zmp).cross(hrp::Vector3(abc_param.wrenches_ref[i].data[0], abc_param.wrenches_ref[i].data[1], abc_param.wrenches_ref[i].data[2]))
-        //     + hrp::Vector3(abc_param.wrenches_ref[i].data[3], abc_param.wrenches_ref[i].data[4], abc_param.wrenches_ref[i].data[5]);
+        ref_total_moment += ref_moment[i];
+#endif
+
         if (is_feedback_control_enable[i]) {
             ref_total_foot_origin_moment += (target_ee_p[i]-foot_origin_pos).cross(ref_force[i]) + ref_moment[i];
         }
