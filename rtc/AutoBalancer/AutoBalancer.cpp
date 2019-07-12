@@ -1048,8 +1048,8 @@ void AutoBalancer::getTargetParameters()
     } else {
       ref_cog = tmp_foot_mid_pos;
     }
-    ref_cog(2) = tmp_ref_cog(2);
     limit_cog(ref_cog);
+    ref_cog(2) = tmp_ref_cog(2);
     if (gg_is_walking) {
       ref_zmp = gg->get_refzmp();
     } else {
