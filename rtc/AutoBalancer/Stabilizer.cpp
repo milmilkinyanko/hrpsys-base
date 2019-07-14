@@ -147,7 +147,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     hrp::Sensor* sen= m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);
     if ( sen != NULL ) is_legged_robot = true;
   }
-  is_emergency_step = is_emergency = false;
+  is_emergency_motion = is_emergency_step = is_emergency = false;
   reset_emergency_flag = false;
 
   // m_tau.data.length(m_robot->numJoints());
@@ -1384,24 +1384,25 @@ void Stabilizer::calcStateForEmergencySignal()
   }
   // CP Check
   bool is_cp_outside = false;
+  is_emergency_motion = false;
   if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     std::vector<bool> tmp_cs(2,true);
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
     if (!is_walking) {
-      // szd->get_vertices(support_polygon_vetices);
-      // szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
-      // is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
-
-      szd->get_margined_vertices(support_polygon_vetices);
-      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
+      // stop manipulation
+      szd->get_margined_vertices(margined_support_polygon_vetices);
+      szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
+      is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+      // start emregency stepping
+      szd->get_vertices(support_polygon_vetices);
+      szd->calc_convex_hull(support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
       is_emergency_step = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
     } else if (falling_direction != 0) {
-      szd->get_vertices(support_polygon_vetices);
-      szd->calc_convex_hull(support_polygon_vetices, tmp_cs, rel_ee_pos, rel_ee_rot);
-      if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0) ||
-          ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0))
-        is_cp_outside = true;
+      // comment in if you use emergency motion
+      // if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0) ||
+      //     ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0))
+      //   is_emergency_motion = true;
     }
     if (DEBUGP) {
       std::cerr << "[" << print_str << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "

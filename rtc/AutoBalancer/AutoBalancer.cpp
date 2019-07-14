@@ -61,6 +61,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
+      m_emergencyMotionOut("emergencyMotion", m_emergencyMotion),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
@@ -139,6 +140,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
+    addOutPort("emergencyMotion", m_emergencyMotionOut);
     addOutPort("landingTarget", m_landingTargetOut);
 
     // Set service provider to Ports
@@ -615,17 +617,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_optionalDataIn.read();
     }
     if (st->reset_emergency_flag) {
-      m_emergencySignal.data = 0;
-      m_emergencySignalOut.write();
+      m_emergencyMotion.data = 0;
+      m_emergencyMotionOut.write();
       st->reset_emergency_flag = false;
-    } else if (st->is_emergency && !is_stop_mode) {
-      std::cerr << "[" << m_profile.instance_name << "] emergencySignal is set!" << std::endl;
+    } else if (st->is_emergency_motion && !is_stop_mode) {
+      std::cerr << "[" << m_profile.instance_name << "] emergencyMotion is set!" << std::endl;
       is_stop_mode = true;
       gg->finalize_velocity_mode2();
       stopABCparamEmergency();
       st->stopSTEmergency();
-      m_emergencySignal.data = 1;
-      m_emergencySignalOut.write();
+      m_emergencyMotion.data = 1;
+      m_emergencyMotionOut.write();
     }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
@@ -902,6 +904,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
     setABCData2ST();
     st->execStabilizer();
+
+    if (st->reset_emergency_flag) {
+      m_emergencySignal.data = 0;
+      m_emergencySignalOut.write();
+      st->reset_emergency_flag = false;
+    } else if (st->is_emergency) {
+      m_emergencySignal.data = 1;
+      m_emergencySignalOut.write();
+    }
 
     if ( m_qRef.data.length() != 0 ) { // initialized
       if (is_legged_robot) {
@@ -1479,27 +1490,29 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.constraint_weight << 1,1,1,1,1,1;
         ik_tgt_list.push_back(tmp);
     }
-    if (ikp["rarm"].is_active) {
-       double tmp_const = 1e-1 * transition_interpolator_ratio;
-       IKConstraint tmp;
-       tmp.target_link_name = ikp["rarm"].target_link->name;
-       tmp.localPos = ikp["rarm"].localPos;
-       tmp.localR = ikp["rarm"].localR;
-       tmp.targetPos = ikp["rarm"].target_p0;
-       tmp.targetRpy = hrp::rpyFromRot(ikp["rarm"].target_r0);
-       tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
-       ik_tgt_list.push_back(tmp);
-    }
-    if (ikp["larm"].is_active) {
-       double tmp_const = 1e-1 * transition_interpolator_ratio;
-       IKConstraint tmp;
-       tmp.target_link_name = ikp["larm"].target_link->name;
-       tmp.localPos = ikp["larm"].localPos;
-       tmp.localR = ikp["larm"].localR;
-       tmp.targetPos = ikp["larm"].target_p0;
-       tmp.targetRpy = hrp::rpyFromRot(ikp["larm"].target_r0);
-       tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
-       ik_tgt_list.push_back(tmp);
+    if (ikp.size() >= 4) {
+      if (ikp["rarm"].is_active) {
+        double tmp_const = 1e-1 * transition_interpolator_ratio;
+        IKConstraint tmp;
+        tmp.target_link_name = ikp["rarm"].target_link->name;
+        tmp.localPos = ikp["rarm"].localPos;
+        tmp.localR = ikp["rarm"].localR;
+        tmp.targetPos = ikp["rarm"].target_p0;
+        tmp.targetRpy = hrp::rpyFromRot(ikp["rarm"].target_r0);
+        tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
+        ik_tgt_list.push_back(tmp);
+      }
+      if (ikp["larm"].is_active) {
+        double tmp_const = 1e-1 * transition_interpolator_ratio;
+        IKConstraint tmp;
+        tmp.target_link_name = ikp["larm"].target_link->name;
+        tmp.localPos = ikp["larm"].localPos;
+        tmp.localR = ikp["larm"].localR;
+        tmp.targetPos = ikp["larm"].target_p0;
+        tmp.targetRpy = hrp::rpyFromRot(ikp["larm"].target_r0);
+        tmp.constraint_weight << tmp_const,tmp_const,tmp_const,tmp_const,tmp_const,tmp_const;
+        ik_tgt_list.push_back(tmp);
+      }
     }
     {
         IKConstraint tmp;

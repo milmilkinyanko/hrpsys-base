@@ -118,6 +118,7 @@ protected:
     TimedDoubleSeq m_qEmergency;
     TimedDoubleSeq m_q;
     TimedLong m_emergencySignal;
+    TimedLong m_emergencyMotion;
     TimedLong m_emergencyMode;
     OpenHRP::TimedLongSeqSeq m_servoState;
     std::vector<TimedDoubleSeq> m_wrenchesRef;
@@ -129,6 +130,7 @@ protected:
     InPort<TimedDoubleSeq> m_qRefIn;
     InPort<TimedDoubleSeq> m_qEmergencyIn;
     InPort<TimedLong> m_emergencySignalIn;
+    InPort<TimedLong> m_emergencyMotionIn;
     InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
   
@@ -181,12 +183,13 @@ private:
     double m_dt;
     unsigned int m_debugLevel;
     int loop;
-    bool is_stop_mode, prev_is_stop_mode;
+    bool is_stop_mode, prev_is_stop_mode, is_emergency_motion;
     bool is_initialized;
     int recover_time, retrieve_time;
     double recover_time_dt;
     int default_recover_time, default_retrieve_time;
     double *m_stop_posture;
+    double *m_motion_posture;
     double *m_stop_wrenches;
     double *m_tmp_wrenches;
     interpolator* m_interpolator;

@@ -57,6 +57,7 @@ EmergencyStopper::EmergencyStopper(RTC::Manager* manager)
       m_qRefIn("qRef", m_qRef),
       m_qEmergencyIn("qEmergency", m_qEmergency),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
+      m_emergencyMotionIn("emergencyMotion", m_emergencyMotion),
       m_servoStateIn("servoStateIn", m_servoState),
       m_qOut("q", m_q),
       m_emergencyModeOut("emergencyMode", m_emergencyMode),
@@ -91,6 +92,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     addInPort("qRef", m_qRefIn);
     addInPort("qEmergency", m_qEmergencyIn);
     addInPort("emergencySignal", m_emergencySignalIn);
+    addInPort("emergencyMotion", m_emergencyMotionIn);
     addInPort("servoStateIn", m_servoStateIn);
 
     // Set OutPort buffer
@@ -174,6 +176,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
 
     // initialize member variables
     is_stop_mode = prev_is_stop_mode = false;
+    is_emergency_motion = false;
     is_initialized = false;
 
     recover_time = retrieve_time = 0;
@@ -183,6 +186,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     solved = false;
     //default_retrieve_time = 1.0/m_dt;
     m_stop_posture = new double[m_robot->numJoints()];
+    m_motion_posture = new double[m_robot->numJoints()];
     m_stop_wrenches = new double[nforce*6];
     m_tmp_wrenches = new double[nforce*6];
     m_interpolator = new interpolator(m_robot->numJoints(), recover_time_dt);
@@ -194,6 +198,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     for(unsigned int i=0; i<m_robot->numJoints(); i++){
         m_q.data[i] = 0;
         m_stop_posture[i] = 0;
+        m_motion_posture[i] = 0;
     }
     for(unsigned int i=0; i<nforce; i++){
         for(int j=0; j<6; j++){
@@ -227,6 +232,7 @@ RTC::ReturnCode_t EmergencyStopper::onFinalize()
     delete m_interpolator;
     delete m_wrenches_interpolator;
     delete m_stop_posture;
+    delete m_motion_posture;
     delete m_stop_wrenches;
     delete m_tmp_wrenches;
     return RTC::RTC_OK;
@@ -258,6 +264,7 @@ RTC::ReturnCode_t EmergencyStopper::onDeactivated(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
+        is_emergency_motion = false;
         solved = false;
         recover_time = 0;
         m_interpolator->setGoal(m_qRef.data.get_buffer(), m_dt);
@@ -295,19 +302,27 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
         while ((int)m_input_posture_queue.size() > default_retrieve_time) {
             m_input_posture_queue.pop();
         }
-        // if (!is_stop_mode) {
-        {
-            // double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06}; // CHIDORI
-            double tmpq[] = {
-              // -0.031978, -0.302196, 0.052625, 0.623091, -0.052851, -0.319949, -0.000000, -0.000291, -0.032075, -0.302298, 0.052653, 0.623232, -0.052929, -0.320630, -0.000000, -0.000063, 0.261282, 0.869966, -0.087213, -0.000439, 0.000020, -0.000080, 0.000013, 0.890118, 0.261531, -0.086439, 0.087310, -0.523310, -0.000004, 0.000032, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // stretch larm
-                0.000005, -0.348759, 0.000012, 0.630766, 0.000030, -0.278725, 0.000000, -0.000211, -0.000005, -0.348793, 0.000024, 0.630764, 0.000044, -0.278784, -0.000000, -0.000065, 0.261541, 0.086439, -0.087310, -0.523306, 0.000004, 0.000033, 0.000003, 0.890118, 0.261541, -0.086438, 0.087310, -0.523306, -0.000004, 0.000033, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // reset-pose
-            }; // RHP4B
+        if (!is_stop_mode) {
             for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
-                if (recover_time > 0 && !is_stop_mode) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
+                if (recover_time > 0) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_stop_posture[i] = m_q.data[i];
                 } else {
-                  if (!solved) m_stop_posture[i] = tmpq[i];
-                  else m_stop_posture[i] = m_qEmergency.data[i];
+                  m_stop_posture[i] = m_input_posture_queue.front()[i];
+                }
+            }
+        }
+        {
+            double tmpq[] = {-6.827925e-08, -3.735005e-06, -0.929562, 2.46032, -1.53045, 3.839724e-06, 6.827917e-08, 3.735005e-06, -0.929564, 2.46032, -1.53045, -3.839724e-06}; // CHIDORI
+            // double tmpq[] = {
+            //   // -0.031978, -0.302196, 0.052625, 0.623091, -0.052851, -0.319949, -0.000000, -0.000291, -0.032075, -0.302298, 0.052653, 0.623232, -0.052929, -0.320630, -0.000000, -0.000063, 0.261282, 0.869966, -0.087213, -0.000439, 0.000020, -0.000080, 0.000013, 0.890118, 0.261531, -0.086439, 0.087310, -0.523310, -0.000004, 0.000032, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // stretch larm
+            //     0.000005, -0.348759, 0.000012, 0.630766, 0.000030, -0.278725, 0.000000, -0.000211, -0.000005, -0.348793, 0.000024, 0.630764, 0.000044, -0.278784, -0.000000, -0.000065, 0.261541, 0.086439, -0.087310, -0.523306, 0.000004, 0.000033, 0.000003, 0.890118, 0.261541, -0.086438, 0.087310, -0.523306, -0.000004, 0.000033, -0.000003, 0.890118, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.298616, 0.298616, 0.259056, 0.294777, 0.294777, 0.311048, 0.311048, 0.221701, 0.221701 // reset-pose
+            // }; // RHP4B
+            for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
+                if (recover_time > 0 && !is_stop_mode) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
+                    m_motion_posture[i] = m_q.data[i];
+                } else {
+                  if (!solved) m_motion_posture[i] = tmpq[i];
+                  else m_motion_posture[i] = m_qEmergency.data[i];
                 }
             }
         }
@@ -356,6 +371,22 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             is_stop_mode = true;
         }
     }
+    if (m_emergencyMotionIn.isNew()){
+        m_emergencyMotionIn.read();
+        if ( m_emergencyMotion.data == 0 ) {
+            Guard guard(m_mutex);
+            std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
+                      << "] emergencyMotion is reset!" << std::endl;
+            is_stop_mode = false;
+            is_emergency_motion = false;
+        } else if (!is_stop_mode) {
+            Guard guard(m_mutex);
+            std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
+                      << "] emergencyMotion is set!" << std::endl;
+            is_stop_mode = true;
+            is_emergency_motion = true;
+        }
+    }
     if (m_qEmergencyIn.isNew()) {
       m_qEmergencyIn.read();
     }
@@ -398,7 +429,8 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
         recover_time = default_recover_time;
         if (retrieve_time > 0 ) {
             retrieve_time = retrieve_time - recover_time_dt;
-            m_interpolator->setGoal(m_stop_posture, retrieve_time);
+            if (is_emergency_motion) m_interpolator->setGoal(m_motion_posture, retrieve_time);
+            else  m_interpolator->setGoal(m_stop_posture, retrieve_time);
             m_interpolator->get(m_q.data.get_buffer());
             m_wrenches_interpolator->setGoal(m_stop_wrenches, retrieve_time);
             m_wrenches_interpolator->get(m_tmp_wrenches);
@@ -513,6 +545,7 @@ bool EmergencyStopper::releaseMotion()
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
+        is_emergency_motion = false;
         solved = false;
         std::cerr << "[" << m_profile.instance_name << "] releaseMotion is called" << std::endl;
     }
