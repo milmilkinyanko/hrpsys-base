@@ -1678,6 +1678,7 @@ void AutoBalancer::limit_cog (hrp::Vector3& cog)
       cog(i) = tmp_v[i];
     }
     limited_dif_cog -= cog;
+    limited_dif_cog(2) = 0.0;
   }
 }
 
