@@ -132,6 +132,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
     }
     is_emergency = false;
     reset_emergency_flag = false;
+    whether_send_emergency_signal = false;
 
     // m_tau.data.length(m_robot->numJoints());
     transition_joint_q.resize(m_robot->numJoints());
@@ -1005,11 +1006,14 @@ void Stabilizer::calcStateForEmergencySignal()
                   << ") " << (is_emergency ? "emergency" : "non-emergency") << std::endl;
     }
 
+    whether_send_emergency_signal = false;
     if (reset_emergency_flag) {
         emergency_signal = 0;
         reset_emergency_flag = false;
+        whether_send_emergency_signal = true;
     } else if (is_emergency) {
         emergency_signal = 1;
+        whether_send_emergency_signal = true;
     }
 
     rel_ee_pos.clear();

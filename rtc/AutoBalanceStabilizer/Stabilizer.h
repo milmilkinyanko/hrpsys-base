@@ -118,7 +118,7 @@ class Stabilizer
     }
 
     hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }
-    int getEmergencySignal() const { return emergency_signal; }
+    std::pair<bool, int> getEmergencySignal() const { return std::make_pair(whether_send_emergency_signal, emergency_signal); }
     std::vector<bool> getActContactStates() const { return act_contact_states; }
 
   private:
@@ -251,6 +251,7 @@ class Stabilizer
     // Emergency
     bool is_emergency;
     bool reset_emergency_flag;
+    bool whether_send_emergency_signal; // temporary variable to send emergency signal
     int emergency_signal;
     OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode;
 };

@@ -757,8 +757,11 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         }
 
         m_emergencySignal.tm = m_qRef.tm;
-        m_emergencySignal.data = st->getEmergencySignal();
-        m_emergencySignalOut.write();
+        std::pair<bool, int> emergency_signal_pair = st->getEmergencySignal();
+        if (emergency_signal_pair.first) {
+            m_emergencySignal.data = emergency_signal_pair.second;
+            m_emergencySignalOut.write();
+        }
     }
 
     {
