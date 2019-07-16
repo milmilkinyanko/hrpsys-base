@@ -42,6 +42,7 @@ struct paramsFromSensors {
 
 struct stabilizerLogData {
     hrp::Vector3 new_ref_zmp;
+    hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
 };

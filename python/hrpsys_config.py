@@ -963,6 +963,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abst, 'baseTformOut')
             self.connectLoggerPort(self.abst, 'controlSwingSupportTime')
             self.connectLoggerPort(self.abst, 'originNewRefZmp')
+            self.connectLoggerPort(self.abst, 'originActZmp')
             self.connectLoggerPort(self.abst, 'refContactStates')
             self.connectLoggerPort(self.abst, 'actContactStates')
             self.connectLoggerPort(self.abst, 'footOriginRefCog')

@@ -86,6 +86,7 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_originNewRefZmpOut("originNewRefZmp", m_originNewRefZmp),
+      m_originActZmpOut("originActZmp", m_originActZmp),
       m_footOriginRefCogOut("footOriginRefCog", m_footOriginRefCog),
       m_footOriginActCogOut("footOriginActCog", m_footOriginActCog),
       m_refContactStatesOut("refContactStates", m_refContactStates),
@@ -152,6 +153,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("originNewRefZmp", m_originNewRefZmpOut);
+    addOutPort("originActZmp", m_originActZmpOut);
     addOutPort("footOriginRefCog", m_footOriginRefCogOut);
     addOutPort("footOriginActCog", m_footOriginActCogOut);
     addOutPort("refContactStates", m_refContactStatesOut);
@@ -739,6 +741,12 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         m_originNewRefZmp.data.y = st_log_data.new_ref_zmp(1);
         m_originNewRefZmp.data.z = st_log_data.new_ref_zmp(2);
         m_originNewRefZmpOut.write();
+
+        m_originActZmp.tm = m_qRef.tm;
+        m_originActZmp.data.x = st_log_data.rel_act_zmp(0);
+        m_originActZmp.data.y = st_log_data.rel_act_zmp(1);
+        m_originActZmp.data.z = st_log_data.rel_act_zmp(2);
+        m_originActZmpOut.write();
 
         m_footOriginRefCog.tm = m_qRef.tm;
         m_footOriginRefCog.data.x = st_log_data.origin_ref_cog(0);

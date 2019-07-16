@@ -190,6 +190,7 @@ class AutoBalanceStabilizer
     // for debug
     TimedPoint3D m_refCog;
     TimedPoint3D m_originNewRefZmp;
+    TimedPoint3D m_originActZmp;
     TimedPoint3D m_footOriginRefCog;
     TimedPoint3D m_footOriginActCog;
     TimedBooleanSeq m_actContactStates;
@@ -225,6 +226,7 @@ class AutoBalanceStabilizer
     // for debug
     OutPort<TimedPoint3D> m_refCogOut;
     OutPort<TimedPoint3D> m_originNewRefZmpOut;
+    OutPort<TimedPoint3D> m_originActZmpOut;
     OutPort<TimedPoint3D> m_footOriginRefCogOut;
     OutPort<TimedPoint3D> m_footOriginActCogOut;
     OutPort<RTC::TimedBooleanSeq> m_actContactStatesOut;
