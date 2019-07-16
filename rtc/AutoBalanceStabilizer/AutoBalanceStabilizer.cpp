@@ -19,8 +19,14 @@
 #define DEBUGP ((m_debugLevel == 1 && loop % 200 == 0) || m_debugLevel > 1)
 #endif
 
-using Guard = std::lock_guard<std::mutex>;
 using namespace rats;
+using Guard = std::lock_guard<std::mutex>;
+// Utility functions
+using hrp::deg2rad;
+using hrp::rad2deg;
+using hrp::calcInteriorPoint;
+using hrp::copyJointAnglesToRobotModel;
+using hrp::copyJointAnglesFromRobotModel;
 
 // Module specification
 // <rtc-template block="module_spec">

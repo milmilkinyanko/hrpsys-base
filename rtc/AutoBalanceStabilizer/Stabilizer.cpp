@@ -15,6 +15,14 @@ n * @file  Stabilizer.cpp
 #include "Stabilizer.h"
 #include "Utility.h"
 
+// Utility functions
+using hrp::deg2rad;
+using hrp::rad2deg;
+using hrp::calcInteriorPoint;
+using hrp::clamp;
+using hrp::copyJointAnglesToRobotModel;
+using hrp::copyJointAnglesFromRobotModel;
+
 namespace {
 constexpr unsigned int DEBUG_LEVEL = 0;
 inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 == 0) || DEBUG_LEVEL > 1; }
@@ -653,7 +661,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 }
                 // Moment limitation
                 const hrp::Matrix33 ee_R(target->R * ikp.localR);
-                ikp.ref_moment = ee_R * vlimit((ee_R.transpose() * ikp.ref_moment), ikp.eefm_ee_moment_limit);
+                ikp.ref_moment = ee_R * clamp((ee_R.transpose() * ikp.ref_moment), ikp.eefm_ee_moment_limit);
                 // calcDampingControl
                 // d_foot_rpy and d_foot_pos is (actual) foot origin coords relative value because these use foot origin coords relative force & moment
                 { // Rot
@@ -664,12 +672,12 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                         else damping_gain(j) = (1 - transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
                     }
                     ikp.d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.d_foot_rpy, damping_gain, ikp.eefm_rot_time_const);
-                    ikp.d_foot_rpy = vlimit(ikp.d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
+                    ikp.d_foot_rpy = clamp(ikp.d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
                 }
                 if (!eefm_use_force_difference_control) { // Pos
                     const hrp::Vector3 damping_gain = (1 - transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain; // TODO: rename
                     ikp.d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.d_foot_pos, damping_gain, ikp.eefm_pos_time_const_support);
-                    ikp.d_foot_pos = vlimit(ikp.d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
+                    ikp.d_foot_pos = clamp(ikp.d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
                 }
                 // Actual ee frame =>
                 ikp.ee_d_foot_rpy = ee_R.transpose() * (foot_origin_rot * ikp.d_foot_rpy);
@@ -726,7 +734,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 }
 
                 // Temporarily use first pos compensation limit (stikp[0])
-                pos_ctrl = vlimit(pos_ctrl, -1 * stikp[0].eefm_pos_compensation_limit * 2, stikp[0].eefm_pos_compensation_limit * 2);
+                pos_ctrl = clamp(pos_ctrl, -1 * stikp[0].eefm_pos_compensation_limit * 2, stikp[0].eefm_pos_compensation_limit * 2);
                 stikp[0].d_foot_pos = -0.5 * pos_ctrl; // TODO: use contact index map ?
                 stikp[1].d_foot_pos = 0.5 * pos_ctrl;
             }
@@ -1032,7 +1040,7 @@ void Stabilizer::moveBasePosRotForBodyRPYControl ()
 
     for (size_t i = 0; i < 2; i++) {
         d_rpy[i] = transition_smooth_gain * (eefm_body_attitude_control_gain[i] * (ref_root_rpy(i) - act_base_rpy(i)) - 1 / eefm_body_attitude_control_time_const[i] * d_rpy[i]) * dt + d_rpy[i];
-        d_rpy[i] = vlimit(d_rpy[i], -root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
+        d_rpy[i] = clamp(d_rpy[i], -root_rot_compensation_limit[i], root_rot_compensation_limit[i]);
         is_root_rot_limit = is_root_rot_limit || (std::fabs(std::fabs(d_rpy[i]) - root_rot_compensation_limit[i]) < 1e-5); // near the limit
     }
 
@@ -1070,7 +1078,7 @@ void Stabilizer::calcSwingSupportLimbGain ()
             } else {
                 ikp.swing_support_gain = (ikp.support_time / eefm_pos_transition_time);
             }
-            ikp.swing_support_gain = vlimit(ikp.swing_support_gain, 0.0, 1.0);
+            ikp.swing_support_gain = clamp(ikp.swing_support_gain, 0.0, 1.0);
         } else { // Swing
             ikp.swing_support_gain = 0.0;
             ikp.support_time = 0.0;
@@ -1274,7 +1282,7 @@ void Stabilizer::calcSwingEEModification ()
                 const double uvlimit =  50 * 1e-3 * dt; // 50 [mm/s]
                 const hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
                 const hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
-                stikp[i].d_pos_swing = vlimit(vlimit(diff_p, -limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+                stikp[i].d_pos_swing = clamp(clamp(diff_p, -limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
             }
             /* rotation */
             {
@@ -1283,7 +1291,7 @@ void Stabilizer::calcSwingEEModification ()
                 const double uvlimit = deg2rad(20.0 * dt); // 20 [deg/s]
                 const hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
                 const hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
-                stikp[i].d_rpy_swing = vlimit(vlimit(diff_r, -limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
+                stikp[i].d_rpy_swing = clamp(clamp(diff_r, -limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
             }
         }
         stikp[i].prev_d_pos_swing = stikp[i].d_pos_swing;
