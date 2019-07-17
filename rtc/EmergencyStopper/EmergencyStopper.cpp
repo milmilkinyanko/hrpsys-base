@@ -185,8 +185,8 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     default_retrieve_time = 1;
     solved = false;
     //default_retrieve_time = 1.0/m_dt;
-    m_stop_posture = new double[m_robot->numJoints()];
-    m_motion_posture = new double[m_robot->numJoints()];
+    m_stop_posture.resize(m_robot->numJoints(), 0.0);
+    m_motion_posture.resize(m_robot->numJoints(), 0.0);
     m_stop_wrenches = new double[nforce*6];
     m_tmp_wrenches = new double[nforce*6];
     m_interpolator = new interpolator(m_robot->numJoints(), recover_time_dt);
@@ -197,8 +197,6 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     m_q.data.length(m_robot->numJoints());
     for(unsigned int i=0; i<m_robot->numJoints(); i++){
         m_q.data[i] = 0;
-        m_stop_posture[i] = 0;
-        m_motion_posture[i] = 0;
     }
     for(unsigned int i=0; i<nforce; i++){
         for(int j=0; j<6; j++){
@@ -231,8 +229,6 @@ RTC::ReturnCode_t EmergencyStopper::onFinalize()
 {
     delete m_interpolator;
     delete m_wrenches_interpolator;
-    delete m_stop_posture;
-    delete m_motion_posture;
     delete m_stop_wrenches;
     delete m_tmp_wrenches;
     return RTC::RTC_OK;
@@ -321,8 +317,10 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
                 if (recover_time > 0 && !is_stop_mode) { // Until releasing is finished, do not use m_stop_posture in input queue because too large error.
                     m_motion_posture[i] = m_q.data[i];
                 } else {
-                  if (!solved) m_motion_posture[i] = tmpq[i];
-                  else m_motion_posture[i] = m_qEmergency.data[i];
+                  if (!solved) {
+                    if (sizeof(tmpq)/sizeof(double) == m_qRef.data.length()) m_motion_posture[i] = tmpq[i];
+                    else m_motion_posture[i] = m_q.data[i];
+                  } else m_motion_posture[i] = m_qEmergency.data[i];
                 }
             }
         }
@@ -371,7 +369,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             is_stop_mode = true;
         }
     }
-    if (m_emergencyMotionIn.isNew()){
+    if (m_emergencyMotionIn.isNew()) {
         m_emergencyMotionIn.read();
         if ( m_emergencyMotion.data == 0 ) {
             Guard guard(m_mutex);
@@ -429,8 +427,8 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
         recover_time = default_recover_time;
         if (retrieve_time > 0 ) {
             retrieve_time = retrieve_time - recover_time_dt;
-            if (is_emergency_motion) m_interpolator->setGoal(m_motion_posture, retrieve_time);
-            else  m_interpolator->setGoal(m_stop_posture, retrieve_time);
+            if (is_emergency_motion) m_interpolator->setGoal(m_motion_posture.data(), retrieve_time);
+            else m_interpolator->setGoal(m_stop_posture.data(), retrieve_time);
             m_interpolator->get(m_q.data.get_buffer());
             m_wrenches_interpolator->setGoal(m_stop_wrenches, retrieve_time);
             m_wrenches_interpolator->get(m_tmp_wrenches);

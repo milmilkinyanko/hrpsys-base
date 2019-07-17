@@ -188,8 +188,8 @@ private:
     int recover_time, retrieve_time;
     double recover_time_dt;
     int default_recover_time, default_retrieve_time;
-    double *m_stop_posture;
-    double *m_motion_posture;
+    std::vector<double> m_stop_posture;
+    std::vector<double> m_motion_posture;
     double *m_stop_wrenches;
     double *m_tmp_wrenches;
     interpolator* m_interpolator;
