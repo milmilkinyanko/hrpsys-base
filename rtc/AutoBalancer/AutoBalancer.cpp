@@ -1492,7 +1492,7 @@ void AutoBalancer::solveFullbodyIK ()
     }
     if (ikp.size() >= 4) {
       if (ikp["rarm"].is_active) {
-        double tmp_const = 1e-1 * transition_interpolator_ratio;
+        double tmp_const = 1e-5 * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["rarm"].target_link->name;
         tmp.localPos = ikp["rarm"].localPos;
@@ -1503,7 +1503,7 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
       }
       if (ikp["larm"].is_active) {
-        double tmp_const = 1e-1 * transition_interpolator_ratio;
+        double tmp_const = 1e-5 * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["larm"].target_link->name;
         tmp.localPos = ikp["larm"].localPos;
