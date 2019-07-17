@@ -1462,7 +1462,7 @@ void AutoBalancer::solveFullbodyIK ()
 
     std::vector<IKConstraint> ik_tgt_list;
     {
-        double tmp_const = 1e-4 * transition_interpolator_ratio + 1 * (1.0 - transition_interpolator_ratio);
+        double tmp_const = 1e-3 * transition_interpolator_ratio + 1 * (1.0 - transition_interpolator_ratio);
         IKConstraint tmp;
         tmp.target_link_name = "WAIST";
         tmp.localPos = hrp::Vector3::Zero();
