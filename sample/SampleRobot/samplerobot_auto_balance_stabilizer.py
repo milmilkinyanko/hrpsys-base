@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 try:
     from hrpsys.hrpsys_config import *
     import OpenHRP
 except:
-    print "import without hrpsys"
+    print("import without hrpsys")
     import rtm
     from rtm import *
     from OpenHRP import *
@@ -98,7 +99,7 @@ def checkParameterFromLog(port_name, log_fname="/tmp/test-samplerobot-auto-balan
                           save_log=True, rtc_name="SampleRobot(Robot)0"):
     if save_log:
         saveLogForCheckParameter(log_fname)
-    return map(float, open(log_fname + "." + rtc_name + "_" + port_name, "r").readline().split(" ")[1:-1])
+    return [float(x) for x in open(log_fname + "." + rtc_name + "_" + port_name, "r").readline().split(" ")[1:-1]]
 
 def checkActualBaseAttitude(ref_rpy = None, thre=0.1): # degree
     '''Check whether the robot falls down based on actual robot base-link attitude.
@@ -111,7 +112,7 @@ def checkActualBaseAttitude(ref_rpy = None, thre=0.1): # degree
     print(len(act_rpy))
     print(len(ref_rpy))
     ret = abs(math.degrees(act_rpy[0]-ref_rpy[0])) < thre and abs(math.degrees(act_rpy[1]-ref_rpy[1])) < thre
-    print >> sys.stderr, "  ret = ", ret, ", actual base rpy = (", act_rpy, "), ", "reference base rpy = (", ref_rpy, ")"
+    print("  ret = ", ret, ", actual base rpy = (", act_rpy, "), ", "reference base rpy = (", ref_rpy, ")", file=sys.stderr)
     assert (ret)
     return ret
 
@@ -144,8 +145,8 @@ def checkGoPosParam (goalx, goaly, goalth, prev_dst_foot_midcoords):
     # Check diff
     [difx, dify, difth] = calcDiffFootMidCoords(prev_dst_foot_midcoords)
     ret = (abs(difx-goalx) < 5e-5 and abs(dify-goaly) < 5e-5 and abs(difth-goalth) < 1e-2)
-    print >> sys.stderr, "  Check goPosParam (diff = ", (difx-goalx), "[m], ", (dify-goaly), "[m], ", (difth-goalth), "[deg])"
-    print >> sys.stderr, "  => ", ret
+    print("  Check goPosParam (diff = ", (difx-goalx), "[m], ", (dify-goaly), "[m], ", (difth-goalth), "[deg])", file=sys.stderr)
+    print("  => ", ret, file=sys.stderr)
     assert(ret)
     return ret
 
@@ -156,7 +157,7 @@ def calcVelListFromPosList(pos_list, dt):
     vel_list=[]
     ppos=pos_list[0]
     for pos in pos_list:
-        vel_list.append(map(lambda x, y: (x-y)/dt, pos, ppos));
+        vel_list.append(list(map(lambda x, y: (x-y)/dt, pos, ppos)));
         ppos=pos
     return vel_list
 
@@ -169,21 +170,21 @@ def checkTooLargeABCCogAcc (acc_thre = 5.0): # [m/s^2]
     tm_list=[]
     for line in open("/tmp/test-abc-log.abst_refCogOut", "r"):
         tm_list.append(float(line.split(" ")[0]));
-        cog_list.append(map(float, line.split(" ")[1:-1]));
+        cog_list.append(list(map(float, line.split(" ")[1:-1])));
     cog_list=cog_list[:-1000] # ?? Neglect latter elements
     dt = tm_list[1]-tm_list[0] # [s]
     # Calculate velocity and acceleration
     dcog_list=calcVelListFromPosList(cog_list, dt)
     ddcog_list=calcVelListFromPosList(dcog_list, dt)
     # Check max
-    max_cogx_acc = max(map(lambda x : abs(x[0]), ddcog_list))
-    max_cogy_acc = max(map(lambda x : abs(x[1]), ddcog_list))
+    max_cogx_acc = max([abs(x[0]) for x in ddcog_list])
+    max_cogy_acc = max([abs(x[1]) for x in ddcog_list])
     ret = (max_cogx_acc < acc_thre) and (max_cogy_acc < acc_thre)
-    print >> sys.stderr, "  Check acc x = ", max_cogx_acc, ", y = ", max_cogy_acc, ", thre = ", acc_thre, "[m/s^2], ret = ", ret
+    print("  Check acc x = ", max_cogx_acc, ", y = ", max_cogy_acc, ", thre = ", acc_thre, "[m/s^2], ret = ", ret, file=sys.stderr)
     assert(ret)
 
 def demoAutoBalancerFixFeet ():
-    print >> sys.stderr, "1. AutoBalancer mode by fixing feet"
+    print("1. AutoBalancer mode by fixing feet", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(["rleg", "lleg"]);
     hcf.seq_svc.setJointAngles(arm_front_pose, 1.0)
     hcf.waitInterpolation()
@@ -191,10 +192,10 @@ def demoAutoBalancerFixFeet ():
     hcf.waitInterpolation()
     hcf.abst_svc.stopAutoBalancer();
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Start and Stop AutoBalancer by fixing feet=>OK"
+    print("  Start and Stop AutoBalancer by fixing feet=>OK", file=sys.stderr)
 
 def demoAutoBalancerFixFeetHands ():
-    print >> sys.stderr, "2. AutoBalancer mode by fixing hands and feet"
+    print("2. AutoBalancer mode by fixing hands and feet", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
     hcf.seq_svc.setJointAngles(arm_front_pose, 1.0)
     hcf.waitInterpolation()
@@ -202,39 +203,39 @@ def demoAutoBalancerFixFeetHands ():
     hcf.waitInterpolation()
     hcf.abst_svc.stopAutoBalancer();
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Start and Stop AutoBalancer by fixing hands and feet=>OK"
+    print("  Start and Stop AutoBalancer by fixing hands and feet=>OK", file=sys.stderr)
 
 def demoAutoBalancerGetParam():
-    print >> sys.stderr, "3. getAutoBalancerParam"
+    print("3. getAutoBalancerParam", file=sys.stderr)
     ret = hcf.abst_svc.getAutoBalancerParam()
     if ret[0]:
-        print >> sys.stderr, "  getAutoBalancerParam() => OK"
+        print("  getAutoBalancerParam() => OK", file=sys.stderr)
 
 def demoAutoBalancerSetParam():
-    print >> sys.stderr, "4. setAutoBalancerParam"
+    print("4. setAutoBalancerParam", file=sys.stderr)
     abcp=hcf.abst_svc.getAutoBalancerParam()[1]
     abcp.default_zmp_offsets = [[0.1,0,0], [0.1,0,0], [0,0,0], [0,0,0]]
     hcf.abst_svc.setAutoBalancerParam(abcp)
-    print >> sys.stderr, "  default_zmp_offsets setting check in start and stop"
+    print("  default_zmp_offsets setting check in start and stop", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(["rleg", "lleg"]);
     hcf.abst_svc.stopAutoBalancer();
     ret=hcf.abst_svc.getAutoBalancerParam()
     flag = (ret[0] and numpy.allclose(ret[1].default_zmp_offsets, abcp.default_zmp_offsets, 1e-6))
     if flag:
-        print >> sys.stderr, "  setAutoBalancerParam() => OK"
+        print("  setAutoBalancerParam() => OK", file=sys.stderr)
     assert (flag), (ret[0], ret[1].default_zmp_offsets, abcp.default_zmp_offsets)
     abcp.default_zmp_offsets = [[0,0,0], [0,0,0], [0,0,0], [0,0,0]]
     hcf.abst_svc.setAutoBalancerParam(abcp)
 
 def demoAutoBalancerTestPoses():
-    print >> sys.stderr, "5. change base height, base rot x, base rot y, and upper body while AutoBalancer mode"
+    print("5. change base height, base rot x, base rot y, and upper body while AutoBalancer mode", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(["rleg", "lleg"]);
     testPoseList(pose_list, initial_pose)
     hcf.abst_svc.stopAutoBalancer();
     checkActualBaseAttitude()
 
 def demoAutoBalancerStartStopCheck():
-    print >> sys.stderr, "6. start stop check"
+    print("6. start stop check", file=sys.stderr)
     abcp=hcf.abst_svc.getAutoBalancerParam()[1]
     abcp.default_zmp_offsets = [[-0.05,0.05,0], [-0.05,0.05,0], [0,0,0], [0,0,0]]
     hcf.abst_svc.setAutoBalancerParam(abcp)
@@ -253,7 +254,7 @@ def demoAutoBalancerStartStopCheck():
     checkActualBaseAttitude()
 
 def demoAutoBalancerBalanceAgainstHandForce():
-    print >> sys.stderr, "7. balance against hand force"
+    print("7. balance against hand force", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(["rleg", "lleg"]);
     hcf.seq_svc.setWrenches([0,0,0,0,0,0,
                              0,0,0,0,0,0,
@@ -269,16 +270,16 @@ def demoAutoBalancerBalanceAgainstHandForce():
     checkActualBaseAttitude()
 
 def demoAutoBalancerBalanceWithArms():
-    print >> sys.stderr, "8. balance with arms"
+    print("8. balance with arms", file=sys.stderr)
     hcf.seq_svc.setJointAngles(four_legs_mode_pose, 1.0)
     hcf.waitInterpolation()
     abcp=hcf.abst_svc.getAutoBalancerParam()[1]
     abcp.leg_names = ['rleg', 'lleg', 'rarm', 'larm']
     hcf.abst_svc.setAutoBalancerParam(abcp)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
-    print >> sys.stderr, "  startAutoBalancer with arms"
+    print("  startAutoBalancer with arms", file=sys.stderr)
     hcf.abst_svc.stopAutoBalancer();
-    print >> sys.stderr, "  stopAutoBalancer"
+    print("  stopAutoBalancer", file=sys.stderr)
     abcp.leg_names = ['rleg', 'lleg']
     hcf.abst_svc.setAutoBalancerParam(abcp)
     checkActualBaseAttitude()
@@ -286,7 +287,7 @@ def demoAutoBalancerBalanceWithArms():
     hcf.waitInterpolation()
 
 def demoGaitGeneratorBaseTformCheck ():
-    print >> sys.stderr, "0. baseTform check"
+    print("0. baseTform check", file=sys.stderr)
     # Set parameter
     orig_ggp = hcf.abst_svc.getGaitGeneratorParam()[1]
     orig_abcp = hcf.abst_svc.getAutoBalancerParam()[1]
@@ -338,12 +339,12 @@ def demoGaitGeneratorBaseTformCheck ():
     # Check values (currently pos x,y only 1[mm])
     startABC_OK = all(map (lambda x,y : abs(x-y)<1*1e-3, btf1[0:3], btf2[0:3]))
     stopABC_OK  = all(map (lambda x,y : abs(x-y)<1*1e-3, btf3[0:3], btf4[0:3]))
-    print >> sys.stderr, "  before startABC = ", btf1[0:3], ", after startABC = ", btf2[0:3], ", diff = ", startABC_OK
-    print >> sys.stderr, "  before stopABC  = ", btf3[0:3], ", after stopABC  = ", btf4[0:3], ", diff = ", stopABC_OK
+    print("  before startABC = ", btf1[0:3], ", after startABC = ", btf2[0:3], ", diff = ", startABC_OK, file=sys.stderr)
+    print("  before stopABC  = ", btf3[0:3], ", after stopABC  = ", btf4[0:3], ", diff = ", stopABC_OK, file=sys.stderr)
     assert(startABC_OK and stopABC_OK)
 
 def demoGaitGeneratorGoPos():
-    print >> sys.stderr, "1. goPos"
+    print("1. goPos", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     # initialize dst_foot_midcoords
     hcf.abst_svc.goPos(0,0,0)
@@ -361,17 +362,17 @@ def demoGaitGeneratorGoPos():
     hcf.abst_svc.waitFootSteps()
     checkGoPosParam(goalx, goaly, goalth, prev_dst_foot_midcoords)
     checkActualBaseAttitude()
-    print >> sys.stderr, "  goPos()=>OK"
+    print("  goPos()=>OK", file=sys.stderr)
 
 def demoGaitGeneratorGoVelocity():
-    print >> sys.stderr, "2. goVelocity and goStop"
-    print >> sys.stderr, "  goVelocity few steps"
+    print("2. goVelocity and goStop", file=sys.stderr)
+    print("  goVelocity few steps", file=sys.stderr)
     hcf.abst_svc.goVelocity(-0.1, -0.05, -20)
     time.sleep(1)
     hcf.abst_svc.goStop()
     checkActualBaseAttitude()
-    print >> sys.stderr, "  goVelocity few steps=>OK"
-    print >> sys.stderr, "  Check discontinuity of COG by checking too large COG acc."
+    print("  goVelocity few steps=>OK", file=sys.stderr)
+    print("  Check discontinuity of COG by checking too large COG acc.", file=sys.stderr)
     hcf.setMaxLogLength(10000)
     hcf.clearLog()
     hcf.abst_svc.goVelocity(0,0,0) # One step overwrite
@@ -380,7 +381,7 @@ def demoGaitGeneratorGoVelocity():
     checkTooLargeABCCogAcc()
 
 def demoGaitGeneratorSetFootSteps():
-    print >> sys.stderr, "3. setFootSteps"
+    print("3. setFootSteps", file=sys.stderr)
     hcf.abst_svc.setFootSteps([OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,-0.09,0], [1,0,0,0], "rleg")]),
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,0.09,0], [1,0,0,0], "lleg")])], 0)
     hcf.abst_svc.waitFootSteps()
@@ -390,10 +391,10 @@ def demoGaitGeneratorSetFootSteps():
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.3,0.09,0], [1,0,0,0], "lleg")])], 0)
     hcf.abst_svc.waitFootSteps()
     checkActualBaseAttitude()
-    print >> sys.stderr, "  setFootSteps()=>OK"
+    print("  setFootSteps()=>OK", file=sys.stderr)
 
 def demoGaitGeneratorChangePoseWhileWalking():
-    print >> sys.stderr, "4. Change base height, base rot x, base rot y, and upper body while walking"
+    print("4. Change base height, base rot x, base rot y, and upper body while walking", file=sys.stderr)
     hcf.abst_svc.waitFootSteps()
     hcf.abst_svc.goVelocity(0,0,0)
     testPoseList(pose_list, initial_pose)
@@ -401,13 +402,13 @@ def demoGaitGeneratorChangePoseWhileWalking():
     checkActualBaseAttitude()
 
 def demoGaitGeneratorGetParam():
-    print >> sys.stderr, "5. getGaitGeneratorParam"
+    print("5. getGaitGeneratorParam", file=sys.stderr)
     ret = hcf.abst_svc.getGaitGeneratorParam()
     if ret[0]:
-        print >> sys.stderr, "  getGaitGeneratorParam() => OK"
+        print("  getGaitGeneratorParam() => OK", file=sys.stderr)
 
 def demoGaitGeneratorSetParam():
-    print >> sys.stderr, "6. setGaitGeneratorParam"
+    print("6. setGaitGeneratorParam", file=sys.stderr)
     ggp_org = hcf.abst_svc.getGaitGeneratorParam()[1]
     ggp = hcf.abst_svc.getGaitGeneratorParam()[1]
     ggp.default_step_time = 0.9
@@ -418,13 +419,13 @@ def demoGaitGeneratorSetParam():
     hcf.abst_svc.setGaitGeneratorParam(ggp)
     ret = hcf.abst_svc.getGaitGeneratorParam()
     if ret[0] and ret[1].default_step_time == ggp.default_step_time and ret[1].default_step_height == ggp.default_step_height and ret[1].default_double_support_ratio == ggp.default_double_support_ratio and ret[1].default_orbit_type == ggp.default_orbit_type:
-        print >> sys.stderr, "  setGaitGeneratorParam() => OK"
+        print("  setGaitGeneratorParam() => OK", file=sys.stderr)
     hcf.abst_svc.goPos(0.2,0,0)
     hcf.abst_svc.waitFootSteps()
     hcf.abst_svc.setGaitGeneratorParam(ggp_org) # revert parameter
 
 def demoGaitGeneratorNonDefaultStrideStop():
-    print >> sys.stderr, "7. non-default stride"
+    print("7. non-default stride", file=sys.stderr)
     hcf.abst_svc.setFootSteps([OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,-0.09,0], [1,0,0,0], "rleg")]),
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.15,0.09,0], [1,0,0,0], "lleg")])], 0)
     hcf.abst_svc.waitFootSteps()
@@ -432,10 +433,10 @@ def demoGaitGeneratorNonDefaultStrideStop():
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,0.09,0], [1,0,0,0], "lleg")])], 0)
     hcf.abst_svc.waitFootSteps()
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Non default Stride()=>OK"
+    print("  Non default Stride()=>OK", file=sys.stderr)
 
 def demoGaitGeneratorToeHeelContact():
-    print >> sys.stderr, "8. Use toe heel contact"
+    print("8. Use toe heel contact", file=sys.stderr)
     ggp=hcf.abst_svc.getGaitGeneratorParam()[1];
     ggp.toe_pos_offset_x = 1e-3*182.0;
     ggp.heel_pos_offset_x = 1e-3*-72.0;
@@ -450,18 +451,18 @@ def demoGaitGeneratorToeHeelContact():
     ggp.heel_angle = 0;
     hcf.abst_svc.setGaitGeneratorParam(ggp);
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Toe heel contact=>OK"
+    print("  Toe heel contact=>OK", file=sys.stderr)
 
 def demoGaitGeneratorStopStartSyncCheck():
-    print >> sys.stderr, "9. Stop and start auto balancer sync check2"
-    print >> sys.stderr, "  Check 9-1 Sync after setFootSteps"
+    print("9. Stop and start auto balancer sync check2", file=sys.stderr)
+    print("  Check 9-1 Sync after setFootSteps", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     hcf.abst_svc.setFootSteps([OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,-0.09,0], [1,0,0,0], "rleg")]),
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.1,0.09,0], [1,0,0,0], "lleg")])], 0);
     hcf.abst_svc.waitFootSteps();
     hcf.abst_svc.stopAutoBalancer();
-    print >> sys.stderr, "    Sync after setFootSteps => OK"
-    print >> sys.stderr, "  Check 9-2 Sync from setJointAngles at the beginning"
+    print("    Sync after setFootSteps => OK", file=sys.stderr)
+    print("  Check 9-2 Sync from setJointAngles at the beginning", file=sys.stderr)
     open_stride_pose = [0.00026722677758058496, -0.3170503560247552, -0.0002054613599000865, 0.8240549352035262, -0.5061434785447525, -8.67443660992421e-05, 0.3112899999999996, -0.15948099999999998, -0.11539900000000003, -0.6362769999999993, 0.0, 0.0, 0.0, 0.00023087433689200683, -0.4751295978345554, -0.00021953834197007937, 0.8048588066686679, -0.3288687069275527, -8.676469399681631e-05, 0.3112899999999996, 0.15948099999999998, 0.11539900000000003, -0.6362769999999993, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     hcf.seq_svc.setJointAngles(open_stride_pose, 2.0);
     hcf.waitInterpolation();
@@ -470,43 +471,43 @@ def demoGaitGeneratorStopStartSyncCheck():
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.1,0.09,0], [1,0,0,0], "lleg")])], 0);
     hcf.abst_svc.waitFootSteps();
     hcf.abst_svc.stopAutoBalancer();
-    print >> sys.stderr, "    Sync from setJointAngle at the beginning => OK"
-    print >> sys.stderr, "  Check 9-3 Sync from setJointAngles"
+    print("    Sync from setJointAngle at the beginning => OK", file=sys.stderr)
+    print("  Check 9-3 Sync from setJointAngles", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     hcf.seq_svc.setJointAngles(initial_pose, 2.0);
     hcf.waitInterpolation();
     hcf.abst_svc.stopAutoBalancer();
-    print >> sys.stderr, "    Sync from setJointAngle => OK"
+    print("    Sync from setJointAngle => OK", file=sys.stderr)
 
 def demoGaitGeneratorEmergencyStop():
-    print >> sys.stderr, "10. Emergency stop"
+    print("10. Emergency stop", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     hcf.abst_svc.goPos(0,0,90);
-    print >> sys.stderr, "  Start goPos and wait for 4 steps"
+    print("  Start goPos and wait for 4 steps", file=sys.stderr)
     for idx in range(4): # Wait for 4 steps including initial double support phase
         # Wait for 1 steps
         hcf.seq_svc.setJointAngles(initial_pose, hcf.abst_svc.getGaitGeneratorParam()[1].default_step_time);
         hcf.waitInterpolation();
-    print >> sys.stderr, "  Emergency stoping"
+    print("  Emergency stoping", file=sys.stderr)
     hcf.abst_svc.emergencyStop();
-    print >> sys.stderr, "  Align foot steps"
+    print("  Align foot steps", file=sys.stderr)
     hcf.abst_svc.goPos(0,0,0);
     checkActualBaseAttitude()
 
 def demoGaitGeneratorGetRemainingSteps():
-    print >> sys.stderr, "11. Get remaining foot steps"
+    print("11. Get remaining foot steps", file=sys.stderr)
     hcf.abst_svc.goPos(0.3,0.1,15);
     fslist=hcf.abst_svc.getRemainingFootstepSequence()[1]
     while fslist != []:
         fslist=hcf.abst_svc.getRemainingFootstepSequence()[1]
-        print >> sys.stderr, "  Remaining footstep ", len(fslist)
+        print("  Remaining footstep ", len(fslist), file=sys.stderr)
         # Wait for 1 step
         hcf.seq_svc.setJointAngles(initial_pose, hcf.abst_svc.getGaitGeneratorParam()[1].default_step_time);
         hcf.waitInterpolation();
     checkActualBaseAttitude()
 
 def demoGaitGeneratorChangeStepParam():
-    print >> sys.stderr, "12. Change step param with setFootSteps"
+    print("12. Change step param with setFootSteps", file=sys.stderr)
     ggp_org=hcf.abst_svc.getGaitGeneratorParam()[1];
     # dummy setting
     ggp=hcf.abst_svc.getGaitGeneratorParam()[1];
@@ -544,7 +545,7 @@ def demoGaitGeneratorChangeStepParam():
     checkActualBaseAttitude()
 
 def demoGaitGeneratorOverwriteFootsteps(overwrite_offset_idx = 1):
-    print >> sys.stderr, "13. Overwrite footsteps during walking."
+    print("13. Overwrite footsteps during walking.", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
     demoGaitGeneratorOverwriteFootstepsBase("x", overwrite_offset_idx, True) # Overwrite by X direction foot steps
     hcf.seq_svc.setJointAngles(initial_pose, 1.0*overwrite_offset_idx)
@@ -564,15 +565,15 @@ def demoGaitGeneratorOverwriteFootstepsBase(axis, overwrite_offset_idx = 1, init
                           OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.3, 0.09,0], [1,0,0,0], "lleg")]),
                           OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.4,-0.09,0], [1,0,0,0], "rleg")]),
                           OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.4, 0.09,0], [1,0,0,0], "lleg")])], 0);
-    print >> sys.stderr, "  Overwrite footsteps ", overwrite_offset_idx
+    print("  Overwrite footsteps ", overwrite_offset_idx, file=sys.stderr)
     # Get remaining footstep
     [remain_fs, current_fs_idx]=hcf.abst_svc.getRemainingFootstepSequence()[1:]
     #print >> sys.stderr, remain_fs
-    print >> sys.stderr, "    Remaining legs = ", map(lambda fs : fs.leg, remain_fs)
-    print >> sys.stderr, "    Remaining idx  = ", map(lambda idx : current_fs_idx+idx, range(len(remain_fs)))
+    print("    Remaining legs = ", [fs.leg for fs in remain_fs], file=sys.stderr)
+    print("    Remaining idx  = ", [current_fs_idx+idx for idx in range(len(remain_fs))], file=sys.stderr)
     # Footstep index to be overwritten
     overwrite_fs_idx = current_fs_idx + overwrite_offset_idx
-    print >> sys.stderr, "    Overwrite index = ",overwrite_fs_idx, ", leg = ", remain_fs[overwrite_offset_idx].leg
+    print("    Overwrite index = ",overwrite_fs_idx, ", leg = ", remain_fs[overwrite_offset_idx].leg, file=sys.stderr)
     # Calc new footsteps
     import numpy
     support_fs = remain_fs[overwrite_offset_idx-1] # support fs before overwritten fs
@@ -594,7 +595,7 @@ def demoGaitGeneratorOverwriteFootstepsBase(axis, overwrite_offset_idx = 1, init
     hcf.abst_svc.setFootSteps(new_fs, overwrite_fs_idx);
 
 def demoGaitGeneratorFixHand():
-    print >> sys.stderr, "14. Fix arm walking"
+    print("14. Fix arm walking", file=sys.stderr)
     hcf.abst_svc.stopAutoBalancer()
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
     # Set pose
@@ -604,7 +605,7 @@ def demoGaitGeneratorFixHand():
     dualarm_push_pose=[-3.998549e-05,-0.710564,-0.000264,1.41027,-0.680767,-2.335251e-05,-0.541944,-0.091558,0.122667,-1.02616,-1.71287,-0.056837,1.5708,-3.996804e-05,-0.710511,-0.000264,1.41016,-0.680706,-2.333505e-05,-0.542,0.091393,-0.122578,-1.02608,1.71267,-0.05677,-1.5708,0.006809,0.000101,-0.000163]
     hcf.seq_svc.setJointAngles(dualarm_push_pose, 1.0)
     hcf.waitInterpolation()
-    print >> sys.stderr, "  Walk without fixing arm"
+    print("  Walk without fixing arm", file=sys.stderr)
     abcp=hcf.abst_svc.getAutoBalancerParam()[1]
     abcp.is_hand_fix_mode=False
     hcf.abst_svc.setAutoBalancerParam(abcp)
@@ -614,7 +615,7 @@ def demoGaitGeneratorFixHand():
     hcf.abst_svc.waitFootSteps()
     hcf.abst_svc.goPos(0,0,30)
     hcf.abst_svc.waitFootSteps()
-    print >> sys.stderr, "  Walk with fixing arm"
+    print("  Walk with fixing arm", file=sys.stderr)
     abcp=hcf.abst_svc.getAutoBalancerParam()[1]
     abcp.is_hand_fix_mode=True
     hcf.abst_svc.setAutoBalancerParam(abcp)
@@ -631,10 +632,10 @@ def demoGaitGeneratorFixHand():
     ref_rpy = checkParameterFromLog("baseRpyOut", rtc_name="abst")
     hcf.abst_svc.stopAutoBalancer()
     checkActualBaseAttitude(ref_rpy)
-    print >> sys.stderr, "  Fix hand=>OK"
+    print("  Fix hand=>OK", file=sys.stderr)
 
 def demoGaitGeneratorOverwriteCurrentFootstep():
-    print >> sys.stderr, "15. Overwrite current footstep"
+    print("15. Overwrite current footstep", file=sys.stderr)
     hcf.seq_svc.setJointAngles(initial_pose, 1.0)
     hcf.waitInterpolation()
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
@@ -653,14 +654,14 @@ def demoGaitGeneratorOverwriteCurrentFootstep():
     hcf.seq_svc.setJointAngles(initial_pose, 2.0);hcf.waitInterpolation() #  wait 2 step using dummy waitInterpolation
     hcf.abst_svc.goStop()
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Overwrite current footstep=>OK"
+    print("  Overwrite current footstep=>OK", file=sys.stderr)
     # reset params
     hcf.abst_svc.setGaitGeneratorParam(orig_ggp)
 
 def demoGaitGeneratorGoPosOverwrite():
-    print >> sys.stderr, "16. goPos overwriting"
+    print("16. goPos overwriting", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
-    print >> sys.stderr, "  Overwrite goPos by goPos"
+    print("  Overwrite goPos by goPos", file=sys.stderr)
     # Initialize dst_foot_midcoords
     hcf.abst_svc.goPos(0,0.001,0);
     hcf.abst_svc.waitFootSteps();
@@ -671,7 +672,7 @@ def demoGaitGeneratorGoPosOverwrite():
     hcf.abst_svc.goPos(goalx,goaly,goalth) # overwrite gopos
     hcf.abst_svc.waitFootSteps()
     checkGoPosParam(goalx, goaly, goalth, prev_dst_foot_midcoords)
-    print >> sys.stderr, "  Overwrite setFootSteps by goPos"
+    print("  Overwrite setFootSteps by goPos", file=sys.stderr)
     prev_dst_foot_midcoords=hcf.abst_svc.getFootstepParam()[1].dst_foot_midcoords
     hcf.abst_svc.setFootSteps([OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,-0.09,0], [1,0,0,0], "rleg")]),
                       OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.1,0.09,0], [1,0,0,0], "lleg")]),
@@ -685,7 +686,7 @@ def demoGaitGeneratorGoPosOverwrite():
     checkGoPosParam(goalx, goaly, goalth, prev_dst_foot_midcoords)
 
 def demoGaitGeneratorGrasplessManipMode():
-    print >> sys.stderr, "17. Graspless manip mode"
+    print("17. Graspless manip mode", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     # Initialize and pose define
     dualarm_push_pose=[-3.998549e-05,-0.710564,-0.000264,1.41027,-0.680767,-2.335251e-05,-0.541944,-0.091558,0.122667,-1.02616,-1.71287,-0.056837,1.5708,-3.996804e-05,-0.710511,-0.000264,1.41016,-0.680706,-2.333505e-05,-0.542,0.091393,-0.122578,-1.02608,1.71267,-0.05677,-1.5708,0.006809,0.000101,-0.000163]
@@ -738,10 +739,10 @@ def demoGaitGeneratorGrasplessManipMode():
         else:
             tmpret = abs(diff[0]) < 1e-3 and abs(diff[1]) < 1e-3 and abs(diff[2]) < 1.0
         ret = ret and tmpret
-        print >> sys.stderr, "  ret = ", tmpret, ", diff = ", diff
+        print("  ret = ", tmpret, ", diff = ", diff, file=sys.stderr)
     # Finishing
     if ret:
-        print >> sys.stderr, "  total is OK"
+        print("  total is OK", file=sys.stderr)
     assert(ret)
     hcf.co_svc.enableCollisionDetection()
     hcf.seq_svc.setJointAngles(dualarm_push_pose, 0.5)
@@ -749,7 +750,7 @@ def demoGaitGeneratorGrasplessManipMode():
     hcf.abst_svc.setAutoBalancerParam(org_abcp)
 
 def demoGaitGeneratorSetFootStepsWithArms():
-    print >> sys.stderr, "18. Trot Walking"
+    print("18. Trot Walking", file=sys.stderr)
     hcf.abst_svc.stopAutoBalancer()
     hcf.seq_svc.setJointAngles(four_legs_mode_pose, 1.0)
     hcf.waitInterpolation()
@@ -772,7 +773,7 @@ def demoGaitGeneratorSetFootStepsWithArms():
                                                              OpenHRP.AutoBalanceStabilizerService.Footstep([0.23,-0.21,0.86], [1,0,0,0], "rarm")])], 0)
     hcf.abst_svc.waitFootSteps()
     checkActualBaseAttitude()
-    print >> sys.stderr, "  setFootSteps()=>OK"
+    print("  setFootSteps()=>OK", file=sys.stderr)
     # reset params
     hcf.abst_svc.stopAutoBalancer()
     hcf.abst_svc.setAutoBalancerParam(orig_abcp)
@@ -780,7 +781,7 @@ def demoGaitGeneratorSetFootStepsWithArms():
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
 
 def demoGaitGeneratorChangeStrideLimitationType():
-    print >> sys.stderr, "19. Change stride limitation type to CIRCLE"
+    print("19. Change stride limitation type to CIRCLE", file=sys.stderr)
     hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
     # initialize dst_foot_midcoords
     hcf.abst_svc.goPos(0,0,0)
@@ -805,12 +806,12 @@ def demoGaitGeneratorChangeStrideLimitationType():
     hcf.abst_svc.waitFootSteps()
     checkGoPosParam(goalx, goaly, goalth, prev_dst_foot_midcoords)
     checkActualBaseAttitude()
-    print >> sys.stderr, "  Change stride limitation type to CIRCLE=>OK"
+    print("  Change stride limitation type to CIRCLE=>OK", file=sys.stderr)
     # reset params
     hcf.abst_svc.setGaitGeneratorParam(orig_ggp)
 
 def demoStandingPosResetting():
-    print >> sys.stderr, "demoStandingPosResetting"
+    print("demoStandingPosResetting", file=sys.stderr)
     hcf.abst_svc.goPos(0,0,math.degrees(-1*checkParameterFromLog("WAIST")[5])); # Rot yaw
     hcf.abst_svc.waitFootSteps()
     hcf.abst_svc.goPos(0,-1*checkParameterFromLog("WAIST")[1],0); # Pos Y
@@ -863,12 +864,12 @@ def initStabilizer():
         hcf.rmfo_svc.setForceMomentOffsetParam(sen, ofp)
 
 def demoGetStabilizerParam():
-    print >> sys.stderr, "1. getStabilizerParam"
+    print("1. getStabilizerParam", file=sys.stderr)
     stp = hcf.abst_svc.getStabilizerParam()
-    print >> sys.stderr, "  getStabilizerParam() => OK"
+    print("  getStabilizerParam() => OK", file=sys.stderr)
 
 def demoSetStabilizerParam():
-    print >> sys.stderr, "2. setStabilizerParam"
+    print("2. setStabilizerParam", file=sys.stderr)
     stp_org = hcf.abst_svc.getStabilizerParam()
     # for tpcc
     stp_org.k_tpcc_p=[0.2, 0.2]
@@ -889,7 +890,7 @@ def demoSetStabilizerParam():
                      OpenHRP.AutoBalanceStabilizerService.TwoDimensionVertex(pos=[-1*tmp_leg_rear_margin, tmp_leg_outside_margin])]
     rarm_vertices = rleg_vertices
     larm_vertices = lleg_vertices
-    stp_org.eefm_support_polygon_vertices_sequence = map (lambda x : OpenHRP.AutoBalanceStabilizerService.SupportPolygonVertices(vertices=x), [lleg_vertices, rleg_vertices, larm_vertices, rarm_vertices])
+    stp_org.eefm_support_polygon_vertices_sequence = [OpenHRP.AutoBalanceStabilizerService.SupportPolygonVertices(vertices=x) for x in [lleg_vertices, rleg_vertices, larm_vertices, rarm_vertices]]
     stp_org.eefm_leg_inside_margin=tmp_leg_inside_margin
     stp_org.eefm_leg_outside_margin=tmp_leg_outside_margin
     stp_org.eefm_leg_front_margin=tmp_leg_front_margin
@@ -906,7 +907,7 @@ def demoSetStabilizerParam():
     stp = hcf.abst_svc.getStabilizerParam()
     vcheck = stp.k_tpcc_p == stp_org.k_tpcc_p and stp.k_tpcc_x == stp_org.k_tpcc_x and stp.k_brot_p == stp_org.k_brot_p
     if vcheck:
-        print >> sys.stderr, "  setStabilizerParam() => OK", vcheck
+        print("  setStabilizerParam() => OK", vcheck, file=sys.stderr)
     assert(vcheck)
 
 def changeContactDecisionThre (thre):
@@ -925,14 +926,14 @@ def checkActualBaseAttitude(thre=5.0): # degree
     '''
     act_rpy = checkParameterFromLog("WAIST")[3:]
     ret = abs(math.degrees(act_rpy[0])) < thre and abs(math.degrees(act_rpy[1])) < thre
-    print >> sys.stderr, "  ret = ", ret, ", actual base rpy = (", act_rpy, ")"
+    print("  ret = ", ret, ", actual base rpy = (", act_rpy, ")", file=sys.stderr)
     return ret
 
 def printActualBase():
     '''Print actual base pos and rot
     '''
     act_base = checkParameterFromLog("WAIST")
-    print >> sys.stderr, "  actual base pos = ", act_base[0:3], "[m], actual base rpy = ", act_base[3:], "[rad]"
+    print("  actual base pos = ", act_base[0:3], "[m], actual base rpy = ", act_base[3:], "[rad]", file=sys.stderr)
 
 def changeSTAlgorithm (new_st_alg):
     stp = hcf.abst_svc.getStabilizerParam()
@@ -946,7 +947,7 @@ def changeSTAlgorithm (new_st_alg):
         hcf.waitInterpolation()
 
 def demoSTLoadPattern ():
-    print >> sys.stderr, "3. EEFMQP st + SequencePlayer loadPattern"
+    print("3. EEFMQP st + SequencePlayer loadPattern", file=sys.stderr)
     if hcf.pdc:
         # Set initial pose of samplerobot-gopos000 before starting of ST
         hcf.seq_svc.setJointAnglesSequenceFull([[0.000242, -0.403476, -0.000185, 0.832071, -0.427767, -6.928952e-05, 0.31129, -0.159481, -0.115399, -0.636277, 0.0, 0.0, 0.0, 0.000242, -0.403469, -0.000185, 0.832073, -0.427775, -6.928781e-05, 0.31129, 0.159481, 0.115399, -0.636277, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], # jvss
@@ -973,13 +974,13 @@ def demoSTLoadPattern ():
         hcf.waitInterpolation()
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  ST + loadPattern => OK"
+            print("  ST + loadPattern => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoStartStopTPCCST ():
-    print >> sys.stderr, "4. start and stop TPCC st"
+    print("4. start and stop TPCC st", file=sys.stderr)
     if hcf.pdc:
         # setup controllers
         hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
@@ -987,13 +988,13 @@ def demoStartStopTPCCST ():
         hcf.abst_svc.startStabilizer ()
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  Start and Stop Stabilizer => OK"
+            print("  Start and Stop Stabilizer => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoStartStopEEFMQPST ():
-    print >> sys.stderr, "5. start and stop EEFMQP st"
+    print("5. start and stop EEFMQP st", file=sys.stderr)
     if hcf.pdc:
         # setup controllers
         hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
@@ -1003,13 +1004,13 @@ def demoStartStopEEFMQPST ():
         hcf.abst_svc.waitFootSteps()
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  Start and Stop Stabilizer => OK"
+            print("  Start and Stop Stabilizer => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoSTStairWalk ():
-    print >> sys.stderr, "6. EEFMQPCOP + stair"
+    print("6. EEFMQPCOP + stair", file=sys.stderr)
     if hcf.pdc:
         # setup controllers
         printActualBase()
@@ -1049,13 +1050,13 @@ def demoSTStairWalk ():
         ret = checkActualBaseAttitude()
         printActualBase()
         if ret:
-            print >> sys.stderr, "  ST + Stair => OK"
+            print("  ST + Stair => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoSTToeHeelWalk ():
-    print >> sys.stderr, "7. EEFMQPCOP + toeheel"
+    print("7. EEFMQPCOP + toeheel", file=sys.stderr)
     if hcf.pdc:
         # setup controllers
         hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
@@ -1104,13 +1105,13 @@ def demoSTToeHeelWalk ():
         hcf.co_svc.enableCollisionDetection()
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  ST + ToeHeel => OK"
+            print("  ST + ToeHeel => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoSTTurnWalk ():
-    print >> sys.stderr, "8. EEFMQPCOP st + Turn walk"
+    print("8. EEFMQPCOP st + Turn walk", file=sys.stderr)
     if hcf.pdc:
         hcf.abst_svc.startAutoBalancer(autobalancer_limbs)
         hcf.co_svc.disableCollisionDetection()
@@ -1131,15 +1132,15 @@ def demoSTTurnWalk ():
         hcf.co_svc.enableCollisionDetection()
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  ST + Turnwalk => OK"
+            print("  ST + Turnwalk => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 
 def demoSTTransitionAirGround ():
     # This example is from YoheiKakiuchi's comment : https://github.com/fkanehiro/hrpsys-base/issues/1098, https://github.com/fkanehiro/hrpsys-base/pull/1102#issuecomment-284609203
-    print >> sys.stderr, "9. ST Transition (in the air and on the ground)"
+    print("9. ST Transition (in the air and on the ground)", file=sys.stderr)
     if hcf.pdc:
         # Init
         stp_org = hcf.abst_svc.getStabilizerParam()
@@ -1147,24 +1148,24 @@ def demoSTTransitionAirGround ():
         stp.transition_time = 0.1; # for fast checking
         hcf.abst_svc.setStabilizerParam(stp)
         # Tests
-        print >> sys.stderr, "  9-1. Check in the air"
+        print("  9-1. Check in the air", file=sys.stderr)
         hcf.abst_svc.startStabilizer()
         mimicInTheAir()
         hcf.setJointAngles(hcf.getJointAngles(), stp.transition_time);hcf.waitInterpolation() # Wait transition
         cmode1 = hcf.abst_svc.getStabilizerParam().controller_mode
         vcheck1 = (cmode1 == OpenHRP.AutoBalanceStabilizerService.MODE_AIR)
-        print >> sys.stderr, "  9-2. Check on the ground"
+        print("  9-2. Check on the ground", file=sys.stderr)
         mimicOnTheGround()
         hcf.setJointAngles(hcf.getJointAngles(), stp.transition_time);hcf.waitInterpolation() # Wait transition
         cmode2 = hcf.abst_svc.getStabilizerParam().controller_mode
         vcheck2 = (cmode2 == OpenHRP.AutoBalanceStabilizerService.MODE_ST)
-        print >> sys.stderr, "  9-3. Check in the air and then stopST"
+        print("  9-3. Check in the air and then stopST", file=sys.stderr)
         mimicInTheAir()
         hcf.setJointAngles(hcf.getJointAngles(), 0.01);hcf.waitInterpolation() # Wait until in the air flag is invoked in onExecute
         hcf.abst_svc.stopStabilizer()
         cmode3 = hcf.abst_svc.getStabilizerParam().controller_mode
         vcheck3 = (cmode3 == OpenHRP.AutoBalanceStabilizerService.MODE_IDLE)
-        print >> sys.stderr, "  9-4. Check on the ground"
+        print("  9-4. Check on the ground", file=sys.stderr)
         mimicOnTheGround()
         hcf.setJointAngles(hcf.getJointAngles(), 0.01);hcf.waitInterpolation() # Wait until on the ground flag is invoked in onExecute
         hcf.abst_svc.startStabilizer()
@@ -1173,15 +1174,15 @@ def demoSTTransitionAirGround ():
         # Finsh
         hcf.abst_svc.setStabilizerParam(stp_org)
         vcheck_list = [vcheck1, vcheck2, vcheck3, vcheck4]
-        print >> sys.stderr, "  ST Transition Air Ground vcheck = ", vcheck_list, ", cmode = ", [cmode1, cmode2, cmode3, cmode4]
+        print("  ST Transition Air Ground vcheck = ", vcheck_list, ", cmode = ", [cmode1, cmode2, cmode3, cmode4], file=sys.stderr)
         if all(vcheck_list):
-            print >> sys.stderr, "  ST Transition Air Ground => OK"
+            print("  ST Transition Air Ground => OK", file=sys.stderr)
         assert(all(vcheck_list))
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoSTRootRotChange ():
-    print >> sys.stderr, "10. ST root rot change"
+    print("10. ST root rot change", file=sys.stderr)
     if hcf.pdc:
         # 10deg
         root_rot_x_pose=[-0.240857,-0.634561,0.012382,1.30211,-0.669201,0.073893,0.31129,-0.159481,-0.115399,-0.636277,0.0,0.0,0.0,-0.232865,-0.555515,0.011753,1.1356,-0.581653,0.06476,0.31129,0.159481,0.115399,-0.636277,0.0,0.0,0.0,0.0,0.0,0.0]
@@ -1193,33 +1194,33 @@ def demoSTRootRotChange ():
         root_rot_xyz_pose=[-0.378611,-0.81283,-0.238181,1.23534,-0.577915,0.061071,0.31129,-0.159481,-0.115399,-0.636277,0.0,0.0,0.0,-0.351695,-0.768514,-0.225097,1.05221,-0.442267,0.050849,0.31129,0.159481,0.115399,-0.636277,0.0,0.0,0.0,0.0,0.0,0.0]
         hcf.abst_svc.startAutoBalancer(autobalancer_limbs);
         changeSTAlgorithm (OpenHRP.AutoBalanceStabilizerService.EEFMQPCOP)
-        print >> sys.stderr, "  init"
+        print("  init", file=sys.stderr)
         checkActualBaseAttitude()
         hcf.seq_svc.setJointAngles(root_rot_x_pose, 1.0);hcf.waitInterpolation();
         hcf.seq_svc.setJointAngles(root_rot_x_pose, 1.0);hcf.waitInterpolation(); # dummy for wait
-        print >> sys.stderr, "  root rot x done."
+        print("  root rot x done.", file=sys.stderr)
         checkActualBaseAttitude()
         hcf.seq_svc.setJointAngles(root_rot_y_pose, 1.0);hcf.waitInterpolation();
         hcf.seq_svc.setJointAngles(root_rot_y_pose, 1.0);hcf.waitInterpolation(); # dummy for wait
-        print >> sys.stderr, "  root rot y done."
+        print("  root rot y done.", file=sys.stderr)
         checkActualBaseAttitude()
         hcf.seq_svc.setJointAngles(root_rot_z_pose, 1.0);hcf.waitInterpolation();
         hcf.seq_svc.setJointAngles(root_rot_z_pose, 1.0);hcf.waitInterpolation(); # dummy for wait
-        print >> sys.stderr, "  root rot z done."
+        print("  root rot z done.", file=sys.stderr)
         checkActualBaseAttitude()
         hcf.seq_svc.setJointAngles(root_rot_xyz_pose, 1.0);hcf.waitInterpolation();
         hcf.seq_svc.setJointAngles(root_rot_xyz_pose, 1.0);hcf.waitInterpolation(); # dummy for wait
         hcf.seq_svc.setJointAngles(initial_pose, 1.0);hcf.waitInterpolation();
-        print >> sys.stderr, "  root rot xyz done."
+        print("  root rot xyz done.", file=sys.stderr)
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  ST root rot change => OK"
+            print("  ST root rot change => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoSTMimicRouchTerrainWalk (terrain_height_diff = 0.04):
-    print >> sys.stderr, "11. ST mimic rough terrain walk"
+    print("11. ST mimic rough terrain walk", file=sys.stderr)
     if hcf.pdc:
         hcf.abst_svc.setFootSteps([OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0,-0.09,0], [1,0,0,0], "rleg")]),
                           OpenHRP.AutoBalanceStabilizerService.Footsteps([OpenHRP.AutoBalanceStabilizerService.Footstep([0.22,0.09,terrain_height_diff], [1,0,0,0], "lleg")]),
@@ -1233,10 +1234,10 @@ def demoSTMimicRouchTerrainWalk (terrain_height_diff = 0.04):
         hcf.abst_svc.waitFootSteps();
         ret = checkActualBaseAttitude()
         if ret:
-            print >> sys.stderr, "  ST mimic rough terrain walk => OK"
+            print("  ST mimic rough terrain walk => OK", file=sys.stderr)
         assert(ret)
     else:
-        print >> sys.stderr, "  This sample is neglected in High-gain mode simulation"
+        print("  This sample is neglected in High-gain mode simulation", file=sys.stderr)
 
 def demoStabilizer():
     OPENHRP3_DIR=check_output(['pkg-config', 'openhrp3.1', '--variable=prefix']).rstrip()
@@ -1254,7 +1255,7 @@ def demoStabilizer():
         demoSTRootRotChange()
         demoSTMimicRouchTerrainWalk()
     else:
-        print >> sys.stderr, "Skip st test because of missing sample1_bush.wrl"
+        print("Skip st test because of missing sample1_bush.wrl", file=sys.stderr)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -1264,6 +1265,6 @@ if __name__ == '__main__':
     if not hcf.pdc:
         demoAutoBalancer()
     else:
-        print >> sys.stderr, "demoAutoBalancer is neglected in Torque-controll mode simulation"
+        print("demoAutoBalancer is neglected in Torque-controll mode simulation", file=sys.stderr)
     demoStabilizer()
-    print >> sys.stderr, "All samplerobot_auto_balance_stabilzier.py demo time ", (time.time()-start_time), "[s]"
+    print("All samplerobot_auto_balance_stabilzier.py demo time ", (time.time()-start_time), "[s]", file=sys.stderr)
