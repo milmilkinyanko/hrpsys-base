@@ -518,13 +518,12 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onDeactivated(RTC::UniqueId ec_id)
 RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 {
     // std::cerr << "AutoBalanceStabilizer::onExecute(" << ec_id << ")" << std::endl;
+    loop++;
     readInportData();
 
     // Set Stabilizer data
     gg->set_diff_cp(st->calcDiffCP());
     gg->set_act_contact_states(st->getActContactStates());
-
-    loop++;
 
     if (!is_legged_robot) {
         if (m_qRef.data.length() != 0) m_qOut.write();
@@ -544,7 +543,10 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     }
 
     hrp::Vector3 rel_ref_zmp; // ref zmp in base frame
-    if (control_mode != MODE_IDLE ) {
+    if (control_mode == MODE_IDLE) {
+        rel_ref_zmp = input_zmp;
+        fik->d_root_height = 0.0;
+    } else {
         solveFullbodyIK();
 //        /////// Inverse Dynamics /////////
 //        if(!idsb.is_initialized){
@@ -563,9 +565,6 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 //        updateInvDynStateBuffer(idsb);
 
         rel_ref_zmp = m_robot->rootLink()->R.transpose() * (ref_zmp - m_robot->rootLink()->p);
-    } else {
-        rel_ref_zmp = input_zmp;
-        fik->d_root_height = 0.0;
     }
 
     // hrp::Vector3  ref_basePos = target_root_p; // TODO: 今の実装だと違う
