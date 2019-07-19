@@ -135,8 +135,6 @@ class AutoBalanceStabilizer
     // Configuration variable declaration
     // <rtc-template block="config_declare">
 
-    // </rtc-template>
-
     // DataInPort declaration
     // <rtc-template block="inport_declare">
     TimedDoubleSeq m_qCurrent;
@@ -161,15 +159,6 @@ class AutoBalanceStabilizer
     InPort<TimedBoolean> m_refFootOriginExtMomentIsHoldValueIn;
     std::vector<TimedDoubleSeq> m_wrenches;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
-    // for debug
-    TimedPoint3D m_refCog;
-    TimedPoint3D m_originNewRefZmp;
-    TimedPoint3D m_originActZmp;
-    TimedPoint3D m_footOriginRefCog;
-    TimedPoint3D m_footOriginActCog;
-    TimedBooleanSeq m_actContactStates;
-
-    // </rtc-template>
 
     // DataOutPort declaration
     // <rtc-template block="outport_declare">
@@ -197,32 +186,34 @@ class AutoBalanceStabilizer
     OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
     TimedLong m_emergencySignal;
     OutPort<TimedLong> m_emergencySignalOut;
-    // for debug
-    OutPort<TimedPoint3D> m_refCogOut;
-    OutPort<TimedPoint3D> m_originNewRefZmpOut;
-    OutPort<TimedPoint3D> m_originActZmpOut;
-    OutPort<TimedPoint3D> m_footOriginRefCogOut;
-    OutPort<TimedPoint3D> m_footOriginActCogOut;
-    OutPort<RTC::TimedBooleanSeq> m_actContactStatesOut;
 
-    // </rtc-template>
+    // for debug
+    TimedPoint3D m_refCog;
+    OutPort<TimedPoint3D> m_refCogOut;
+    TimedPoint3D m_originNewRefZmp;
+    OutPort<TimedPoint3D> m_originNewRefZmpOut;
+    TimedPoint3D m_originActZmp;
+    OutPort<TimedPoint3D> m_originActZmpOut;
+    TimedPoint3D m_footOriginRefCog;
+    OutPort<TimedPoint3D> m_footOriginRefCogOut;
+    TimedPoint3D m_footOriginActCog;
+    OutPort<TimedPoint3D> m_footOriginActCogOut;
+    TimedBooleanSeq m_actContactStates;
+    OutPort<TimedBooleanSeq> m_actContactStatesOut;
+    TimedPoint3D m_refCP;
+    OutPort<TimedPoint3D> m_refCPOut;
+    TimedPoint3D m_actCP;
+    OutPort<TimedPoint3D> m_actCPOut;
+    TimedDoubleSeq m_COPInfo;
+    OutPort<TimedDoubleSeq> m_COPInfoOut;
 
     // CORBA Port declaration
     // <rtc-template block="corbaport_declare">
     RTC::CorbaPort m_AutoBalanceStabilizerServicePort;
 
-    // </rtc-template>
-
     // Service declaration
     // <rtc-template block="service_declare">
     AutoBalanceStabilizerService_impl m_service0;
-
-    // </rtc-template>
-
-    // Consumer declaration
-    // <rtc-template block="consumer_declare">
-
-    // </rtc-template>
 
   private:
     struct ABCIKparam {
