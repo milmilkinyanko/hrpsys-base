@@ -1059,7 +1059,7 @@ namespace rats
     if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
       zmp.head(2) = tmp_zmp;
     }
-    zmp = zmp_filter->passFilter(zmp);
+    // zmp = zmp_filter->passFilter(zmp);
     foot_guided_controller_ptr->set_zmp(zmp);
     // calc cog
     hrp::Vector3 tmpfx = hrp::Vector3::Zero();

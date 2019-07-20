@@ -5,6 +5,8 @@
 #include <cmath>
 #include <hrpUtil/Eigen3d.h>
 #include "hrpsys/util/Hrpsys.h"
+#include <boost/shared_ptr.hpp>
+#include "../TorqueFilter/IIRFilter.h"
 
 static const double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
 
@@ -36,6 +38,7 @@ protected:
   double act_vel_ratio; // how much act_vel is used (0.0 ~ 1.0)
   double dc_off; // offset for disturbance compensation
   double mass;
+  boost::shared_ptr<FirstOrderLowPassFilter<double> > zmp_filter;
 public:
   // constructor
   foot_guided_control_base() {}
@@ -45,6 +48,7 @@ public:
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
+    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(4.0, _dt, 0.0));
   }
   foot_guided_control_base(const double _dt,  const double _dz, const double init_xk, const double _mass,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
@@ -53,6 +57,7 @@ public:
   {
     set_mat();
     act_x_k(0) = x_k(0) = init_xk;
+    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(4.0, _dt, 0.0));
   }
   // destructor
   ~foot_guided_control_base() {};
