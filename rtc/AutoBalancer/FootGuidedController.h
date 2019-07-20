@@ -15,7 +15,7 @@ template <typename T> int sgn(T val) {
 class foot_guided_control_base
 {
 private:
-  void calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N);
+  void calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp);
   void truncate_u();
   void calc_x_k();
 protected:
@@ -57,7 +57,7 @@ public:
   // destructor
   ~foot_guided_control_base() {};
   // update function
-  void update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N);
+  void update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp);
   void update_state(double& pos, const double fx);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
@@ -110,10 +110,10 @@ public:
     delete[] controllers;
   };
   // update function
-  void update_control(hrp::Vector3& p_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp, const bool is_double, const hrp::Vector3& start_ref_zmp, const hrp::Vector3& goal_ref_zmp, const std::size_t double_N, const size_t double_whole_N)
+  void update_control(hrp::Vector3& p_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp, const bool is_double, const hrp::Vector3& start_ref_zmp, const hrp::Vector3& goal_ref_zmp, const std::size_t double_N, const size_t double_whole_N, const hrp::Vector3& ad_ref_zmp)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].update_control(p_ret[i], N, ref_dcm[i], ref_zmp[i], is_double, start_ref_zmp[i], goal_ref_zmp[i], double_N, double_whole_N);
+      controllers[i].update_control(p_ret[i], N, ref_dcm[i], ref_zmp[i], is_double, start_ref_zmp[i], goal_ref_zmp[i], double_N, double_whole_N, ad_ref_zmp[i]);
   }
   void update_state(hrp::Vector3& x_ret, const hrp::Vector3 fx)
   {

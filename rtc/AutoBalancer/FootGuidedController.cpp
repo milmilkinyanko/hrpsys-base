@@ -37,7 +37,7 @@ void foot_guided_control_base::set_mat()
 //   truncate_u();
 // }
 
-void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N)
+void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp)
 {
   bool is_second_ver = true;
   w_k = Phi * x_k;
@@ -49,15 +49,15 @@ void foot_guided_control_base::calc_u(const std::size_t N, const double ref_dcm,
     if (double_whole_N == 0) {
       double dxsp = ref_dcm - ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, act_xcp = act_w_k(0) - ref_zmp + w_k_offset;
       u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
-      act_u_k = ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
+      act_u_k = ad_ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp) / (1 - std::exp(-2 * xi * T));
     } else if (is_double) {
       double dxsp = ref_dcm - goal_ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, act_xcp = act_w_k(0) - ref_zmp + w_k_offset, a = (goal_ref_zmp - start_ref_zmp) / (double_whole_N * dt);
-      u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - 1)) / (1 - std::exp(-2 * xi * T));
-      act_u_k = ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - 1)) / (1 - std::exp(-2 * xi * T));
+      u_k = ref_zmp+ 2 * (xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - 1)) / (1 - std::exp(-2 * xi * T));
+      act_u_k = ad_ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - 1)) / (1 - std::exp(-2 * xi * T));
     } else {
       double dxsp = ref_dcm - goal_ref_zmp, xcp = w_k(0) - ref_zmp + w_k_offset, act_xcp = act_w_k(0) - ref_zmp + w_k_offset, a = (goal_ref_zmp - start_ref_zmp) / (double_whole_N * dt);
       u_k = ref_zmp + 2 * (xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - std::exp(- xi * double_T))) / (1 - std::exp(-2 * xi * T));
-      act_u_k = ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - std::exp(- xi * double_T))) / (1 - std::exp(-2 * xi * T));
+      act_u_k = ad_ref_zmp + 2 * (act_xcp - std::exp(- xi * T) * dxsp + a/xi * (std::exp(- xi * T) - std::exp(- xi * double_T))) / (1 - std::exp(-2 * xi * T));
     }
   } else {
     if (is_double) {
@@ -89,9 +89,9 @@ void foot_guided_control_base::calc_x_k()
   x_k = A * x_k + b * u_k;
 }
 
-void foot_guided_control_base::update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N)
+void foot_guided_control_base::update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp)
 {
-  calc_u(N, ref_dcm, ref_zmp, is_double, start_ref_zmp, goal_ref_zmp, double_N, double_whole_N);
+  calc_u(N, ref_dcm, ref_zmp, is_double, start_ref_zmp, goal_ref_zmp, double_N, double_whole_N, ad_ref_zmp);
   zmp = act_u_k;
 }
 

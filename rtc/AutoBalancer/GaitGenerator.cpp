@@ -650,6 +650,7 @@ namespace rats
     fx = hrp::Vector3::Zero();
     sum_fx = hrp::Vector3::Zero();
     fx_count = 0;
+    prev_fg_ref_zmp = rg.get_refzmp_cur();
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
     zmp_filter->reset(rg.get_refzmp_cur());
     // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
@@ -1049,8 +1050,10 @@ namespace rats
       tmp_ref_dcm(1) += ((tmp_ref_dcm - tmp_ref_zmp)(1) > 0 ? -1 : 1) * dcm_offset;
       tmp_ref_dcm = cur_steps.front().worldcoords.pos + cur_step_rot * tmp_ref_dcm;
     }
+    // apply inverse system
+    hrp::Vector3 ad_ref_zmp = fg_ref_zmp + zmp_delay_time_const * (fg_ref_zmp - prev_fg_ref_zmp) / dt;
     // calc zmp
-    foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio);
+    foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
     if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
@@ -1065,6 +1068,7 @@ namespace rats
     // convert zmp -> refzmp
     refzmp = zmp - dz;
     prev_ref_dcm = ref_dcm;
+    prev_fg_ref_zmp = fg_ref_zmp;
     if (!is_second_ver) {
       if (double_remain_count == 0) is_double_support_phase = !is_double_support_phase;
     } else {
