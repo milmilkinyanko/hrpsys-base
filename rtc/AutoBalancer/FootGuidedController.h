@@ -48,7 +48,7 @@ public:
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
-    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(4.0, _dt, 0.0));
+    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(10.0, _dt, 0.0));
   }
   foot_guided_control_base(const double _dt,  const double _dz, const double init_xk, const double _mass,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
@@ -57,7 +57,7 @@ public:
   {
     set_mat();
     act_x_k(0) = x_k(0) = init_xk;
-    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(4.0, _dt, 0.0));
+    zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(10.0, _dt, 0.0));
   }
   // destructor
   ~foot_guided_control_base() {};
