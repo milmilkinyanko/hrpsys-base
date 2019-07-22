@@ -642,7 +642,7 @@ namespace rats
       delete foot_guided_controller_ptr;
       foot_guided_controller_ptr = NULL;
     }
-    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - rg.get_refzmp_cur()(2), cur_refcog, total_mass, gravitational_acceleration);
+    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - rg.get_refzmp_cur()(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, gravitational_acceleration);
     foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
@@ -1385,12 +1385,11 @@ namespace rats
           if ((cur_sup == RLEG ? 1 : -1) * inside_cp < inside_off) {
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_sup == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
-              double max_time = 1.2;
               is_change_time = true;
               was_enlarged_time = true;
               tmp_dt = new_remain_time - remain_count*dt;
-              if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt > max_time) {
-                tmp_dt = max_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+              if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt > overwritable_max_time) {
+                tmp_dt = overwritable_max_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
               }
             }
           } else if (was_enlarged_time) {

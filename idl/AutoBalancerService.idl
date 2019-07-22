@@ -329,6 +329,9 @@ module OpenHRP
       boolean use_act_states;
       /// zmp delay time [s]
       double zmp_delay_time_const;
+      double overwritable_max_time;
+      double fg_zmp_cutoff_freq;
+      double fg_cp_cutoff_freq;
     };
 
     /**
