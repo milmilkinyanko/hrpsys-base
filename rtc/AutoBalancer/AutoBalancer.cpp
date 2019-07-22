@@ -841,9 +841,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       hrp::Vector3 tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_zmp;
       m_tmp.data[21] = tmp_zmp(0);
       m_tmp.data[22] = tmp_zmp(1);
+      // tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
+      // m_tmp.data[23] = tmp_zmp(0); // cmp
+      // m_tmp.data[24] = tmp_zmp(1); // cmp
       tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
-      m_tmp.data[23] = tmp_zmp(0); // cmp
-      m_tmp.data[24] = tmp_zmp(1); // cmp
+      m_tmp.data[23] = gg->get_tmp(21);
+      m_tmp.data[24] = gg->get_tmp(22);
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -996,7 +999,7 @@ void AutoBalancer::getTargetParameters()
         ABCIKparam& tmpikp = ikp[leg_names[i]];
         tmp_ee_pos[i] = tmpikp.target_p0;
         tmp_ee_rot[i] = tmpikp.target_r0;
-        tmp_contact_states[i] = m_contactStates.data[i];
+        tmp_contact_states[i] = (gg->is_inverse_double_phase ? true : m_contactStates.data[i]);
       }
       gg->get_vertices(support_polygon_vertices);
       gg->calc_convex_hull(support_polygon_vertices, tmp_contact_states, tmp_ee_pos, tmp_ee_rot);

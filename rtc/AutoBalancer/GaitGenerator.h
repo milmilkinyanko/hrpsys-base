@@ -1059,7 +1059,7 @@ namespace rats
   {
 
   public:
-    bool use_act_states;
+    bool use_act_states, is_inverse_double_phase;
     double zmp_delay_time_const;
 #ifndef HAVE_MAIN
   private:
@@ -1101,7 +1101,7 @@ namespace rats
     bool use_inside_step_limitation;
     std::map<leg_type, std::string> leg_type_map;
     coordinates initial_foot_mid_coords;
-    bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time;
+    bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time, is_prev_double_remain_one;
     size_t remain_count;
     double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
@@ -1109,14 +1109,14 @@ namespace rats
     double modified_d_step_time, min_time_mgn, min_time, orig_min_time, emergency_step_time[3];
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
-    double act_vel_ratio, double_remain_count_offset;
+    double act_vel_ratio, double_remain_count_offset, fg_double_remain_count;
     hrp::Vector3 fg_ref_zmp, prev_fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau, prev_short_of_zmp, ref_cp, act_cp, prev_act_cp, fx, sum_fx, des_fx, ref_footstep_offset;
     bool updated_vel_footsteps, use_roll_flywheel, use_pitch_flywheel, use_disturbance_compensation;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
     size_t fg_step_count, falling_direction;
     double total_mass, dc_gain, dcm_offset;
-    double tmp[21];
+    double tmp[23];
     hrp::Vector3 rel_landing_pos;
     int cur_supporting_foot, fx_count;
     bool is_vision_updated, lr_region[2];
@@ -1179,7 +1179,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.055),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.055), is_inverse_double_phase(false),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), des_fx(hrp::Vector3::Zero()), fx_count(0) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());

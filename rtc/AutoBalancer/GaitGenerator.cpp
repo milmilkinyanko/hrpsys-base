@@ -653,6 +653,7 @@ namespace rats
     prev_fg_ref_zmp = rg.get_refzmp_cur();
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
     zmp_filter->reset(rg.get_refzmp_cur());
+    is_prev_double_remain_one = false;
     // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
     cp_filter->reset(cur_cog); // assume that robot is stopping when starting walking
     lr_region[0] = lr_region[1] = false;
@@ -820,6 +821,8 @@ namespace rats
         rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - cur_sup_fs.worldcoords.pos);
       }
 
+      if (fg_double_remain_count == 1) is_prev_double_remain_one = true;
+      else is_prev_double_remain_one = false;
       prev_act_cp = act_cp;
       tmp[17] = fx(0);
       tmp[18] = fx(1);
@@ -1052,6 +1055,37 @@ namespace rats
     }
     // apply inverse system
     hrp::Vector3 ad_ref_zmp = fg_ref_zmp + zmp_delay_time_const * (fg_ref_zmp - prev_fg_ref_zmp) / dt;
+    {
+      is_inverse_double_phase = false;
+      double double_remain_time = double_remain_count * dt;
+      if (double_remain_time <= zmp_delay_time_const && step_index < step_num - 1) {
+        if (!is_double_support_phase) {
+          if (zmp_delay_time_const+dt >= double_remain_time + (fg_step_count * double_support_ratio * dt)) {
+            ad_ref_zmp = fg_goal_ref_zmp;
+          } else {
+            hrp::Vector3 a = (fg_goal_ref_zmp - fg_start_ref_zmp) / (fg_step_count * double_support_ratio * dt);
+            hrp::Vector3 b = fg_start_ref_zmp - a * double_remain_time;
+            ad_ref_zmp = a * (zmp_delay_time_const+dt) + b;
+            is_inverse_double_phase = true;
+          }
+        } else {
+          ad_ref_zmp = fg_goal_ref_zmp;
+        }
+      }
+      if (is_prev_double_remain_one) {
+        if (!is_double_support_phase) ad_ref_zmp = fg_start_ref_zmp;
+        else {
+          if (zmp_delay_time_const+dt >= (fg_step_count * double_support_ratio * dt)) {
+            ad_ref_zmp = fg_goal_ref_zmp;
+          } else {
+            hrp::Vector3 a = (fg_goal_ref_zmp - fg_start_ref_zmp) / (fg_step_count * double_support_ratio * dt);
+            hrp::Vector3 b = fg_start_ref_zmp;
+            ad_ref_zmp = a * (zmp_delay_time_const+dt) + b;
+            is_inverse_double_phase = true;
+          }
+        }
+      }
+    }
     // calc zmp
     foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // truncate zmp (assume RLEG, LLEG)
@@ -1069,6 +1103,7 @@ namespace rats
     refzmp = zmp - dz;
     prev_ref_dcm = ref_dcm;
     prev_fg_ref_zmp = fg_ref_zmp;
+    fg_double_remain_count = double_remain_count;
     if (!is_second_ver) {
       if (double_remain_count == 0) is_double_support_phase = !is_double_support_phase;
     } else {
@@ -1078,6 +1113,8 @@ namespace rats
     // for log
     tmp[0] = fg_ref_zmp(0);
     tmp[1] = fg_ref_zmp(1);
+    tmp[21] = ad_ref_zmp(0);
+    tmp[22] = ad_ref_zmp(1);
     tmp[2] = tmp_ref_dcm(0);
     tmp[3] = tmp_ref_dcm(1);
     tmp[4] = refzmp(0);
