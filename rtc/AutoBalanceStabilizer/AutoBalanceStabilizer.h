@@ -180,8 +180,6 @@ class AutoBalanceStabilizer
     OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
     TimedPoint3D m_sbpCogOffset;
     OutPort<TimedPoint3D> m_sbpCogOffsetOut;
-    std::vector<TimedDoubleSeq> m_force;
-    std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
     TimedPoint3D m_diffFootOriginExtMoment;
     OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
     TimedLong m_emergencySignal;
@@ -265,6 +263,21 @@ class AutoBalanceStabilizer
     std::mutex m_mutex;
     unsigned int m_debugLevel;
 
+    // member variables to store values for data ports
+    hrp::dvector q_current;
+    hrp::dvector q_ref;
+    hrp::Vector3 act_rpy;
+    hrp::Vector3 ref_base_pos;
+    hrp::Matrix33 ref_base_rot;
+    hrp::Vector3 input_ref_zmp;
+    std::vector<hrp::dvector6> ref_wrenches;
+    std::vector<hrp::dvector6> ref_wrenches_for_st;
+    std::vector<hrp::dvector6> act_wrenches;
+    std::vector<bool> ref_contact_states;
+    std::vector<double> control_swing_support_time;
+    hrp::Vector3 ref_foot_origin_ext_moment;
+    bool is_ref_foot_origin_ext_moment_hold_value;
+
     std::unique_ptr<Stabilizer> st;
     // for gg
     std::unique_ptr<rats::gait_generator> gg;
@@ -291,10 +304,6 @@ class AutoBalanceStabilizer
     std::unique_ptr<interpolator> transition_interpolator;
     std::unique_ptr<interpolator> adjust_footstep_interpolator;
     std::unique_ptr<interpolator> leg_names_interpolator;
-
-    hrp::Vector3 input_zmp;
-    hrp::Vector3 input_basePos;
-    hrp::Matrix33 input_baseRot;
 
     // static balance point offsetting
     hrp::Vector3 sbp_offset, sbp_cog_offset;
