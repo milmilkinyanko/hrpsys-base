@@ -10,6 +10,7 @@
 #ifndef AUTOBALANCESTABILIZER_H
 #define AUTOBALANCESTABILIZER_H
 
+#include <memory>
 #include <mutex>
 
 #include <rtm/idl/BasicDataType.hh>

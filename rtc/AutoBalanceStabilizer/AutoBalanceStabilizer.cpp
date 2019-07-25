@@ -603,6 +603,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 
     fik->storeCurrentParameters();
 
+    // Set reference acceleration for kalman filter before executing stabilizer
     hrp::Vector3 kf_acc_ref;
     {
         const hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
@@ -877,22 +878,37 @@ void AutoBalanceStabilizer::getTargetParameters()
     m_robot->calcForwardKinematics();
 
     gg->proc_zmp_weight_map_interpolation();
-    if (control_mode != MODE_IDLE) {
+
+    if (control_mode == MODE_IDLE) {
+        // Update fix_leg_coords based on input basePos and rot if MODE_IDLE
+        std::vector<coordinates> end_coords_list;
+        end_coords_list.reserve(ikp.size());
+        for (const auto& ik_param : ikp) {
+            if (std::find(leg_names.begin(), leg_names.end(), ik_param.first) != leg_names.end()) {
+                end_coords_list.push_back(coordinates(ik_param.second.target_link->p + ik_param.second.target_link->R * ik_param.second.localPos,
+                                                      ik_param.second.target_link->R * ik_param.second.localR));
+            }
+        }
+        multi_mid_coords(fix_leg_coords, end_coords_list);
+        getOutputParametersForIDLE();
+        // Set force
+        for (unsigned int i = 0; i < ref_wrenches.size(); i++) {
+            ref_wrenches_for_st[i] = ref_wrenches[i];
+        }
+    } else {
         interpolateLegNamesAndZMPOffsets();
-        // Calculate tmp_fix_coords and something
-        coordinates tmp_fix_coords;
+        coordinates tmp_fix_coords = fix_leg_coords;
         if ( gg_is_walking ) {
             gg->set_default_zmp_offsets(default_zmp_offsets);
             gg_solved = gg->proc_one_tick();
             gg->get_swing_support_mid_coords(tmp_fix_coords);
-        } else {
-            tmp_fix_coords = fix_leg_coords;
         }
 
         if (!adjust_footstep_interpolator->isEmpty()) {
             calcFixCoordsForAdjustFootstep(tmp_fix_coords);
-            fix_leg_coords = tmp_fix_coords;
+            fix_leg_coords = tmp_fix_coords; // TODO: delete 1 and 2
         }
+
         // TODO : see explanation in this function
         fixLegToCoords2(tmp_fix_coords);
         fix_leg_coords2 = tmp_fix_coords;
@@ -942,20 +958,6 @@ void AutoBalanceStabilizer::getTargetParameters()
             ref_zmp(0) = ref_cog(0);
             ref_zmp(1) = ref_cog(1);
             ref_zmp(2) = tmp_foot_mid_pos(2);
-        }
-    } else { // MODE_IDLE
-        // Update fix_leg_coords based on input basePos and rot if MODE_IDLE
-        std::vector<coordinates> tmp_end_coords_list;
-        for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); ++it) {
-            if (std::find(leg_names.begin(), leg_names.end(), it->first) != leg_names.end()) {
-                tmp_end_coords_list.push_back(coordinates(it->second.target_link->p + it->second.target_link->R * it->second.localPos, it->second.target_link->R * it->second.localR));
-            }
-        }
-        multi_mid_coords(fix_leg_coords, tmp_end_coords_list);
-        getOutputParametersForIDLE();
-        // Set force
-        for (unsigned int i = 0; i < ref_wrenches.size(); i++) {
-            ref_wrenches_for_st[i] = ref_wrenches[i];
         }
     }
 
