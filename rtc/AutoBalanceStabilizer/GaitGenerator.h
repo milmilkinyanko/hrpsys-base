@@ -1,14 +1,15 @@
 /* -*- mode:c++ -*- */
 #ifndef GAITGENERATOR_H
 #define GAITGENERATOR_H
-#include "PreviewController.h"
-#include "../ImpedanceController/RatsMatrix.h"
-#include "interpolator.h"
+
 #include <vector>
 #include <queue>
+#include <memory>
 #include <boost/assign.hpp>
 #include <boost/lambda/lambda.hpp>
-#include <boost/shared_ptr.hpp>
+#include "../ImpedanceController/RatsMatrix.h"
+#include "interpolator.h"
+#include "PreviewController.h"
 
 #ifdef FOR_TESTGAITGENERATOR
 #warning "Compile for testGaitGenerator"
@@ -296,7 +297,7 @@ namespace rats
       double dt;
       toe_heel_phase_counter thp;
       bool use_toe_heel_transition, use_toe_heel_auto_set;
-      boost::shared_ptr<interpolator> zmp_weight_interpolator;
+      std::unique_ptr<interpolator> zmp_weight_interpolator;
       void calc_current_refzmp (hrp::Vector3& ret, std::vector<hrp::Vector3>& swing_foot_zmp_offsets, const double default_double_support_ratio_before, const double default_double_support_ratio_after, const double default_double_support_static_ratio_before, const double default_double_support_static_ratio_after);
       const bool is_start_double_support_phase () const { return refzmp_index == 0; };
       const bool is_second_phase () const { return refzmp_index == 1; };
@@ -317,7 +318,7 @@ namespace rats
           default_zmp_offsets.push_back(hrp::Vector3::Zero());
           double zmp_weight_initial_value[4] = {1.0, 1.0, 0.1, 0.1};
           zmp_weight_map = boost::assign::map_list_of<leg_type, double>(RLEG, zmp_weight_initial_value[0])(LLEG, zmp_weight_initial_value[1])(RARM, zmp_weight_initial_value[2])(LARM, zmp_weight_initial_value[3]).convert_to_container< std::map<leg_type, double> > ();
-          zmp_weight_interpolator = boost::shared_ptr<interpolator>(new interpolator(4, dt));
+          zmp_weight_interpolator = std::make_unique<interpolator>(4, dt);
           zmp_weight_interpolator->set(zmp_weight_initial_value); /* set initial value */
           zmp_weight_interpolator->setName("GaitGenerator zmp_weight_interpolator");
       };
@@ -326,12 +327,12 @@ namespace rats
       };
       void remove_refzmp_cur_list_over_length (const size_t len)
       {
-        while ( refzmp_cur_list.size() > len) refzmp_cur_list.pop_back();
-        while ( foot_x_axises_list.size() > len) foot_x_axises_list.pop_back();
-        while ( swing_leg_types_list.size() > len) swing_leg_types_list.pop_back();
-        while ( step_count_list.size() > len) step_count_list.pop_back();
-        while ( toe_heel_types_list.size() > len) toe_heel_types_list.pop_back();
-      };
+          if (refzmp_cur_list.size() > len)      refzmp_cur_list.resize(len);
+          if (foot_x_axises_list.size() > len)   foot_x_axises_list.resize(len);
+          if (swing_leg_types_list.size() > len) swing_leg_types_list.resize(len);
+          if (step_count_list.size() > len)      step_count_list.resize(len);
+          if (toe_heel_types_list.size() > len)  toe_heel_types_list.resize(len);
+      }
       void reset (const size_t _refzmp_count)
       {
         set_indices(0);
@@ -357,7 +358,8 @@ namespace rats
       void set_heel_zmp_offset_x (const double _off) { heel_zmp_offset_x = _off; };
       void set_use_toe_heel_transition (const bool _u) { use_toe_heel_transition = _u; };
       void set_use_toe_heel_auto_set (const bool _u) { use_toe_heel_auto_set = _u; };
-      void set_zmp_weight_map (const std::map<leg_type, double> _map) {
+      void set_zmp_weight_map (const std::map<leg_type, double> _map)
+      {
           double zmp_weight_array[4] = {_map.find(RLEG)->second, _map.find(LLEG)->second, _map.find(RARM)->second, _map.find(LARM)->second};
           if (zmp_weight_interpolator->isEmpty()) {
               zmp_weight_interpolator->clear();
@@ -382,16 +384,16 @@ namespace rats
       bool get_use_toe_heel_transition () const { return use_toe_heel_transition; };
       bool get_use_toe_heel_auto_set () const { return use_toe_heel_auto_set; };
       const std::map<leg_type, double> get_zmp_weight_map () const { return zmp_weight_map; };
-      void proc_zmp_weight_map_interpolation () {
-          if (!zmp_weight_interpolator->isEmpty()) {
-              double zmp_weight_output[4];
-              zmp_weight_interpolator->get(zmp_weight_output, true);
-              zmp_weight_map = boost::assign::map_list_of<leg_type, double>
-                  (RLEG, zmp_weight_output[0])(LLEG, zmp_weight_output[1])
-                  (RARM, zmp_weight_output[2])(LARM, zmp_weight_output[3])
-                  .convert_to_container<std::map<leg_type, double> > ();
-          }
-      };
+      void proc_zmp_weight_map_interpolation ()
+      {
+          if (zmp_weight_interpolator->isEmpty()) return;
+          double zmp_weight_output[4];
+          zmp_weight_interpolator->get(zmp_weight_output, true);
+          zmp_weight_map = boost::assign::map_list_of<leg_type, double>
+              (RLEG, zmp_weight_output[0])(LLEG, zmp_weight_output[1])
+              (RARM, zmp_weight_output[2])(LARM, zmp_weight_output[3])
+              .convert_to_container<std::map<leg_type, double> > ();
+      }
 #ifdef FOR_TESTGAITGENERATOR
     std::vector<hrp::Vector3> get_default_zmp_offsets() const { return default_zmp_offsets; };
 #endif // FOR_TESTGAITGENERATOR
@@ -1065,9 +1067,7 @@ namespace rats
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
 
-    /* preview controller parameters */
-    //preview_dynamics_filter<preview_control>* preview_controller_ptr;
-    preview_dynamics_filter<extended_preview_control>* preview_controller_ptr;
+    std::unique_ptr<preview_dynamics_filter<extended_preview_control>> preview_controller_ptr;
 
     void append_go_pos_step_nodes (const coordinates& _ref_coords,
                                    const std::vector<leg_type>& lts)
@@ -1116,7 +1116,7 @@ namespace rats
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6),
         use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE),
-        preview_controller_ptr(NULL) {
+        preview_controller_ptr(nullptr) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
@@ -1126,12 +1126,7 @@ namespace rats
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
     };
-    ~gait_generator () {
-      if ( preview_controller_ptr != NULL ) {
-        delete preview_controller_ptr;
-        preview_controller_ptr = NULL;
-      }
-    };
+    ~gait_generator () {};
     void initialize_gait_parameter (const hrp::Vector3& cog,
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,

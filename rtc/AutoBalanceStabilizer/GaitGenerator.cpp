@@ -625,12 +625,8 @@ namespace rats
     // rg+lcg initialization
     rg.reset(one_step_len);
     rg.push_refzmp_from_footstep_nodes_for_dual(footstep_nodes_list.front(), initial_support_leg_steps, initial_swing_leg_dst_steps);
-    if ( preview_controller_ptr != NULL ) {
-      delete preview_controller_ptr;
-      preview_controller_ptr = NULL;
-    }
-    //preview_controller_ptr = new preview_dynamics_filter<preview_control>(dt, cog(2) - refzmp_cur_list[0](2), refzmp_cur_list[0]);
-    preview_controller_ptr = new preview_dynamics_filter<extended_preview_control>(dt, cog(2) - rg.get_refzmp_cur()(2), rg.get_refzmp_cur(), gravitational_acceleration);
+
+    preview_controller_ptr.reset(new preview_dynamics_filter<extended_preview_control>(dt, cog(2) - rg.get_refzmp_cur()(2), rg.get_refzmp_cur(), gravitational_acceleration));
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
