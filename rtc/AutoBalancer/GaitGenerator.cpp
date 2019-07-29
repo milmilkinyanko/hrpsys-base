@@ -647,9 +647,9 @@ namespace rats
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
     prev_act_cp = cur_cog; // assume that robot is stopping when starting walking
-    fx = hrp::Vector3::Zero();
-    sum_fx = hrp::Vector3::Zero();
-    fx_count = 0;
+    fxy = hrp::Vector3::Zero();
+    sum_fx = sum_fy = hrp::Vector3::Zero();
+    fx_count = fy_count = 0;
     prev_fg_ref_zmp = rg.get_refzmp_cur();
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
     zmp_filter->reset(rg.get_refzmp_cur());
@@ -778,30 +778,45 @@ namespace rats
           }
         }
       }
-      // dc fx
-      hrp::Vector3 prev_fx = fx;
-      hrp::Vector3 tmp_fx = hrp::Vector3::Zero();
+      // dc fxy
+      hrp::Vector3 prev_fxy = fxy;
+      hrp::Vector3 tmp_fxy = hrp::Vector3::Zero();
       double cur_omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
       double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - refzmp)(2));
       act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
       ref_cp = cur_refcog + cur_refcogvel / ref_omega;
       hrp::Vector3 act_cpvel = (act_cp - prev_act_cp) / dt;
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) {
-        tmp_fx.head(2) = (total_mass * cur_omega * (act_cpvel - cur_omega * (act_cp - refzmp))).head(2);
-        if (isfinite(tmp_fx(0)) && isfinite(tmp_fx(1))) {
-          sum_fx += tmp_fx;
+        tmp_fxy.head(2) = (total_mass * cur_omega * (act_cpvel - cur_omega * (act_cp - refzmp))).head(2);
+        if (isfinite(tmp_fxy(0)) && isfinite(tmp_fxy(1))) {
+          sum_fx += tmp_fxy;
+          sum_fy += tmp_fxy;
           fx_count++;
+          fy_count++;
         }
-        if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) {
-          des_fx = sum_fx / fx_count;
+        if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) { // TODO: cannot completely support turn walking
+          hrp::Matrix33 prev_fs_rot;
+          hrp::Vector3 ez = hrp::Vector3::UnitZ();
+          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot, ez);
+          sum_fx = prev_fs_rot.transpose() * sum_fx;
+          if (lcg.get_footstep_index() % 2 == 0) {
+            sum_fy = prev_fs_rot.transpose() * sum_fy;
+            des_fxy = hrp::Vector3(sum_fx(0) / fx_count, sum_fy(1) / fy_count, 0.0);
+            fy_count = 0;
+            sum_fy = hrp::Vector3::Zero();
+          } else {
+            des_fxy = prev_fs_rot.transpose() * des_fxy;
+            des_fxy = hrp::Vector3(sum_fx(0) / fx_count, des_fxy(1), 0.0);
+          }
           fx_count = 0;
           sum_fx = hrp::Vector3::Zero();
+          des_fxy = prev_fs_rot * des_fxy;
         }
       }
-      tmp[15] = tmp_fx(0);
-      tmp[16] = tmp_fx(1);
+      tmp[15] = tmp_fxy(0);
+      tmp[16] = tmp_fxy(1);
       // fx = fx_filter->passFilter(fx);
-      fx = prev_fx + dc_gain * (des_fx - prev_fx);
+      fxy = prev_fxy + dc_gain * (des_fxy - prev_fxy);
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
@@ -824,8 +839,8 @@ namespace rats
       if (fg_double_remain_count == 1) is_prev_double_remain_one = true;
       else is_prev_double_remain_one = false;
       prev_act_cp = act_cp;
-      tmp[17] = fx(0);
-      tmp[18] = fx(1);
+      tmp[17] = fxy(0);
+      tmp[18] = fxy(1);
       tmp[19] = dc_off(0);
       tmp[20] = dc_off(1);
     }
@@ -1096,9 +1111,9 @@ namespace rats
     // zmp = zmp_filter->passFilter(zmp);
     foot_guided_controller_ptr->set_zmp(zmp);
     // calc cog
-    hrp::Vector3 tmpfx = hrp::Vector3::Zero();
-    if (use_disturbance_compensation) tmpfx = fx;
-    foot_guided_controller_ptr->update_state(cog, tmpfx);
+    hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
+    if (use_disturbance_compensation) tmpfxy = fxy;
+    foot_guided_controller_ptr->update_state(cog, tmpfxy);
     // convert zmp -> refzmp
     refzmp = zmp - dz;
     prev_ref_dcm = ref_dcm;
