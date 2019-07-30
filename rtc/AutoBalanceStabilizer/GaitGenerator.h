@@ -15,7 +15,7 @@
 #warning "Compile for testGaitGenerator"
 #endif // FOR_TESTGAITGENERATOR
 
-namespace rats
+namespace hrp
 {
     void cycloid_midpoint (hrp::Vector3& ret,
                            const double ratio, const hrp::Vector3& start,

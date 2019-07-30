@@ -25,7 +25,7 @@ void preview_control_base<dim>::update_x_k(const hrp::Vector3& pr, const std::ve
 // template <std::size_t dim>
 // void preview_control_base<dim>::update_zc(double zc)
 // {
-//   riccati.c(0, 2) = - zc / gravitational_acceleration; 
+//   riccati.c(0, 2) = - zc / gravitational_acceleration;
 //   riccati.solve();
 // }
 
@@ -53,7 +53,7 @@ void preview_control::calc_u()
 void preview_control::calc_x_k()
 {
   calc_u();
-  x_k = riccati.A * x_k + riccati.b * u_k;  
+  x_k = riccati.A * x_k + riccati.b * u_k;
 }
 
 void extended_preview_control::calc_f()
@@ -87,4 +87,3 @@ void extended_preview_control::calc_x_k()
     for (size_t j = 0; j < 2; j++)
       x_k(i,j) += x_k_e(i+1,j);
 }
-

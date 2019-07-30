@@ -1,16 +1,15 @@
 /* -*- coding:utf-8-unix; mode:c++; -*- */
 
-#include "GaitGenerator.h"
 #include <numeric>
+#include "GaitGenerator.h"
+#include "Utility.h"
 
-namespace rats
+using hrp::deg2rad;
+using hrp::rad2deg;
+using hrp::calcInteriorPoint;
+
+namespace hrp
 {
-#ifndef rad2deg
-#define rad2deg(rad) (rad * 180 / M_PI)
-#endif
-#ifndef deg2rad
-#define deg2rad(deg) (deg * M_PI / 180)
-#endif
   void cycloid_midpoint (hrp::Vector3& ret,
                          const double ratio, const hrp::Vector3& start,
                          const hrp::Vector3& goal, const double height,
@@ -75,133 +74,139 @@ namespace rats
                                                                    const std::vector<step_node>& _support_leg_steps,
                                                                    const std::vector<step_node>& _swing_leg_steps)
   {
-    hrp::Vector3 rzmp;
-    std::vector<hrp::Vector3> dzl;
-    hrp::Vector3 ret_zmp;
-    hrp::Vector3 tmp_zero = hrp::Vector3::Zero();
-    std::vector<hrp::Vector3> foot_x_axises;
-    double sum_of_weight = 0.0;
-    for (std::vector<step_node>::const_iterator it = _support_leg_steps.begin(); it != _support_leg_steps.end(); it++) {
-        dzl.push_back((it->worldcoords.rot * default_zmp_offsets[it->l_r] + it->worldcoords.pos) * zmp_weight_map[it->l_r]);
-        sum_of_weight += zmp_weight_map[it->l_r];
-    }
-    for (std::vector<step_node>::const_iterator it = _swing_leg_steps.begin(); it != _swing_leg_steps.end(); it++) {
-        dzl.push_back((it->worldcoords.rot * default_zmp_offsets[it->l_r] + it->worldcoords.pos) * zmp_weight_map[it->l_r]);
-        sum_of_weight += zmp_weight_map[it->l_r];
-        foot_x_axises.push_back( hrp::Vector3(it->worldcoords.rot * hrp::Vector3::UnitX()) );
-    }
-    foot_x_axises_list.push_back(foot_x_axises);
-    rzmp = std::accumulate(dzl.begin(), dzl.end(), tmp_zero) / sum_of_weight;
-    refzmp_cur_list.push_back( rzmp );
-    std::vector<leg_type> swing_leg_types;
-    for (size_t i = 0; i < fns.size(); i++) {
-        swing_leg_types.push_back(fns.at(i).l_r);
-    }
-    swing_leg_types_list.push_back( swing_leg_types );
-    step_count_list.push_back(static_cast<size_t>(fns.front().step_time/dt));
-    toe_heel_types_list.push_back(toe_heel_types(SOLE, SOLE));
-    //std::cerr << "double " << (fns[fs_index].l_r==RLEG?LLEG:RLEG) << " [" << refzmp_cur_list.back()(0) << " " << refzmp_cur_list.back()(1) << " " << refzmp_cur_list.back()(2) << "]" << std::endl;
-  };
+      std::vector<hrp::Vector3> dzl;
+      const hrp::Vector3 tmp_zero = hrp::Vector3::Zero();
+      std::vector<hrp::Vector3> foot_x_axises;
+      double sum_of_weight = 0.0;
+
+      for (const step_node& support_step : _support_leg_steps) {
+          dzl.push_back((support_step.worldcoords.rot * default_zmp_offsets[support_step.l_r] + support_step.worldcoords.pos) * zmp_weight_map[support_step.l_r]);
+          sum_of_weight += zmp_weight_map[support_step.l_r];
+      }
+
+      for (const step_node& swing_step : _swing_leg_steps) {
+          dzl.push_back((swing_step.worldcoords.rot * default_zmp_offsets[swing_step.l_r] + swing_step.worldcoords.pos) * zmp_weight_map[swing_step.l_r]);
+          sum_of_weight += zmp_weight_map[swing_step.l_r];
+          foot_x_axises.push_back(swing_step.worldcoords.rot * hrp::Vector3::UnitX()); // TODO: use col(0)
+      }
+
+      foot_x_axises_list.push_back(foot_x_axises);
+      const hrp::Vector3 ref_zmp = std::accumulate(dzl.begin(), dzl.end(), tmp_zero) / sum_of_weight;
+      refzmp_cur_list.push_back(ref_zmp);
+      std::vector<leg_type> swing_leg_types;
+      for (size_t i = 0; i < fns.size(); i++) {
+          swing_leg_types.push_back(fns.at(i).l_r);
+      }
+      swing_leg_types_list.push_back(swing_leg_types);
+      step_count_list.push_back(static_cast<size_t>(fns.front().step_time / dt));
+      toe_heel_types_list.emplace_back(SOLE, SOLE);
+      //std::cerr << "double " << (fns[fs_index].l_r==RLEG?LLEG:RLEG) << " [" << refzmp_cur_list.back()(0) << " " << refzmp_cur_list.back()(1) << " " << refzmp_cur_list.back()(2) << "]" << std::endl;
+  }
 
   void refzmp_generator::push_refzmp_from_footstep_nodes_for_single (const std::vector<step_node>& fns, const std::vector<step_node>& _support_leg_steps, const toe_heel_types& tht)
   {
-    // support leg = prev fns l_r
-    // swing leg = fns l_r
-    hrp::Vector3 rzmp, tmp_zero=hrp::Vector3::Zero();
-    std::vector<hrp::Vector3> dzl;
-    std::vector<hrp::Vector3> foot_x_axises;
-    double sum_of_weight = 0.0;
+      // support leg = prev fns l_r
+      // swing leg = fns l_r
+      hrp::Vector3 ref_zmp;
+      const hrp::Vector3 tmp_zero = hrp::Vector3::Zero(); // TODO: delete
+      std::vector<hrp::Vector3> dzl;
+      std::vector<hrp::Vector3> foot_x_axises;
+      double sum_of_weight = 0.0;
 
-    for (std::vector<step_node>::const_iterator it = _support_leg_steps.begin(); it != _support_leg_steps.end(); it++) {
-        dzl.push_back((it->worldcoords.rot * default_zmp_offsets[it->l_r] + it->worldcoords.pos) * zmp_weight_map[it->l_r]);
-        sum_of_weight += zmp_weight_map[it->l_r];
-        foot_x_axises.push_back( hrp::Vector3(it->worldcoords.rot * hrp::Vector3::UnitX()) );
-    }
-    rzmp = std::accumulate(dzl.begin(), dzl.end(), tmp_zero) / sum_of_weight;
-    refzmp_cur_list.push_back( rzmp );
-    foot_x_axises_list.push_back(foot_x_axises);
-    std::vector<leg_type> swing_leg_types;
-    for (size_t i = 0; i< fns.size(); i++) {
-        swing_leg_types.push_back(fns.at(i).l_r);
-    }
-    swing_leg_types_list.push_back( swing_leg_types );
-    step_count_list.push_back(static_cast<size_t>(fns.front().step_time/dt));
-    toe_heel_types_list.push_back(tht);
-    //std::cerr << "single " << fns[fs_index-1].l_r << " [" << refzmp_cur_list.back()(0) << " " << refzmp_cur_list.back()(1) << " " << refzmp_cur_list.back()(2) << "]" << std::endl;
-  };
+      for (const step_node& support_step : _support_leg_steps) {
+          dzl.push_back((support_step.worldcoords.rot * default_zmp_offsets[support_step.l_r] + support_step.worldcoords.pos) * zmp_weight_map[support_step.l_r]);
+          sum_of_weight += zmp_weight_map[support_step.l_r];
+          foot_x_axises.push_back(support_step.worldcoords.rot * hrp::Vector3::UnitX());
+      }
+
+      ref_zmp = std::accumulate(dzl.begin(), dzl.end(), tmp_zero) / sum_of_weight;
+      refzmp_cur_list.push_back(ref_zmp);
+      foot_x_axises_list.push_back(foot_x_axises);
+      std::vector<leg_type> swing_leg_types;
+      for (size_t i = 0; i< fns.size(); i++) {
+          swing_leg_types.push_back(fns.at(i).l_r);
+      }
+      swing_leg_types_list.push_back( swing_leg_types );
+      step_count_list.push_back(static_cast<size_t>(fns.front().step_time / dt));
+      toe_heel_types_list.push_back(tht);
+      //std::cerr << "single " << fns[fs_index-1].l_r << " [" << refzmp_cur_list.back()(0) << " " << refzmp_cur_list.back()(1) << " " << refzmp_cur_list.back()(2) << "]" << std::endl;
+  }
 
   void refzmp_generator::calc_current_refzmp (hrp::Vector3& ret, std::vector<hrp::Vector3>& swing_foot_zmp_offsets, const double default_double_support_ratio_before, const double default_double_support_ratio_after, const double default_double_support_static_ratio_before, const double default_double_support_static_ratio_after)
   {
-    size_t cnt = one_step_count - refzmp_count; // current counter (0 -> one_step_count)
-    size_t double_support_count_half_before = default_double_support_ratio_before * one_step_count;
-    size_t double_support_count_half_after = default_double_support_ratio_after * one_step_count;
-    size_t double_support_static_count_half_before = default_double_support_static_ratio_before * one_step_count;
-    size_t double_support_static_count_half_after = default_double_support_static_ratio_after * one_step_count;
-    for (size_t i = 0; i < swing_leg_types_list[refzmp_index].size(); i++) {
-        swing_foot_zmp_offsets.push_back(default_zmp_offsets[swing_leg_types_list[refzmp_index].at(i)]);
-    }
-    double zmp_diff = 0.0; // difference between total swing_foot_zmp_offset and default_zmp_offset
-    //if (cnt==0) std::cerr << "z " << refzmp_index << " " << refzmp_cur_list.size() << " " << fs_index << " " << (refzmp_index == refzmp_cur_list.size()-2) << " " << is_final_double_support_set << std::endl;
+      const size_t cnt = one_step_count - refzmp_count; // current counter (0 -> one_step_count)
+      const size_t double_support_count_half_before = default_double_support_ratio_before * one_step_count;
+      const size_t double_support_count_half_after = default_double_support_ratio_after * one_step_count;
+      const size_t double_support_static_count_half_before = default_double_support_static_ratio_before * one_step_count;
+      const size_t double_support_static_count_half_after = default_double_support_static_ratio_after * one_step_count;
 
-    // Calculate swing foot zmp offset for toe heel zmp transition
-    if (use_toe_heel_transition &&
-        !(is_start_double_support_phase() || is_end_double_support_phase())) { // Do not use toe heel zmp transition during start and end double support period because there is no swing foot
-        double first_zmp_offset_x, second_zmp_offset_x;
-        if (use_toe_heel_auto_set) {
-            first_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].src_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
-            second_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].dst_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
-        } else {
-            first_zmp_offset_x = toe_zmp_offset_x;
-            second_zmp_offset_x = heel_zmp_offset_x;
-        }
-        if (thp.is_between_phases(cnt, SOLE0)) {
-            double ratio = thp.calc_phase_ratio(cnt+1, SOLE0);
-            swing_foot_zmp_offsets.front()(0) = (1-ratio)*swing_foot_zmp_offsets.front()(0) + ratio*first_zmp_offset_x;
-        } else if (thp.is_between_phases(cnt, HEEL2SOLE, SOLE2)) {
-            double ratio = thp.calc_phase_ratio(cnt, HEEL2SOLE, SOLE2);
-            swing_foot_zmp_offsets.front()(0) = ratio*swing_foot_zmp_offsets.front()(0) + (1-ratio)*second_zmp_offset_x;
-        } else if (thp.is_between_phases(cnt, SOLE0, SOLE2TOE)) {
-            swing_foot_zmp_offsets.front()(0) = first_zmp_offset_x;
-        } else if (thp.is_between_phases(cnt, SOLE2HEEL, HEEL2SOLE)) {
-            swing_foot_zmp_offsets.front()(0) = second_zmp_offset_x;
-        } else if (thp.is_between_phases(cnt, SOLE2TOE, SOLE2HEEL)) {
-            double ratio = thp.calc_phase_ratio(cnt, SOLE2TOE, SOLE2HEEL);
-            swing_foot_zmp_offsets.front()(0) = ratio * second_zmp_offset_x + (1-ratio) * first_zmp_offset_x;
-        }
-        zmp_diff = swing_foot_zmp_offsets.front()(0)-default_zmp_offsets[swing_leg_types_list[refzmp_index].front()](0);
-        if ((is_second_phase() && ( cnt < double_support_count_half_before )) ||
-            (is_second_last_phase() && ( cnt > one_step_count - double_support_count_half_after ))) {
-            // "* 0.5" is for double supprot period
-            zmp_diff *= 0.5;
-        }
-    }
+      for (size_t i = 0; i < swing_leg_types_list[refzmp_index].size(); i++) {
+          swing_foot_zmp_offsets.push_back(default_zmp_offsets[swing_leg_types_list[refzmp_index].at(i)]);
+      }
+      double zmp_diff = 0.0; // difference between total swing_foot_zmp_offset and default_zmp_offset
+      //if (cnt==0) std::cerr << "z " << refzmp_index << " " << refzmp_cur_list.size() << " " << fs_index << " " << (refzmp_index == refzmp_cur_list.size()-2) << " " << is_final_double_support_set << std::endl;
 
-    // Calculate total reference ZMP
-    if (is_start_double_support_phase() || is_end_double_support_phase()) {
-      ret = refzmp_cur_list[refzmp_index];
-    } else if ( cnt < double_support_static_count_half_before ) { // Start double support static period
-      hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index];
-      hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index-1] + zmp_diff * foot_x_axises_list[refzmp_index-1].front();
-      double ratio = (is_second_phase()?1.0:0.5);
-      ret = (1 - ratio) * current_support_zmp + ratio * prev_support_zmp;
-    } else if ( cnt > one_step_count - double_support_static_count_half_after ) { // End double support static period
-      hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index+1] + zmp_diff * foot_x_axises_list[refzmp_index+1].front();
-      hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index];
-      double ratio = (is_second_last_phase()?1.0:0.5);
-      ret = (1 - ratio) * prev_support_zmp + ratio * current_support_zmp;
-    } else if ( cnt < double_support_count_half_before ) { // Start double support period
-      hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index];
-      hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index-1] + zmp_diff * foot_x_axises_list[refzmp_index-1].front();
-      double ratio = ((is_second_phase()?1.0:0.5) / (double_support_count_half_before-double_support_static_count_half_before)) * (double_support_count_half_before-cnt);
-      ret = (1 - ratio) * current_support_zmp + ratio * prev_support_zmp;
-    } else if ( cnt > one_step_count - double_support_count_half_after ) { // End double support period
-      hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index+1] + zmp_diff * foot_x_axises_list[refzmp_index+1].front();
-      hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index];
-      double ratio = ((is_second_last_phase()?1.0:0.5) / (double_support_count_half_after-double_support_static_count_half_after)) * (cnt - 1 - (one_step_count - double_support_count_half_after));
-      ret = (1 - ratio) * prev_support_zmp + ratio * current_support_zmp;
-    } else {
-      ret = refzmp_cur_list[refzmp_index];
-    }
+      // Calculate swing foot zmp offset for toe heel zmp transition
+      if (use_toe_heel_transition &&
+          !(is_start_double_support_phase() || is_end_double_support_phase())) { // Do not use toe heel zmp transition during start and end double support period because there is no swing foot
+          double first_zmp_offset_x, second_zmp_offset_x;
+          if (use_toe_heel_auto_set) {
+              first_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].src_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
+              second_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].dst_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
+          } else {
+              first_zmp_offset_x = toe_zmp_offset_x;
+              second_zmp_offset_x = heel_zmp_offset_x;
+          }
+
+          if (thp.is_between_phases(cnt, SOLE0)) {
+              const double ratio = thp.calc_phase_ratio(cnt+1, SOLE0);
+              swing_foot_zmp_offsets.front()(0) = calcInteriorPoint(swing_foot_zmp_offsets.front()(0), first_zmp_offset_x, ratio);
+          } else if (thp.is_between_phases(cnt, HEEL2SOLE, SOLE2)) {
+              const double ratio = thp.calc_phase_ratio(cnt, HEEL2SOLE, SOLE2);
+              swing_foot_zmp_offsets.front()(0) = calcInteriorPoint(second_zmp_offset_x, swing_foot_zmp_offsets.front()(0), ratio);
+          } else if (thp.is_between_phases(cnt, SOLE0, SOLE2TOE)) {
+              swing_foot_zmp_offsets.front()(0) = first_zmp_offset_x;
+          } else if (thp.is_between_phases(cnt, SOLE2HEEL, HEEL2SOLE)) {
+              swing_foot_zmp_offsets.front()(0) = second_zmp_offset_x;
+          } else if (thp.is_between_phases(cnt, SOLE2TOE, SOLE2HEEL)) {
+              const double ratio = thp.calc_phase_ratio(cnt, SOLE2TOE, SOLE2HEEL);
+              swing_foot_zmp_offsets.front()(0) = calcInteriorPoint(first_zmp_offset_x, second_zmp_offset_x, ratio);
+          }
+
+          zmp_diff = swing_foot_zmp_offsets.front()(0) - default_zmp_offsets[swing_leg_types_list[refzmp_index].front()](0);
+          if ((is_second_phase()      && ( cnt < double_support_count_half_before )) ||
+              (is_second_last_phase() && ( cnt > one_step_count - double_support_count_half_after ))) {
+              // "* 0.5" is for double supprot period
+              zmp_diff *= 0.5;
+          }
+      }
+
+      // Calculate total reference ZMP
+      if (is_start_double_support_phase() || is_end_double_support_phase()) {
+          ret = refzmp_cur_list[refzmp_index];
+      } else if ( cnt < double_support_static_count_half_before ) { // Start double support static period
+          const hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index];
+          const hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index-1] + zmp_diff * foot_x_axises_list[refzmp_index-1].front();
+          const double ratio = (is_second_phase()?1.0:0.5);
+          ret = (1 - ratio) * current_support_zmp + ratio * prev_support_zmp;
+      } else if ( cnt > one_step_count - double_support_static_count_half_after ) { // End double support static period
+          const hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index+1] + zmp_diff * foot_x_axises_list[refzmp_index+1].front();
+          const hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index];
+          const double ratio = (is_second_last_phase()?1.0:0.5);
+          ret = (1 - ratio) * prev_support_zmp + ratio * current_support_zmp;
+      } else if ( cnt < double_support_count_half_before ) { // Start double support period
+          const hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index];
+          const hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index-1] + zmp_diff * foot_x_axises_list[refzmp_index-1].front();
+          const double ratio = ((is_second_phase()?1.0:0.5) / (double_support_count_half_before-double_support_static_count_half_before)) * (double_support_count_half_before-cnt);
+          ret = (1 - ratio) * current_support_zmp + ratio * prev_support_zmp;
+      } else if ( cnt > one_step_count - double_support_count_half_after ) { // End double support period
+          const hrp::Vector3 current_support_zmp = refzmp_cur_list[refzmp_index+1] + zmp_diff * foot_x_axises_list[refzmp_index+1].front();
+          const hrp::Vector3 prev_support_zmp = refzmp_cur_list[refzmp_index];
+          const double ratio = ((is_second_last_phase()?1.0:0.5) / (double_support_count_half_after-double_support_static_count_half_after)) * (cnt - 1 - (one_step_count - double_support_count_half_after));
+          ret = (1 - ratio) * prev_support_zmp + ratio * current_support_zmp;
+      } else {
+          ret = refzmp_cur_list[refzmp_index];
+      }
   };
 
   void refzmp_generator::update_refzmp ()
@@ -706,7 +711,7 @@ namespace rats
     // modify footsteps based on diff_cp
     if(modify_footsteps) modify_footsteps_for_recovery();
 
-    if ( !solved ) {
+    if (!solved) {
       hrp::Vector3 rzmp;
       std::vector<hrp::Vector3> sfzos;
       bool refzmp_exist_p = rg.get_current_refzmp(rzmp, sfzos, default_double_support_ratio_before, default_double_support_ratio_after, default_double_support_static_ratio_before, default_double_support_static_ratio_after);
@@ -733,9 +738,9 @@ namespace rats
     // }
 
     /* update swing_leg_coords, support_leg_coords */
-    if ( solved ) {
+    if (solved) {
       lcg.update_leg_steps(footstep_nodes_list, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after, thtc);
-    } else if (finalize_count>0) {
+    } else if (finalize_count > 0) {
       lcg.clear_interpolators();
     }
     return solved;

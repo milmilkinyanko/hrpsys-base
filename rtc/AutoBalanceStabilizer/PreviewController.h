@@ -257,8 +257,7 @@ namespace rats
         preview_controller.update_x_k(pr, qdata);
         flg = preview_controller.is_doing();
       } else {
-        if ( !preview_controller.is_end() )
-          preview_controller.update_x_k();
+        if (!preview_controller.is_end() ) preview_controller.update_x_k();
         flg = !preview_controller.is_end();
       }
 
