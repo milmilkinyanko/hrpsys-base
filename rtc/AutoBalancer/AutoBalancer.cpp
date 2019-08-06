@@ -735,6 +735,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         rel_ref_zmp = input_zmp;
         fik->d_root_height = 0.0;
       }
+      fik->storeCurrentParameters();
       // Transition
       if (!is_transition_interpolator_empty) {
         // transition_interpolator_ratio 0=>1 : IDLE => ABC
@@ -768,7 +769,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
                   << "] Finished cleanup" << std::endl;
         control_mode = MODE_IDLE;
       }
-      fik->storeCurrentParameters();
       m_robot->calcForwardKinematics();
       hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
       ref_cog(2) = tmp_ref_cog(2);
