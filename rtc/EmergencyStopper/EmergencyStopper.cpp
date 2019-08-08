@@ -57,7 +57,7 @@ EmergencyStopper::EmergencyStopper(RTC::Manager* manager)
       m_qRefIn("qRef", m_qRef),
       m_qEmergencyIn("qEmergency", m_qEmergency),
       m_emergencySignalIn("emergencySignal", m_emergencySignal),
-      m_emergencyMotionIn("emergencyMotion", m_emergencyMotion),
+      m_emergencyFallMotionIn("emergencyFallMotion", m_emergencyFallMotion),
       m_servoStateIn("servoStateIn", m_servoState),
       m_qOut("q", m_q),
       m_emergencyModeOut("emergencyMode", m_emergencyMode),
@@ -92,7 +92,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     addInPort("qRef", m_qRefIn);
     addInPort("qEmergency", m_qEmergencyIn);
     addInPort("emergencySignal", m_emergencySignalIn);
-    addInPort("emergencyMotion", m_emergencyMotionIn);
+    addInPort("emergencyFallMotion", m_emergencyFallMotionIn);
     addInPort("servoStateIn", m_servoStateIn);
 
     // Set OutPort buffer
@@ -176,7 +176,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
 
     // initialize member variables
     is_stop_mode = prev_is_stop_mode = false;
-    is_emergency_motion = false;
+    is_emergency_fall_motion = false;
     is_initialized = false;
 
     recover_time = retrieve_time = 0;
@@ -260,7 +260,7 @@ RTC::ReturnCode_t EmergencyStopper::onDeactivated(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
-        is_emergency_motion = false;
+        is_emergency_fall_motion = false;
         solved = false;
         recover_time = 0;
         m_interpolator->setGoal(m_qRef.data.get_buffer(), m_dt);
@@ -369,20 +369,20 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             is_stop_mode = true;
         }
     }
-    if (m_emergencyMotionIn.isNew()) {
-        m_emergencyMotionIn.read();
-        if ( m_emergencyMotion.data == 0 ) {
+    if (m_emergencyFallMotionIn.isNew()) {
+        m_emergencyFallMotionIn.read();
+        if ( !m_emergencyFallMotion.data ) {
             Guard guard(m_mutex);
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
-                      << "] emergencyMotion is reset!" << std::endl;
+                      << "] emergencyFallMotion is reset!" << std::endl;
             is_stop_mode = false;
-            is_emergency_motion = false;
-        } else if (!is_stop_mode) {
+            is_emergency_fall_motion = false;
+        } else {
             Guard guard(m_mutex);
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
-                      << "] emergencyMotion is set!" << std::endl;
+                      << "] emergencyFallMotion is set!" << std::endl;
             is_stop_mode = true;
-            is_emergency_motion = true;
+            is_emergency_fall_motion = true;
         }
     }
     if (m_qEmergencyIn.isNew()) {
@@ -427,7 +427,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
         recover_time = default_recover_time;
         if (retrieve_time > 0 ) {
             retrieve_time = retrieve_time - recover_time_dt;
-            if (is_emergency_motion) m_interpolator->setGoal(m_motion_posture.data(), retrieve_time);
+            if (is_emergency_fall_motion) m_interpolator->setGoal(m_motion_posture.data(), retrieve_time);
             else m_interpolator->setGoal(m_stop_posture.data(), retrieve_time);
             m_interpolator->get(m_q.data.get_buffer());
             m_wrenches_interpolator->setGoal(m_stop_wrenches, retrieve_time);
@@ -543,7 +543,7 @@ bool EmergencyStopper::releaseMotion()
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
-        is_emergency_motion = false;
+        is_emergency_fall_motion = false;
         solved = false;
         std::cerr << "[" << m_profile.instance_name << "] releaseMotion is called" << std::endl;
     }

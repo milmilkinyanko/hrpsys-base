@@ -61,7 +61,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_zmpIn("zmpIn", m_zmp),
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
-      m_emergencyMotionOut("emergencyMotion", m_emergencyMotion),
+      m_emergencyFallMotionOut("emergencyFallMotion", m_emergencyFallMotion),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
@@ -140,7 +140,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("walkingStates", m_walkingStatesOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
-    addOutPort("emergencyMotion", m_emergencyMotionOut);
+    addOutPort("emergencyFallMotion", m_emergencyFallMotionOut);
     addOutPort("landingTarget", m_landingTargetOut);
 
     // Set service provider to Ports
@@ -617,17 +617,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_optionalDataIn.read();
     }
     if (st->reset_emergency_flag) {
-      m_emergencyMotion.data = 0;
-      m_emergencyMotionOut.write();
+      m_emergencyFallMotion.data = false;
+      m_emergencyFallMotionOut.write();
       st->reset_emergency_flag = false;
     } else if (st->is_emergency_motion && !is_stop_mode) {
-      std::cerr << "[" << m_profile.instance_name << "] emergencyMotion is set!" << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "] emergencyFallMotion is set!" << std::endl;
       is_stop_mode = true;
+      m_emergencyFallMotion.data = true;
+      m_emergencyFallMotionOut.write();
       gg->finalize_velocity_mode2();
       stopABCparamEmergency();
       st->stopSTEmergency();
-      m_emergencyMotion.data = 1;
-      m_emergencyMotionOut.write();
     }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
