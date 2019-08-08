@@ -6,26 +6,68 @@
  * @date  $Date$
  */
 
+#include <iterator>
 #include "REFZMPGenerator.h"
 
 namespace hrp {
 
-void calcRefZMPUsingContactList(const contact_count_pairs& contact_points, const size_t zmp_index)
-{
 
+hrp::Vector3 refZMPGenerator::calcRefZMPUsingConstraint(const constraint_count_pairs& contact_pair)
+{
+    hrp::Vector3 zmp_pos = hrp::Vector3::Zero();
+    double sum_weight = 0;
+    for (const LinkConstraint& constraint : constraint_pair.first) {
+        const double weight = constraint.getWeight();
+        sum_pos += constraint.getLinkRepresentativePoint() * weight; // TODO: representative pointを使うかどうか
+        sum_weight += weight;
+    }
+    zmp_pos /= sum_weight;
+
+    return zmp_pos;
 }
 
-void calcRefZMPListUsingContactList(const contact_count_pairs& contact_points, const size_t list_size)
+// Push or just calc
+hrp::Vector3 refZMPGenerator::calcRefZMPUsingConstraintList(const std::vector<constraint_count_pairs>& constraint_list
+                                                    const size_t count)
+{
+    size_t constraint_index = 0;
+    for (size_t i = 0; i < constraint_list.size(); ++i) {
+        if (count < constraint_list[i].second) break;
+        constraint_index = i;
+    }
+
+    return calcRefZMPUsingConstraint(constraint_list[constraint_index]);
+}
+
+// No interpolation
+void refZMPGenerator::setRefZMPListUsingConstraintList(const std::vector<constraint_count_pairs>& constraint_list,
+                                                       const size_t list_size,
+                                                       const size_t start_index)
 {
     refzmp_list.resize(list_size);
 
-    size_t count = contact_points[0].second;
-    size_t zmp_index = 0;
-    const size_t contact_size = contact_points.size();
+    size_t count = constraint_list[0].second;
+    size_t constraint_index = 0;
+    size_t zmp_index = start_index;
+    const size_t constraint_size = constraint_list.size();
     const size_t max_count = count + list_size;
+    count += start_index;
 
-    for (size_t contact_index = 0; count < max_count && contact_index < contact_size; ++zmp_index, ++count) {
-        contact_points[contact_index].first
+    // TODO: zmp offset, flight phase
+    for (size_t constraint_index = 0; count < max_count && constraint_index < constraint_size; ++constraint_index) {
+        if (constraint_list[constraint_index].second <= count) continue;
+
+        const hrp::Vector3 zmp_pos = calcRefZMPUsingConstraint(constraint_list[constraint_index]);
+        // TODO: for消せそう
+        for (; count < constraint_list[constraint_index].second && count < max_count; ++zmp_index, ++count) {
+            refzmp_list[zmp_index] = zmp_pos;
+        }
+    }
+
+    if (count < max_count && zmp_index > 0) {
+        std::vector<hrp::Vector3>::const_iterator it = refzmp_list.begin();
+        std::advance(it, zmp_index);
+        std::fill(it, refzmp_list.end(), refzmp_list[zmp_index - 1]);
     }
 }
 
@@ -54,7 +96,7 @@ void refzmp_generator::push_refzmp_from_footstep_nodes_for_dual(const std::vecto
     }
 
     for (const step_node& swing_step : _swing_leg_steps) {
-        dzl.push_back((swing_step.worldcoords.rot * default_zmp_offsets[swing_step.l_r] + swing_step.worldcoords.pos) * zmp_weight_map[swing_step.l_r]);
+        dzl.push_back((swing_step.worldcoords.rot * default_zmp_offsets[swing_step.l_r] + swing_step.worldcoords.pos) * zmp_weight_mapn[swing_step.l_r]);
         sum_of_weight += zmp_weight_map[swing_step.l_r];
         foot_x_axises.push_back(swing_step.worldcoords.rot * hrp::Vector3::UnitX()); // TODO: use col(0)
     }

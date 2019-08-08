@@ -12,31 +12,39 @@
 namespace hrp
 {
 
+using constraint_count_pairs = std::pair<std:vector<LinkConstraint>, size_t>; // contact始まりのカウント
 enum class LegType {RLEG, LLEG, RARM, LARM};
 
-class contact_constraint
+// TODO: constraint_count_pairsとどちらか
+struct ConstraintWithCount
 {
-    // TODO: 拘束条件を持つ
-    //       zmp offsetどうする？
+    std::vector<LinkConstraint> constraints;
+    size_t start_count;
+};
+
+class LinkConstraint
+{
   private:
     int link_id;
     std::vector<hrp::Vector3> link_contact_points; // TODO: local
-    rats::coordinates link_representative_coord;
-    rats::coordinates env_representative_coord;
+    hrp::Vector3 link_representative_point = hrp::Vector3::Zero(); // TODO: local
+    hrp::Matrix33 link_rot = hrp::Matrix33::Zero(); // TODO: world or local
+    rats::coordinates env_representative_coord; // TODO: local or global
 
     // TODO: 必要かもしれない変数たち
-    hrp::Vector3 zmp_offset; // zmpに関するものはここじゃない？
-    double weight;
+    hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // local or global
+    double weight = 1.0;
+    ConstraintType constraint_type = COORD;
 
   public:
+    enum ConstraintType {COORD, FREE}
+
     contact_constraint(const int _link_id) : link_id(_link_id) {}
     virtual ~contact_constraint() {}
 
     int getLinkId() const { return link_id; }
-    const std::vector<hrp::Vector3>& getLinkContactPoints() const { return link_contact_points; }
 
-    rats::coordinates& envRepresentativeCoord() { return env_representative_coord; }
-    const rats::coordinates& envRepresentativeCoord() const { return env_representative_coord; }
+    const std::vector<hrp::Vector3>& getLinkContactPoints() const { return link_contact_points; }
 
     void addLinkContactPoint(const hrp::Vector3& pos)
     {
@@ -48,11 +56,27 @@ class contact_constraint
         link_contact_points.clear();
     }
 
+    void calcLinkRepresentativePoint()
+    {
+        link_representative_point = std::accumulate(link_contact_points.begin(), link_contact_points.end(), hrp::Vector3::Zero())
+            / link_contact_points.size() + cop_offset;
+    }
+    const std::vector<hrp::Vector3>& getLinkRepresentativePoint() const { return link_representative_point; }
+
+    rats::coordinates& envRepresentativeCoord() { return env_representative_coord; }
+    const rats::coordinates& envRepresentativeCoord() const { return env_representative_coord; }
+
+    void setWeight(double _weight) { weight = _weight; }
+    double getWeight() const { return weight; }
+
+    void setConstraintType(ConstraintType type) { constraint_type = type; }
+    ConstraintType getConstraintType() const { return constraint_type; }
+
     void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<rats::coordinates>& coords);
 
     rats::coordinates calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
 
-    void rotateLinkRepresentativeCoord(const hrp::Matrix33& rot);
+    void rotateLinkRot(const hrp::Matrix33& rot);
 };
 
 struct step_node
