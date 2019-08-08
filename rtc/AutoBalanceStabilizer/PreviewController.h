@@ -1,301 +1,253 @@
-/* -*- coding:utf-8-unix mode:c++ -*- */
-#ifndef PREVIEW_H_
-#define PREVIEW_H_
+// -*- mode: C++; coding: utf-8-unix; -*-
+
+/**
+ * @file  PreviewController.h
+ * @brief
+ *
+ * Computes center of mass trajectory from reference ZMP:
+ * Minimize
+ * \f[
+ * J = \Sum_i {Q(refZMP_i - ZMP_i}^2 + R(u_i)^2}
+ * \f]
+ *
+ * Q, R : Output and Input weight
+ * u : Input (COM jerk)
+ *
+ * Based on the preview control theory outlined in this paper:
+ * "Biped Walking Pattern Generation by using Preview Control of Zero-Moment Point
+ * by Shuuji Kajita et al.
+ *
+ * @date  $Date$
+ */
+
+#ifndef PREVIEWCONTROLLER_H
+#define PREVIEWCONTROLLER_H
+
 #include <iostream>
-#include <queue>
+#include <vector>
 #include <deque>
-#include <hrpUtil/Eigen3d.h>
-#include "hrpsys/util/Hrpsys.h"
+#include "DiscreteAlgebraicRiccatiEquation.h"
 
-namespace rats
+namespace hrp
 {
-  static const double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
 
-  template <std::size_t dim>
-  struct riccati_equation
-  {
-    Eigen::Matrix<double, dim, dim> A;
-    Eigen::Matrix<double, dim, 1> b;
-    Eigen::Matrix<double, 1, dim> c;
-    Eigen::Matrix<double, dim, dim> P;
-    Eigen::Matrix<double, 1, dim> K;
-    Eigen::Matrix<double, dim, dim> A_minus_bKt; /* for buffer */
-    double Q, R;
-    double R_btPb_inv; /* for buffer */
+template<size_t dim_state>
+class PreviewControllerBase
+{
+protected:
+    constexpr double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
+    constexpr double DEFAULT_PREVIEW_TIME = 1.6; // [s]
 
-    riccati_equation() : A(Eigen::Matrix<double, dim, dim>::Zero()), b(Eigen::Matrix<double, dim, 1>::Zero()), c(Eigen::Matrix<double, 1, dim>::Zero()),
-                         P(Eigen::Matrix<double, dim, dim>::Zero()), K(Eigen::Matrix<double, 1, dim>::Zero()),
-                         A_minus_bKt(Eigen::Matrix<double, dim, dim>::Zero()), Q(0), R(0), R_btPb_inv(0) {};
-    riccati_equation(const Eigen::Matrix<double, dim, dim>& _A, const Eigen::Matrix<double, dim, 1>& _b,
-                     const Eigen::Matrix<double, 1, dim>& _c, const double _Q, const double _R)
-      : A(_A), b(_b), c(_c), P(Eigen::Matrix<double, dim, dim>::Zero()), K(Eigen::Matrix<double, 1, dim>::Zero()), A_minus_bKt(Eigen::Matrix<double, dim, dim>::Zero()), Q(_Q), R(_R), R_btPb_inv(0) {};
-    virtual ~riccati_equation() {};
-    bool solve() {
-      Eigen::Matrix<double, dim, dim> prev_P;
-      for (int i = 0; i < 10000; i++) {
-        R_btPb_inv = (1.0 / (R + (b.transpose() * P * b)(0,0)));
-        Eigen::Matrix<double, dim, dim> tmp_pa(P * A);
-        K = R_btPb_inv * b.transpose() * tmp_pa;
-        prev_P = A.transpose() * tmp_pa + c.transpose() * Q * c - A.transpose() * P * b * K;
-        if ((abs((P - prev_P).array()) < 5.0e-10).all()) {
-          A_minus_bKt = (A - b * K).transpose();
-          return true;
-        }
-        P = prev_P;
-      }
-      return false;
-    }
-  };
-
-  template <std::size_t dim>
-  class preview_control_base
-  {
-  protected:
-    riccati_equation<dim> riccati;
     Eigen::Matrix<double, 3, 3> tcA;
-    Eigen::Matrix<double, 3, 1> tcb;
-    Eigen::Matrix<double, 1, 3> tcc;
-    Eigen::Matrix<double, 3, 2> x_k;
-    Eigen::Matrix<double, 1, 2> u_k;
-    hrp::dvector f;
-    std::deque<Eigen::Matrix<double, 2, 1> > p;
-    std::deque<double> pz;
-    std::deque< std::vector<hrp::Vector3> > qdata;
-    double zmp_z, cog_z;
-    size_t delay, ending_count;
+    Eigen::Matrix<double, 3, 1> tcB;
+    Eigen::Matrix<double, 1, 3> tcC;
+    Eigen::Matrix<double, 3, 2> x_k; // x, y
+    Eigen::MatrixXd K; // TODO: not use MatrixXd
+    Eigen::MatrixX<double, dim_state, dim_state> P; // Solution of Riccati equation
+    double Q; // Output weight
+    double R; // Input weight
+    Eigen::MatrixXd A_minus_bKt; // for buffer
+    double R_btPb_inv; // for buffer
+    Eigen::VectorXd f_vec;
+
+    double cog_z;
+    size_t preview_window;
+
     virtual void calc_f() = 0;
-    virtual void calc_u() = 0;
-    virtual void calc_x_k() = 0;
-    void init_riccati(const Eigen::Matrix<double, dim, dim>& A,
-                      const Eigen::Matrix<double, dim, 1>& b,
-                      const Eigen::Matrix<double, 1, dim>& c,
-                      const double q = 1.0, const double r = 1.0e-6)
+    virtual Eigen::Matrix<double, 1, 2> calc_u(const std::vector<Eigen::Vector3d>& ref_zmp) = 0; // jerk
+    virtual void calc_x_k(const std::vector<Eigen::Vector3d>& ref_zmp) = 0;
+    virtual void initMatrix() = 0;
+
+    void initRiccati(const Eigen::Ref<const Eigen::Matrix<double, dim_state, dim_state>>& A,
+                     const Eigen::Ref<const Eigen::Matrix<double, dim_state, 1>>& B,
+                     const Eigen::Ref<const Eigen::Matrix<double, 1, dim_state>>& C)
     {
-      riccati = riccati_equation<dim>(A, b, c, q, r);
-      riccati.solve();
-      calc_f();
-    };
+        const Eigen::Matrix<double, dim_state, dim_state> _Q(Q * C.transpose() * C);
+        const Eigen::Matrix<double, 1, 1> _R(R);
+
+        P = solveDiscreteAlgebraicRiccati<dim_state, 1>(A, B, _Q, _R);
+        R_btPb_inv = (1.0 / (R + (B.transpose() * P * B)(0, 0)));
+        K = R_btPb_inv * B.transpose() * P * A;
+        A_minus_bKt = (A - B * K).transpose();
+        calc_f();
+    }
+
     /* inhibit copy constructor and copy insertion not by implementing */
-    preview_control_base (const preview_control_base& _p);
-    preview_control_base &operator=(const preview_control_base &_p);
-  public:
-    /* dt = [s], zc = [mm], d = [s] */
-    preview_control_base(const double dt, const double zc,
-                         const hrp::Vector3& init_xk, const double _gravitational_acceleration, const double d = 1.6)
-      : riccati(), x_k(Eigen::Matrix<double, 3, 2>::Zero()), u_k(Eigen::Matrix<double, 1, 2>::Zero()), p(), pz(), qdata(),
-        zmp_z(0), cog_z(zc), delay(static_cast<size_t>(round(d / dt))), ending_count(1+delay)
+    PreviewControllerBase (const PreviewControllerBase& _p);
+    PreviewControllerBase &operator=(const PreviewControllerBase &_p);
+
+public:
+    /* dt = [s], zc = [m], d = [s] */
+    PreviewControllerBase(const double dt, const double zc,
+                         const Eigen::Vector3d& init_xk, const double _g_acc,
+                         const double out_weight = 1.0, const double in_weight = 1.0e-6,
+                         const double preview_time = 1.6)
+        : x_k(Eigen::Matrix<double, 3, 2>::Zero()),
+          Q(out_weight), R(in_weight),
+          cog_z(zc),
+          preview_window(static_cast<size_t>(std::round(preview_time / dt)))
     {
-      tcA << 1, dt, 0.5 * dt * dt,
-        0, 1,  dt,
-        0, 0,  1;
-      tcb << 1 / 6.0 * dt * dt * dt,
-        0.5 * dt * dt,
-        dt;
-      tcc << 1.0, 0.0, -zc / _gravitational_acceleration;
-      x_k(0,0) = init_xk(0);
-      x_k(0,1) = init_xk(1);
-    };
-    virtual ~preview_control_base()
-    {
-      p.clear();
-      pz.clear();
-      qdata.clear();
-    };
-    virtual void update_x_k(const hrp::Vector3& pr, const std::vector<hrp::Vector3>& qdata);
-    virtual void update_x_k()
-    {
-      hrp::Vector3 pr;
-      pr(0) = p.back()(0);
-      pr(1) = p.back()(1);
-      pr(2) = pz.back();
-      update_x_k(pr, qdata.back());
-      ending_count--;
-    };
-    // void update_zc(double zc);
-    size_t get_delay () { return delay; };
-    double get_preview_f (const size_t idx) { return f(idx); };
-    void get_refcog (double* ret)
-    {
-      ret[0] = x_k(0,0);
-      ret[1] = x_k(0,1);
-      ret[2] = cog_z;
-    };
-    void get_refcog_vel (double* ret)
-    {
-      ret[0] = x_k(1,0);
-      ret[1] = x_k(1,1);
-      ret[2] = 0;
-    };
-    void get_refcog_acc (double* ret)
-    {
-      ret[0] = x_k(2,0);
-      ret[1] = x_k(2,1);
-      ret[2] = 0;
-    };
-    void get_cart_zmp (double* ret)
-    {
-      Eigen::Matrix<double, 1, 2> _p(tcc * x_k);
-      ret[0] = _p(0, 0);
-      ret[1] = _p(0, 1);
-      ret[2] = pz.front();
-    };
-    void get_current_refzmp (double* ret)
-    {
-      ret[0] = p.front()(0);
-      ret[1] = p.front()(1);
-      ret[2] = pz.front();
-    };
-    void get_current_qdata (std::vector<hrp::Vector3>& _qdata)
-    {
-        _qdata = qdata.front();
-    };
-    bool is_doing () { return p.size() >= 1 + delay; };
-    bool is_end () { return ending_count <= 0 ; };
-    void remove_preview_queue(const size_t remain_length)
-    {
-      size_t num = p.size() - remain_length;
-      for (size_t i = 0; i < num; i++) {
-        p.pop_back();
-        pz.pop_back();
-        qdata.pop_back();
-      }
-    };
-    void remove_preview_queue() // Remove all queue
-    {
-        p.clear();
-        pz.clear();
-        qdata.clear();
-    };
-    void set_preview_queue(const hrp::Vector3& pr, const std::vector<hrp::Vector3>& q, const size_t idx)
-    {
-      Eigen::Matrix<double, 2, 1> tmpv;
-      tmpv(0,0) = pr(0);
-      tmpv(1,0) = pr(1);
-      p[idx] = tmpv;
-      pz[idx] = pr(2);
-      qdata[idx] = q;
-    };
-    size_t get_preview_queue_size()
-    {
-      return p.size();
-    };
-    void print_all_queue ()
-    {
-      std::cerr << "(list ";
-      for (size_t i = 0; i < p.size(); i++) {
-        std::cerr << "#f(" << p[i](0) << " " << p[i](1) << ") ";
-      }
-      std::cerr << ")" << std::endl;
+        tcA << 1, dt, 0.5 * dt * dt,
+            0, 1,  dt,
+            0, 0,  1;
+        tcB << 1 / 6.0 * dt * dt * dt,
+            0.5 * dt * dt,
+            dt;
+        tcC << 1.0, 0.0, -zc / _g_acc;
+        x_k(0, 0) = init_xk(0);
+        x_k(0, 1) = init_xk(1);
     }
-  };
 
-  class preview_control : public preview_control_base<3>
-  {
-  private:
-    void calc_f();
-    void calc_u();
-    void calc_x_k();
-  public:
-    preview_control(const double dt, const double zc,
-                    const hrp::Vector3& init_xk, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0,
-                    const double r = 1.0e-6, const double d = 1.6)
-        : preview_control_base<3>(dt, zc, init_xk, _gravitational_acceleration, d)
+    virtual ~PreviewControllerBase() {}
+
+    void update_zc(const double zc,
+                   const double _g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)
     {
-      init_riccati(tcA, tcb, tcc, q, r);
-    };
-    virtual ~preview_control() {};
-  };
+        cog_z = zc;
+        tcC(0, 2) = -zc / _g_acc;
+        initMatrix();
+    }
 
-  class extended_preview_control : public preview_control_base<4>
-  {
-  private:
+    void set_x_k(const Eigen::Matrix<double, 3, 2>& _x_k) { x_k = _x_k; }
+
+    size_t getPreviewWindow () { return preview_window; };
+    double getPreview_f(const size_t idx) { return f_vec(idx); };
+    Eigen::Vector3d getRefCog()    { return Eigen::Vector3d(x_k(0, 0), x_k(0, 1), cog_z); }
+    Eigen::Vector3d getRefCogVel() { return Eigen::Vector3d(x_k(0, 0), x_k(0, 1), 0); }
+    Eigen::Vector3d getRefCogAcc() { return Eigen::Vector3d(x_k(2, 0), x_k(2, 1), 0); }
+
+    Eigen::Vector3d getCartZMP()
+    {
+        const Eigen::Matrix<double, 1, 2> _p(tcC * x_k);
+        return Eigen::Vector3d(_p(0, 0), _p(0, 1), ref_zmp_z.front()); // TODO
+    }
+
+    Eigen::Matrix<double, 3, 2> getStateVector() { return x_k; }
+};
+
+class PreviewController : public PreviewControllerBase<3>
+{
+private:
+    void calc_f()
+    {
+        f_vec.resize(preview_window);
+        Eigen::Matrix<double, 3, 3> gsi(Eigen::Matrix<double, 3, 3>::Identity());
+        for (size_t i = 0; i < preview_window; ++i) {
+            f_vec(i) = (R_btPb_inv * tcB.transpose() * (gsi * Q * tcC.transpose()))(0, 0);
+            gsi = A_minus_bKt * gsi;
+        }
+    }
+
+    Eigen::Matrix<double, 1, 2> calc_u(const std::vector<Eigen::Vector3d>& ref_zmp)
+    {
+        Eigen::Matrix<double, 1, 2> gfp(Eigen::Matrix<double, 1, 2>::Zero());\
+        for (size_t i = 0; i < preview_window; ++i) {
+            gfp += f_vec(i) * ref_zmp[i].head<2>(); // TODO: transposeいらない？ ref_zmpは0から？
+        }
+        return -K * x_k + gfp;
+    }
+
+    void calc_x_k(const std::vector<Eigen::Vector3d>& ref_zmp)
+    {
+        x_k = tcA * x_k + tcB * calc_u(ref_zmp);
+    }
+
+    void initMatrix()
+    {
+        initRiccati<3>(tcA, tcB, tcC);
+    }
+
+public:
+    PreviewController(const double dt, const double zc,
+                      const Eigen::Vector3d& init_xk,
+                      const double out_weight = 1.0, const double in_weight = 1.0e-6,
+                      const double preview_time = DEFAULT_PREVIEW_TIME,
+                      const double _g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)
+        : PreviewControllerBase(dt, zc, init_xk, _g_acc, out_weight, in_weight, preview_time)
+        {
+            initMatrix();
+        }
+    virtual ~PreviewController() {}
+};
+
+class ExtendedPreviewController : public PreviewControllerBase<4>
+{
+private:
+    Eigen::Matrix<double, 4, 4> A;
+    Eigen::Matrix<double, 4, 1> B;
+    Eigen::Matrix<double, 1, 4> C;
     Eigen::Matrix<double, 4, 2> x_k_e;
-    void calc_f();
-    void calc_u();
-    void calc_x_k();
-  public:
-    extended_preview_control(const double dt, const double zc,
-                             const hrp::Vector3& init_xk, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0,
-                             const double r = 1.0e-6, const double d = 1.6)
-      : preview_control_base<4>(dt, zc, init_xk, _gravitational_acceleration, d), x_k_e(Eigen::Matrix<double, 4, 2>::Zero())
-    {
-      Eigen::Matrix<double, 4, 4> A;
-      Eigen::Matrix<double, 4, 1> b;
-      Eigen::Matrix<double, 1, 4> c;
-      Eigen::Matrix<double, 1, 3> tmpca(tcc * tcA);
-      Eigen::Matrix<double, 1, 1> tmpcb(tcc * tcb);
-      A << 1.0, tmpca(0,0), tmpca(0,1), tmpca(0,2),
-        0.0, tcA(0,0), tcA(0,1), tcA(0,2),
-        0.0, tcA(1,0), tcA(1,1), tcA(1,2),
-        0.0, tcA(2,0), tcA(2,1), tcA(2,2);
-      b << tmpcb(0,0),
-        tcb(0,0),
-        tcb(1,0),
-        tcb(2,0);
-      c << 1,0,0,0;
-      x_k_e(0,0) = init_xk(0);
-      x_k_e(0,1) = init_xk(1);
-      init_riccati(A, b, c, q, r);
-    };
-    virtual ~extended_preview_control() {};
-  };
 
-  template <class previw_T>
-  class preview_dynamics_filter
-  {
-    previw_T preview_controller;
-    bool finishedp;
-  public:
-    preview_dynamics_filter() {};
-    preview_dynamics_filter(const double dt, const double zc, const hrp::Vector3& init_xk, const double _gravitational_acceleration = DEFAULT_GRAVITATIONAL_ACCELERATION, const double q = 1.0, const double r = 1.0e-6, const double d = 1.6)
-        : preview_controller(dt, zc, init_xk, _gravitational_acceleration, q, r, d), finishedp(false) {};
-    ~preview_dynamics_filter() {};
-    bool update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, std::vector<hrp::Vector3>& qdata_ret, const hrp::Vector3& pr, const std::vector<hrp::Vector3>& qdata, const bool updatep)
+    void calc_f()
     {
-      bool flg;
-      if (updatep) {
-        preview_controller.update_x_k(pr, qdata);
-        flg = preview_controller.is_doing();
-      } else {
-        if (!preview_controller.is_end() ) preview_controller.update_x_k();
-        flg = !preview_controller.is_end();
-      }
-
-      if (flg) {
-        preview_controller.get_current_refzmp(p_ret.data());
-        preview_controller.get_refcog(x_ret.data());
-        preview_controller.get_current_qdata(qdata_ret);
-      }
-      return flg;
-    };
-    void remove_preview_queue(const size_t remain_length)
-    {
-      preview_controller.remove_preview_queue(remain_length);
-    };
-    void remove_preview_queue()
-    {
-      preview_controller.remove_preview_queue();
-    };
-    void set_preview_queue(const hrp::Vector3& pr, const std::vector<hrp::Vector3>& qdata, const size_t idx)
-    {
-      preview_controller.set_preview_queue(pr, qdata, idx);
-    }
-    size_t get_preview_queue_size()
-    {
-      return preview_controller.get_preview_queue_size();
-    };
-    void print_all_queue ()
-    {
-      preview_controller.print_all_queue();
+        f_vec.resize(preview_window);
+        Eigen::Matrix<double, 4, 4> gsi(Eigen::Matrix<double, 4, 4>::Identity());
+        Eigen::Matrix<double, 4, 1> qt(Q * C.transpose());
+        for (size_t i = 0; i < preview_window; ++i) {
+            if (i == preview_window - 1) qt = P * C.transpose();
+            f_vec(i) = (R_btPb_inv * B.transpose() * (gsi * qt))(0, 0);
+            gsi = A_minus_bKt * gsi;
+        }
     }
 
-    void get_cart_zmp (double* ret) { preview_controller.get_cart_zmp(ret);}
-    void get_refcog_vel (double* ret) { preview_controller.get_refcog_vel(ret);}
-    void get_refcog_acc (double* ret) { preview_controller.get_refcog_acc(ret);}
-    void get_current_refzmp (double* ret) { preview_controller.get_current_refzmp(ret);}
-    //void get_current_qdata (double* ret) { preview_controller.get_current_qdata(ret);}
-    size_t get_delay () { return preview_controller.get_delay(); };
-    double get_preview_f (const size_t idx) { return preview_controller.get_preview_f(idx); };
-  };
+    Eigen::Matrix<double, 1, 2> calc_u(const std::vector<Eigen::Vector3d>& ref_zmp)
+    {
+        Eigen::Matrix<double, 1, 2> gfp(Eigen::Matrix<double, 1, 2>::Zero());
+        for (size_t i = 0; i < preview_window; ++i) {
+            gfp += f_vec(i) * ref_zmp[i].head<2>();
+        }
+        return -K * x_k_e + gfp;
+    }
+
+    void initMatrix()
+    {
+        const Eigen::Matrix<double, 1, 3> tmpca(tcC * tcA);
+        const Eigen::Matrix<double, 1, 1> tmpcb(tcC * tcB);
+        A << 1.0, tmpca(0,0), tmpca(0,1), tmpca(0,2),
+             0.0, tcA(0,0), tcA(0,1), tcA(0,2),
+             0.0, tcA(1,0), tcA(1,1), tcA(1,2),
+             0.0, tcA(2,0), tcA(2,1), tcA(2,2);
+        B << tmpcb(0, 0),
+             tcB(0 ,0),
+             tcB(1, 0),
+             tcB(2, 0);
+        C << 1, 0, 0, 0;
+        initRiccati<4>(A, B, C);
+    }
+
+public:
+    ExtendedPreviewController(const double dt, const double zc,
+                              const Eigen::Vector3d& init_xk,
+                              const double out_weight = 1.0, const double in_weight = 1.0e-6,
+                              const double preview_time = DEFAULT_PREVIEW_TIME,
+                              const double _g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)
+        : PreviewControllerBase(dt, zc, init_xk, _g_acc, out_weight, in_weight, preview_time),
+          x_k_e(Eigen::Matrix<double, 4, 2>::Zero())
+    {
+        x_k_e(0, 0) = init_xk(0);
+        x_k_e(0, 1) = init_xk(1);
+        initMatrix();
+    }
+
+    void calc_x_k(const std::vector<Eigen::Vector3d>& ref_zmp)
+    {
+        x_k_e = A * x_k_e + B * calc_u(ref_zmp);
+        x_k += x_k_e.block<3, 2>(1, 0);
+    }
+
+    void get_x_k_e(Eigen::Matrix<double, 4, 2>& _x_k_e) // TODO: return
+    {
+        _x_k_e = x_k_e;
+    }
+
+    void set_x_k_e(const Eigen::Matrix<double, 4, 2>& _x_k_e)
+    {
+        x_k_e = _x_k_e;
+    }
+
+    virtual ~ExtendedPreviewController() {};
+};
+
 }
-#endif /*PREVIEW_H_*/
+
+#endif // PREVIEWCONTROLLER_H
