@@ -20,6 +20,13 @@
 
 typedef coil::Guard<coil::Mutex> Guard;
 
+#ifndef rad2deg
+#define rad2deg(rad) (rad * 180 / M_PI)
+#endif
+#ifndef deg2rad
+#define deg2rad(deg) (deg * M_PI / 180)
+#endif
+
 // Module specification
 // <rtc-template block="module_spec">
 static const char* emergencystopper_spec[] =
@@ -178,6 +185,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     is_stop_mode = prev_is_stop_mode = false;
     is_emergency_fall_motion = false;
     is_initialized = false;
+    emergency_mode = 0;
 
     recover_time = retrieve_time = 0;
     recover_time_dt = 1.0;
@@ -260,6 +268,7 @@ RTC::ReturnCode_t EmergencyStopper::onDeactivated(RTC::UniqueId ec_id)
     Guard guard(m_mutex);
     if (is_stop_mode) {
         is_stop_mode = false;
+        emergency_mode = 0;
         is_emergency_fall_motion = false;
         solved = false;
         recover_time = 0;
@@ -355,7 +364,8 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
 
     if (m_emergencySignalIn.isNew()){
         m_emergencySignalIn.read();
-        if ( m_emergencySignal.data == 0 ) {
+        emergency_mode = m_emergencySignal.data;
+        if ( emergency_mode == 0 ) {
           if (is_stop_mode) {
             Guard guard(m_mutex);
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
@@ -363,10 +373,20 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             is_stop_mode = false;
           }
         } else if (!is_stop_mode) {
-            Guard guard(m_mutex);
+          Guard guard(m_mutex);
+          switch (emergency_mode) {
+          case 1:
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
                       << "] emergencySignal is set!" << std::endl;
             is_stop_mode = true;
+            break;
+          case 2:
+            std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
+                      << "] emergencyTouchWall is set!" << std::endl;
+            break;
+          default:
+            break;
+          }
         }
     }
     if (m_emergencyFallMotionIn.isNew()) {
@@ -376,6 +396,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
                       << "] emergencyFallMotion is reset!" << std::endl;
             is_stop_mode = false;
+            emergency_mode = 0;
             is_emergency_fall_motion = false;
         } else {
             Guard guard(m_mutex);
@@ -462,7 +483,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
       m_wrenchesOut[i]->write();
     }
 
-    m_emergencyMode.data = is_stop_mode;
+    m_emergencyMode.data = emergency_mode;
     m_emergencyMode.tm = m_qRef.tm;
     m_emergencyModeOut.write();
 
@@ -541,8 +562,9 @@ bool EmergencyStopper::stopMotion()
 bool EmergencyStopper::releaseMotion()
 {
     Guard guard(m_mutex);
-    if (is_stop_mode) {
+    {
         is_stop_mode = false;
+        emergency_mode = 0;
         is_emergency_fall_motion = false;
         solved = false;
         std::cerr << "[" << m_profile.instance_name << "] releaseMotion is called" << std::endl;
@@ -574,6 +596,7 @@ bool EmergencyStopper::setEmergencyJointAngles(const double *angles, const bool 
     //   m_stop_posture[i] = angles[i];
     // }
     solved = _solved;
+    is_stop_mode = true;
     return true;
 };
 

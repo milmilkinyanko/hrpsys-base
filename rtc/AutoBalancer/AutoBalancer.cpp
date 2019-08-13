@@ -489,6 +489,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     prev_orig_cog = orig_cog = hrp::Vector3::Zero();
 
     is_emergency_step_mode = false;
+    is_emergency_stopping = false;
 
     cog_z_constraint = 1e-3;
 
@@ -577,7 +578,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
     loop ++;
 
-    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking) {
+    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode) {
       gg->set_is_emergency_step(true);
       // if (fabs(st->act_cp(0)) > fabs(st->act_cp(1))) {
         if (st->act_cp(0) > 0) goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? -1e-6:1e-6,0);
@@ -617,17 +618,33 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_optionalDataIn.read();
     }
     if (st->reset_emergency_flag) {
+      m_emergencySignal.data = 0;
+      m_emergencySignalOut.write();
       m_emergencyFallMotion.data = false;
       m_emergencyFallMotionOut.write();
       st->reset_emergency_flag = false;
-    } else if (st->is_emergency_motion && !is_stop_mode) {
-      std::cerr << "[" << m_profile.instance_name << "] emergencyFallMotion is set!" << std::endl;
-      is_stop_mode = true;
-      m_emergencyFallMotion.data = true;
-      m_emergencyFallMotionOut.write();
-      gg->finalize_velocity_mode2();
-      stopABCparamEmergency();
-      st->stopSTEmergency();
+    } else {
+      if (st->is_emergency_motion && !is_stop_mode) {
+        std::cerr << "[" << m_profile.instance_name << "] emergencyFallMotion is set!" << std::endl;
+        is_stop_mode = true;
+        m_emergencyFallMotion.data = true;
+        m_emergencyFallMotionOut.write();
+        gg->finalize_velocity_mode2();
+        stopABCparamEmergency();
+        st->stopSTEmergency();
+      }
+      if (gg_is_walking && !is_stop_mode && gg->get_falling_direction() != 0) { // tmp
+        std::cerr << "[" << m_profile.instance_name << "] emergencyTouchWall is set!" << std::endl;
+        m_emergencySignal.data = 2;
+        is_stop_mode = true;
+        m_emergencySignalOut.write();
+        gg->emergency_stop();
+        is_emergency_stopping = true;
+      } else if (is_stop_mode && !gg_is_walking && is_emergency_stopping) {
+        stopABCparamEmergency();
+        st->stopSTEmergency();
+        is_emergency_stopping = false;
+      }
     }
     if (m_diffCPIn.isNew()) {
       m_diffCPIn.read();
@@ -908,11 +925,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     setABCData2ST();
     st->execStabilizer();
 
-    if (st->reset_emergency_flag) {
-      m_emergencySignal.data = 0;
-      m_emergencySignalOut.write();
-      st->reset_emergency_flag = false;
-    } else if (st->is_emergency) {
+    if (!st->reset_emergency_flag && st->is_emergency) {
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
     }

@@ -201,6 +201,7 @@ private:
     BeepClient bc;
     int dummy;
     bool solved;
+    int emergency_mode;
 };
 
 
