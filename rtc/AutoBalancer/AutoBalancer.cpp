@@ -56,6 +56,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       // <rtc-template block="initializer">
       m_qRefIn("qRef", m_qRef),
       m_qCurrentIn("qCurrent", m_qCurrent),
+      m_qTouchWallIn("qTouchWall", m_qTouchWall),
       m_basePosIn("basePosIn", m_basePos),
       m_baseRpyIn("baseRpyIn", m_baseRpy),
       m_zmpIn("zmpIn", m_zmp),
@@ -65,6 +66,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
+      m_touchWallMotionSolvedIn("touchWallMotionSolved", m_touchWallMotionSolved),
       m_actContactStatesIn("actContactStates", m_actContactStates),
       m_rpyIn("rpy", m_rpy),
       m_qRefSeqIn("qRefSeq", m_qRefSeq),
@@ -110,6 +112,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     // Set InPort buffers
     addInPort("qRef", m_qRefIn);
     addInPort("qCurrent", m_qCurrentIn);
+    addInPort("qTouchWall", m_qTouchWallIn);
     addInPort("basePosIn", m_basePosIn);
     addInPort("baseRpyIn", m_baseRpyIn);
     addInPort("zmpIn", m_zmpIn);
@@ -118,6 +121,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
     addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
+    addInPort("touchWallMotionSolved", m_touchWallMotionSolvedIn);
     addInPort("rpy", m_rpyIn);
     addInPort("qRefSeq", m_qRefSeqIn);
     addInPort("landingHeight", m_landingHeightIn);
@@ -180,6 +184,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qRef.data.length(m_robot->numJoints());
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
+    m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(27);
     diff_q.resize(m_robot->numJoints());
@@ -354,6 +359,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     transition_interpolator_ratio = 0.0;
     emergency_transition_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     emergency_transition_interpolator->setName(std::string(m_profile.instance_name)+" emergency_transition_interpolator");
+    touch_wall_transition_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
+    touch_wall_transition_interpolator->setName(std::string(m_profile.instance_name)+" touch_wall_transition_interpolator");
     adjust_footstep_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     adjust_footstep_interpolator->setName(std::string(m_profile.instance_name)+" adjust_footstep_interpolator");
     transition_time = 2.0;
@@ -489,7 +496,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     prev_orig_cog = orig_cog = hrp::Vector3::Zero();
 
     is_emergency_step_mode = false;
+    is_emergency_touch_wall_mode = false;
     is_emergency_stopping = false;
+    is_touch_wall_motion_solved = false;
+    touch_wall_retrieve_time = 0.5;
 
     cog_z_constraint = 1e-3;
 
@@ -510,6 +520,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete zmp_offset_interpolator;
   delete transition_interpolator;
   delete emergency_transition_interpolator;
+  delete touch_wall_transition_interpolator;
   delete adjust_footstep_interpolator;
   delete leg_names_interpolator;
   delete angular_momentum_interpolator;
@@ -593,6 +604,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_qCurrentIn.isNew()) {
       m_qCurrentIn.read();
     }
+    if (m_qTouchWallIn.isNew()) {
+        m_qTouchWallIn.read();
+    }
     if (m_basePosIn.isNew()) {
       m_basePosIn.read();
       input_basePos(0) = m_basePos.data.x;
@@ -633,17 +647,22 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         stopABCparamEmergency();
         st->stopSTEmergency();
       }
-      if (gg_is_walking && !is_stop_mode && gg->get_falling_direction() != 0) { // tmp
+      if (gg_is_walking && !is_stop_mode && gg->is_emergency_touch_wall && is_emergency_touch_wall_mode) {
         std::cerr << "[" << m_profile.instance_name << "] emergencyTouchWall is set!" << std::endl;
         m_emergencySignal.data = 2;
         is_stop_mode = true;
         m_emergencySignalOut.write();
+        double tmp_ratio = 1.0;
+        touch_wall_transition_interpolator->set(&tmp_ratio);
+        tmp_ratio = 0.0;
+        touch_wall_transition_interpolator->setGoal(&tmp_ratio, touch_wall_retrieve_time, true);
         gg->emergency_stop();
         is_emergency_stopping = true;
       } else if (is_stop_mode && !gg_is_walking && is_emergency_stopping) {
         stopABCparamEmergency();
         st->stopSTEmergency();
         is_emergency_stopping = false;
+        touch_wall_transition_interpolator->clear();
       }
     }
     if (m_diffCPIn.isNew()) {
@@ -655,6 +674,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
     if (m_refFootOriginExtMomentIsHoldValueIn.isNew()) {
       m_refFootOriginExtMomentIsHoldValueIn.read();
+    }
+    if (m_touchWallMotionSolvedIn.isNew()) {
+      m_touchWallMotionSolvedIn.read();
+      is_touch_wall_motion_solved = m_touchWallMotionSolved.data;
     }
     if (m_actContactStatesIn.isNew()) {
       m_actContactStatesIn.read();
@@ -741,6 +764,19 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 //        updateInvDynStateBuffer(idsb);
 
         rel_ref_zmp = m_robot->rootLink()->R.transpose() * (ref_zmp - m_robot->rootLink()->p);
+        fik->storeCurrentParameters();
+
+        if (is_touch_wall_motion_solved) {
+          double tmp_ratio = 1.0;
+          if (!touch_wall_transition_interpolator->isEmpty()) {
+            touch_wall_transition_interpolator->get(&tmp_ratio, true);
+          } else if (is_emergency_stopping) {
+            tmp_ratio = 0.0;
+          }
+          for ( int i = 0; i < m_robot->numJoints(); i++ ) {
+            m_robot->joint(i)->q = (1-tmp_ratio) * m_qTouchWall.data[i] + tmp_ratio * m_robot->joint(i)->q;
+          }
+        }
       } else {
         if (!emergency_transition_interpolator->isEmpty()) {
           double tmp_ratio;
@@ -751,8 +787,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         }
         rel_ref_zmp = input_zmp;
         fik->d_root_height = 0.0;
+        fik->storeCurrentParameters();
       }
-      fik->storeCurrentParameters();
       // Transition
       if (!is_transition_interpolator_empty) {
         // transition_interpolator_ratio 0=>1 : IDLE => ABC
@@ -1616,7 +1652,6 @@ void AutoBalancer::solveFullbodyIK ()
 
         prev_roll_state = gg->get_use_roll_flywheel();
         prev_pitch_state = gg->get_use_pitch_flywheel();
-
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
 
@@ -1628,6 +1663,9 @@ void AutoBalancer::solveFullbodyIK ()
     if(m_robot->link("LLEG_JOINT3") != NULL) m_robot->link("LLEG_JOINT3")->llimit = deg2rad(5);
     if(m_robot->link("R_KNEE_P") != NULL) m_robot->link("R_KNEE_P")->llimit = deg2rad(5);
     if(m_robot->link("L_KNEE_P") != NULL) m_robot->link("L_KNEE_P")->llimit = deg2rad(5);
+    // reduce chest joint move
+    if(m_robot->link("HEAD_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT0")->jointId) = 10;
+    if(m_robot->link("HEAD_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT1")->jointId) = 10;
     // reduce chest joint move
     if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 10;
     if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 10;
@@ -1784,11 +1822,11 @@ void AutoBalancer::stopABCparam()
 void AutoBalancer::stopABCparamEmergency()
 {
   std::cerr << "[" << m_profile.instance_name << "] stop auto balancer mode for emergency" << std::endl;
-  double tmp_ratio = 1.0;
+  double tmp_ratio = 1.0, tmp_time = (gg->is_emergency_touch_wall && is_emergency_touch_wall_mode) ? 0.8 : 0.8;
   emergency_transition_interpolator->clear();
   emergency_transition_interpolator->set(&tmp_ratio);
   tmp_ratio = 0.0;
-  emergency_transition_interpolator->setGoal(&tmp_ratio, 0.8, true);
+  emergency_transition_interpolator->setGoal(&tmp_ratio, tmp_time, true);
   for (int i = 0; i < m_robot->numJoints(); i++ ) {
     diff_q[i] = m_robot->joint(i)->q - m_qRef.data[i];
   }
@@ -2491,6 +2529,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
     fik->ikp[ee_vec[i]].limb_length_margin = i_param.limb_length_margin[i];
   }
   is_emergency_step_mode = i_param.is_emergency_step_mode;
+  is_emergency_touch_wall_mode = i_param.is_emergency_touch_wall_mode;
   if (control_mode == MODE_IDLE) {
     ik_mode = i_param.ik_mode;
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode = " << ik_mode << std::endl;
@@ -2505,6 +2544,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   } else {
     std::cerr << "[" << m_profile.instance_name << "]   cog_z_constraint cannot be set because interpolating." << std::endl;
   }
+  touch_wall_retrieve_time = i_param.touch_wall_retrieve_time;
   return true;
 };
 
@@ -2586,9 +2626,10 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i = 0; i < 3; i++) {
       i_param.additional_force_applied_point_offset[i] = additional_force_applied_point_offset(i);
   }
-  i_param.is_emergency_step_mode = is_emergency_step_mode;
+  i_param.is_emergency_touch_wall_mode = is_emergency_touch_wall_mode;
   i_param.ik_mode = ik_mode;
   i_param.cog_z_constraint = cog_z_constraint;
+  i_param.touch_wall_retrieve_time = touch_wall_retrieve_time;
   return true;
 };
 

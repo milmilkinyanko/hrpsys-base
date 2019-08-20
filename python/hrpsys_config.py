@@ -429,6 +429,8 @@ class HrpsysConfigurator(object):
             if self.es:
                 connectPorts(self.abc.port("emergencySignal"), self.es.port("emergencySignal"))
                 connectPorts(self.abc.port("emergencyFallMotion"), self.es.port("emergencyFallMotion"))
+                connectPorts(self.es.port("touchWallMotionSolved"), self.abc.port("touchWallMotionSolved"))
+                connectPorts(self.es.port("qTouchWall"), self.abc.port("qTouchWall"))
             connectPorts(self.st.port("emergencySignal"), self.abc.port("emergencySignal"))
             connectPorts(self.st.port("diffCapturePoint"), self.abc.port("diffCapturePoint"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))

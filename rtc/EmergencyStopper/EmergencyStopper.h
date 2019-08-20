@@ -117,6 +117,7 @@ protected:
     TimedDoubleSeq m_qRef;
     TimedDoubleSeq m_qEmergency;
     TimedDoubleSeq m_q;
+    TimedDoubleSeq m_qTouchWall;
     TimedLong m_emergencySignal;
     TimedBoolean m_emergencyFallMotion;
     TimedLong m_emergencyMode;
@@ -124,6 +125,7 @@ protected:
     std::vector<TimedDoubleSeq> m_wrenchesRef;
     std::vector<TimedDoubleSeq> m_wrenches;
     TimedLongSeq m_beepCommand;
+    TimedBoolean m_touchWallMotionSolved;
 
     // DataInPort declaration
     // <rtc-template block="inport_declare">
@@ -139,9 +141,11 @@ protected:
     // DataOutPort declaration
     // <rtc-template block="outport_declare">
     OutPort<TimedDoubleSeq> m_qOut;
+    OutPort<TimedDoubleSeq> m_qTouchWallOut;
     OutPort<TimedLong> m_emergencyModeOut;
     std::vector<OutPort<TimedDoubleSeq> *> m_wrenchesOut;
     OutPort<TimedLongSeq> m_beepCommandOut;
+    OutPort<TimedBoolean> m_touchWallMotionSolvedOut;
   
     // </rtc-template>
 

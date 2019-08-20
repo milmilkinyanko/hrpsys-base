@@ -657,6 +657,7 @@ namespace rats
     // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
     cp_filter->reset(cur_cog); // assume that robot is stopping when starting walking
     lr_region[0] = lr_region[1] = false;
+    is_emergency_touch_wall = false;
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -1216,6 +1217,8 @@ namespace rats
 
   void gait_generator::limit_stride_vision (step_node& cur_fs, hrp::Vector3& short_of_footstep, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp)
   {
+    step_node fs_for_touch_wall = cur_fs;
+    limit_stride_rectangle(fs_for_touch_wall, prev_fs, overwritable_stride_limitation);
     // preprev foot frame
     hrp::Matrix33 preprev_fs_rot, prev_fs_rot;
     hrp::Vector3 prev_fs_pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
@@ -1258,6 +1261,12 @@ namespace rats
     // world frame
     cur_fs.worldcoords.pos = preprev_fs_pos + preprev_fs_rot * cur_fs.worldcoords.pos;
     short_of_footstep = preprev_fs_rot * short_of_footstep;
+
+    // check for touch wall
+    // TODO: should consider the case where is_out = true while footstep is inside the limit_stride (like stepping stone)
+    if (short_of_footstep.norm() > 5e-2 && (cur_fs.worldcoords.pos - fs_for_touch_wall.worldcoords.pos).norm() > 1e-2) { // 1cm
+      is_emergency_touch_wall = true;
+    }
   }
 
   void gait_generator::modify_footsteps_for_recovery ()

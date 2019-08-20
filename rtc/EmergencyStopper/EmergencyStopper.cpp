@@ -67,8 +67,10 @@ EmergencyStopper::EmergencyStopper(RTC::Manager* manager)
       m_emergencyFallMotionIn("emergencyFallMotion", m_emergencyFallMotion),
       m_servoStateIn("servoStateIn", m_servoState),
       m_qOut("q", m_q),
+      m_qTouchWallOut("qTouchWall", m_qTouchWall),
       m_emergencyModeOut("emergencyMode", m_emergencyMode),
       m_beepCommandOut("beepCommand", m_beepCommand),
+      m_touchWallMotionSolvedOut("touchWallMotionSolved", m_touchWallMotionSolved),
       m_EmergencyStopperServicePort("EmergencyStopperService"),
       // </rtc-template>
       m_robot(hrp::BodyPtr()),
@@ -104,8 +106,10 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
+    addOutPort("qTouchWall", m_qTouchWallOut);
     addOutPort("emergencyMode", m_emergencyModeOut);
     addOutPort("beepCommand", m_beepCommandOut);
+    addOutPort("touchWallMotionSolved", m_touchWallMotionSolvedOut);
 
     // Set service provider to Ports
     m_EmergencyStopperServicePort.registerProvider("service0", "EmergencyStopperService", m_service0);
@@ -206,6 +210,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     for(unsigned int i=0; i<m_robot->numJoints(); i++){
         m_q.data[i] = 0;
     }
+    m_qTouchWall.data.length(m_robot->numJoints());
     for(unsigned int i=0; i<nforce; i++){
         for(int j=0; j<6; j++){
             m_wrenches[i].data[j] = 0;
@@ -486,6 +491,9 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
     m_emergencyMode.data = emergency_mode;
     m_emergencyMode.tm = m_qRef.tm;
     m_emergencyModeOut.write();
+    m_touchWallMotionSolved.data = solved;
+    m_touchWallMotionSolved.tm = m_qRef.tm;
+    m_touchWallMotionSolvedOut.write();
 
     prev_is_stop_mode = is_stop_mode;
 
@@ -592,12 +600,19 @@ bool EmergencyStopper::setEmergencyStopperParam(const OpenHRP::EmergencyStopperS
 
 bool EmergencyStopper::setEmergencyJointAngles(const double *angles, const bool _solved)
 {
-    // for (size_t i = 0; i < m_robot->numJoints(); i++) {
-    //   m_stop_posture[i] = angles[i];
-    // }
-    solved = _solved;
-    is_stop_mode = true;
-    return true;
+  // interpolate in Autobalancer
+  for (size_t i = 0; i < m_robot->numJoints(); i++) {
+    // tmp for jaxon choreonoid
+    if (i == 33 || i == 35) m_stop_posture[i] = -1.39626;
+    else if (i == 34 || i == 36) m_stop_posture[i] = 1.39626;
+    else m_stop_posture[i] = deg2rad(angles[i]);
+    m_qTouchWall.data[i] = m_stop_posture[i];
+  }
+  m_qTouchWall.tm = m_qRef.tm;
+  m_qTouchWallOut.write();
+  solved = _solved;
+  is_stop_mode = true;
+  return true;
 };
 
 extern "C"

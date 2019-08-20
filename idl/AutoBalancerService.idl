@@ -414,8 +414,12 @@ module OpenHRP
       IKMode ik_mode;
       /// whether step when emergency
       boolean is_emergency_step_mode;
+      /// whether touch wall when emergency
+      boolean is_emergency_touch_wall_mode;
       /// cog height constraint in fullbody IK
       double cog_z_constraint;
+      /// Sync time for retrieve touch wall motion [s]
+      double touch_wall_retrieve_time;
     };
 
     /**

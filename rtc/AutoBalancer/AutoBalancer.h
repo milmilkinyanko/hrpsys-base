@@ -137,6 +137,8 @@ class AutoBalancer
   InPort<TimedDoubleSeq> m_qRefIn;
   TimedDoubleSeq m_qCurrent;
   InPort<TimedDoubleSeq> m_qCurrentIn;
+  TimedDoubleSeq m_qTouchWall;
+  InPort<TimedDoubleSeq> m_qTouchWallIn;
   TimedPoint3D m_basePos;
   InPort<TimedPoint3D> m_basePosIn;
   TimedOrientation3D m_baseRpy;
@@ -159,6 +161,8 @@ class AutoBalancer
   InPort<TimedOrientation3D> m_rpyIn;
   TimedDoubleSeq m_qRefSeq;
   InPort<TimedDoubleSeq> m_qRefSeqIn;
+  TimedBoolean m_touchWallMotionSolved;
+  InPort<TimedBoolean> m_touchWallMotionSolvedIn;
   std::vector<TimedDoubleSeq> m_wrenches;
   std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
   OpenHRP::TimedLandingPosition m_landingHeight;
@@ -343,12 +347,13 @@ class AutoBalancer
   bool use_act_states;
   std::vector<double> diff_q;
   interpolator *emergency_transition_interpolator;
+  interpolator *touch_wall_transition_interpolator;
   hrp::Vector3 touchdown_foot_pos[2];
   bool is_foot_touch[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
-  bool is_emergency_step_mode, is_emergency_stopping;
-  double cog_z_constraint;
+  bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved;
+  double cog_z_constraint, touch_wall_retrieve_time;
 };
 
 
