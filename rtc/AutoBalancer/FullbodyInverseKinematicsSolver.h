@@ -146,7 +146,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                         tgt_jpath.calcJacobian(J_jpath, _ikc_list[i].localPos);
                         for(int id_in_jpath=0; id_in_jpath<tgt_jpath.numJoints(); id_in_jpath++){ J_part.col(tgt_jpath.joint(id_in_jpath)->jointId) = J_jpath.col(id_in_jpath); } //ジョイントパスのJacobianを全身用に並び替え
                         J_part.rightCols(BASE_DOF) = hrp::dmatrix::Identity( WS_DOF,  BASE_DOF );
-                        J_part.rightCols(BASE_DOF).topRightCorner(3,3) = hrp::hat(link_tgt_ptr->p - _robot->rootLink()->p);
+                        J_part.rightCols(BASE_DOF).topRightCorner(3,3) = - hrp::hat(tgt_cur_pos - _robot->rootLink()->p);
                     }else if(!link_tgt_ptr && _ikc_list[i].target_link_name == "COM"){ //重心限定
                         dp_part.head(3) = _ikc_list[i].targetPos - _robot->calcCM();
 //                        dp_part.tail(3) = (_ikc_list[i].targetRpy - cur_momentum_around_COM) * m_dt;// COMのrotはAngulerMomentumとして扱う&差分なのでdtかける
