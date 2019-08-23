@@ -827,14 +827,23 @@ namespace rats
         default_double_support_ratio_swing_after = orig_default_double_support_static_ratio_after;
         min_time = orig_min_time;
       }
-      // calc landing pos relative to supporting foot for vision
       {
+        // calc landing pos relative to supporting foot for vision
         cur_supporting_foot = (footstep_nodes_list[lcg.get_footstep_index()].front().l_r == LLEG ? 0 : 1);
         hrp::Matrix33 cur_rot;
         hrp::Vector3 ez = hrp::Vector3::UnitZ();
         step_node cur_sup_fs(lcg.get_footstep_index() > 0 ? footstep_nodes_list[lcg.get_footstep_index()-1].front() : lcg.get_support_leg_steps().front());
         calc_foot_origin_rot(cur_rot, cur_sup_fs.worldcoords.rot, ez);
         rel_landing_pos = cur_rot.transpose() * (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - cur_sup_fs.worldcoords.pos);
+        // calc end cog and cogvel relative to supporting foot for touch wall
+        hrp::Vector3 tmp_cog = cur_rot.transpose() * (cur_cog + dc_off - cur_sup_fs.worldcoords.pos);
+        hrp::Vector3 tmp_vel = cur_rot.transpose() * cur_cogvel;
+        hrp::Vector3 tmp_zmp = cur_rot.transpose() * (refzmp - cur_sup_fs.worldcoords.pos);
+        double remain_time = remain_count * dt;
+        end_cog = (tmp_cog - tmp_zmp) * std::cosh(cur_omega * remain_time) + tmp_vel / cur_omega * std::sinh(cur_omega * remain_time) + tmp_zmp;
+        end_cogvel = (tmp_cog - tmp_zmp) * cur_omega * std::sinh(cur_omega * remain_time) + tmp_vel * std::cosh(cur_omega * remain_time);
+        end_cog(2) = (cur_cog - refzmp)(2);
+        end_cogvel(2) = 0.0;
       }
 
       if (fg_double_remain_count == 1) is_prev_double_remain_one = true;

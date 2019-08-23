@@ -207,6 +207,8 @@ class AutoBalancer
   OutPort<TimedBoolean> m_emergencyFallMotionOut;
   OpenHRP::TimedLandingPosition m_landingTarget;
   OutPort<OpenHRP::TimedLandingPosition> m_landingTargetOut;
+  OpenHRP::TimedCogState m_endCogState;
+  OutPort<OpenHRP::TimedCogState> m_endCogStateOut;
   std::vector<TimedDoubleSeq> m_force;
   std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
   std::vector<TimedPoint3D> m_limbCOPOffset;

@@ -88,6 +88,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_cogOut("cogOut", m_cog),
       m_allEECompOut("allEEComp", m_allEEComp),
       m_landingTargetOut("landingTarget", m_landingTarget),
+      m_endCogStateOut("endCogState", m_endCogState),
       m_AutoBalancerServicePort("AutoBalancerService"),
       // </rtc-template>
       gait_type(BIPED),
@@ -146,6 +147,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("emergencySignal", m_emergencySignalOut);
     addOutPort("emergencyFallMotion", m_emergencyFallMotionOut);
     addOutPort("landingTarget", m_landingTargetOut);
+    addOutPort("endCogState", m_endCogStateOut);
 
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -948,7 +950,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
     if (gg_is_walking) {
       hrp::Vector3 off = hrp::Vector3(0.0, 0.0, 0.0);
-      hrp::Vector3 pos;
+      hrp::Vector3 pos, vel;
       int l_r; // rleg: 0, lleg: 1
       gg->get_rel_landing_pos(pos, l_r);
       m_landingTarget.data.x = pos(0) + off(0);
@@ -956,6 +958,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_landingTarget.data.z = pos(2) + off(2);
       m_landingTarget.data.l_r = l_r;
       m_landingTargetOut.write();
+      gg->get_end_cog_state(pos, vel, l_r);
+      m_endCogState.data.x = pos(0);
+      m_endCogState.data.y = pos(1);
+      m_endCogState.data.z = pos(2);
+      m_endCogState.data.vx = vel(0);
+      m_endCogState.data.vy = vel(1);
+      m_endCogState.data.vz = vel(2);
+      m_endCogState.data.l_r = l_r;
+      m_endCogStateOut.write();
     }
 
     setABCData2ST();
@@ -2626,6 +2637,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i = 0; i < 3; i++) {
       i_param.additional_force_applied_point_offset[i] = additional_force_applied_point_offset(i);
   }
+  i_param.is_emergency_step_mode = is_emergency_step_mode;
   i_param.is_emergency_touch_wall_mode = is_emergency_touch_wall_mode;
   i_param.ik_mode = ik_mode;
   i_param.cog_z_constraint = cog_z_constraint;

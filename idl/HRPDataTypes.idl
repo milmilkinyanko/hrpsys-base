@@ -78,6 +78,18 @@ module OpenHRP
     sequence<sequence<double> > region;
     long l_r;
   };
+
+  struct CogState
+  {
+    double x;
+    double y;
+    double z;
+    double vx;
+    double vy;
+    double vz;
+    long l_r;
+  };
+
   //------------------------------------------------------------
   // Timed data types
   //------------------------------------------------------------
@@ -110,5 +122,11 @@ module OpenHRP
   {
     RTC::Time tm;
     SteppableRegion data;
+  };
+
+  struct TimedCogState
+  {
+    RTC::Time tm;
+    CogState data;
   };
 };
