@@ -10,30 +10,30 @@
 #define REFZMPGENERATOR_H
 
 #include <vector>
+#include <deque>
 #include <memory>
 #include <hrpUtil/EigenTypes.h>
-#include "FootStepType.h"
+#include "LinkConstraint.h"
 
-namespace hrp
-{
+namespace hrp {
 
-class refZMPGenerator
+class RefZMPGenerator
 {
   private:
-    std::vector<hrp::Vector3> refzmp_list;
+    std::deque<hrp::Vector3> refzmp_list;
 
-    hrp::Vector3 calcRefZMPUsingConstraint(const constraint_count_pairs& contact_points, const double dt, const size_t zmp_index);
-    hrp::Vector3 calcRefZMPUsingConstraintList(const std::vector<constraint_count_pairs>& contact_points,
+    hrp::Vector3 calcRefZMPUsingConstraintList(const std::vector<ConstraintsWithCount>& constraints_list,
                                                const size_t count);
   public:
-    refZMPGenerator() {}
-    virtual ~refZMPGenerator() {}
+    RefZMPGenerator() {}
 
-    const std::vector<hrp::Vector3>& getRefZMPList() const { return refzmp_list; }
+    const std::deque<hrp::Vector3>& getRefZMPList() const { return refzmp_list; }
 
-    void setRefZMPListUsingConstraintList(const std::vector<constraint_count_pairs>& contact_list,
+    void setRefZMPListUsingConstraintList(const std::vector<ConstraintsWithCount>& constraints_list,
                                           const size_t list_size,
                                           const size_t start_index = 0);
+    void popAndPushRefZMPUsingConstraintList(const std::vector<ConstraintsWithCount>& constraints_list,
+                                             const size_t count);
 };
 
 }

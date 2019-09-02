@@ -12,7 +12,7 @@
 #include <vector>
 #include <deque>
 #include "../ImpedanceController/RatsMatrix.h"
-#include "FootStepType.h"
+#include "LinkConstraint.h"
 #include "RefZMPGenerator.h"
 
 namespace hrp
