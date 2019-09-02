@@ -1379,7 +1379,7 @@ namespace rats
           double C = ar - b*b;
           double ewt = std::exp(omega*t);
           double D = A * ewt * ewt + B * ewt + C;
-          double new_remain_time = t, tmp_dt = 0.0;
+          double tmp_dt = 0.0;
           if (D >= 0) {
             // preprev foot frame
             p += prev_fs_pos.head(2);
@@ -1440,9 +1440,9 @@ namespace rats
           }
           if (is_change_time) {
             if (tmp_dt < 0) min_time_check(tmp_dt);
-            new_remain_time = t + tmp_dt;
+            t = t + tmp_dt;
 
-            // calc target pos according new_remain_time
+            // calc target pos according t
             hrp::Vector3 target_p = end_cp;
             end_cp_front = std::exp(omega * t) * rel_cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
             end_cp_back = std::exp(omega * t) * rel_cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
@@ -1450,17 +1450,17 @@ namespace rats
             end_cp_inside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
             if (end_cp(0) < end_cp_front) {
               xz_max = safe_leg_margin[0];
-              target_p(0) = std::exp(omega * new_remain_time) * rel_cp(0) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+              target_p(0) = std::exp(omega * t) * rel_cp(0) + (1 - std::exp(omega * t)) * xz_max;
             } else if (end_cp(0) > end_cp_back) {
               xz_max = -1 * safe_leg_margin[1];
-              target_p(0) = std::exp(omega * new_remain_time) * rel_cp(0) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+              target_p(0) = std::exp(omega * t) * rel_cp(0) + (1 - std::exp(omega * t)) * xz_max;
             }
             if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) < (cur_sup == RLEG ? -1 : 1) * end_cp_outside) {
               xz_max = (cur_sup == RLEG ? -1 : 1) * safe_leg_margin[2];
-              target_p(1) = std::exp(omega * new_remain_time) * rel_cp(1) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+              target_p(1) = std::exp(omega * t) * rel_cp(1) + (1 - std::exp(omega * t)) * xz_max;
             } else if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) > (cur_sup == RLEG ? -1 : 1) * end_cp_inside) {
               xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
-              target_p(1) = std::exp(omega * new_remain_time) * rel_cp(1) + (1 - std::exp(omega * new_remain_time)) * xz_max;
+              target_p(1) = std::exp(omega * t) * rel_cp(1) + (1 - std::exp(omega * t)) * xz_max;
             }
             // preprev foot frame
             target_p = prev_fs_pos + prev_fs_rot * target_p;
