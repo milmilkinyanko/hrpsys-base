@@ -9,6 +9,7 @@
 #define ABST_UTILITY_H
 
 #include <cmath>
+#include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
 
 namespace hrp {
@@ -52,24 +53,24 @@ inline hrp::Vector3 clamp(const hrp::Vector3& value, const hrp::Vector3& llimit_
     return value.array().max(llimit_value.array()).min(ulimit_value.array());
 }
 
-// inline void copyJointAnglesToRobotModel(const hrp::BodyPtr& m_robot,
-//                                         const hrp::dvector& joint_angles)
-// {
-//     const size_t num_joints = m_robot->numJoints();
-//     for (size_t i = 0; i < num_joints; ++i) {
-//         m_robot->joint(i)->q = joint_angles[i];
-//     }
-// }
+inline void copyJointAnglesToRobotModel(const hrp::BodyPtr& m_robot,
+                                        const hrp::dvector& joint_angles)
+{
+    const size_t num_joints = m_robot->numJoints();
+    for (size_t i = 0; i < num_joints; ++i) {
+        m_robot->joint(i)->q = joint_angles[i];
+    }
+}
 
-// inline void copyJointAnglesFromRobotModel(hrp::dvector& joint_angles,
-//                                           const hrp::BodyPtr& m_robot)
-// {
-//     const size_t num_joints = m_robot->numJoints();
-//     joint_angles.resize(num_joints);
-//     for (size_t i = 0; i < num_joints; ++i) {
-//         joint_angles[i] = m_robot->joint(i)->q;
-//     }
-// }
+inline void copyJointAnglesFromRobotModel(hrp::dvector& joint_angles,
+                                          const hrp::BodyPtr& m_robot)
+{
+    const size_t num_joints = m_robot->numJoints();
+    joint_angles.resize(num_joints);
+    for (size_t i = 0; i < num_joints; ++i) {
+        joint_angles[i] = m_robot->joint(i)->q;
+    }
+}
 
 }
 
