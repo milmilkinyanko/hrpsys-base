@@ -26,6 +26,9 @@ target_link_libraries(testRefZMPGenerator PRIVATE ${libs})
 add_executable(testLimbTrajectoryGenerator test/testLimbTrajectoryGenerator.cpp LimbTrajectoryGenerator.cpp)
 target_link_libraries(testLimbTrajectoryGenerator PRIVATE ${libs})
 
+add_executable(testCOGTrajectoryGenerator test/testCOGTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
+target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs})
+
 # add_executable(testPreviewControllerABS testPreviewControllerABS.cpp ../ImpedanceController/RatsMatrix.cpp PreviewController.cpp)
 # target_link_libraries(testPreviewControllerABS ${libs})
 
@@ -53,7 +56,7 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
 # set(target AutoBalanceStabilizer AutoBalanceStabilizerComp Stabilizer testRefZMPGenerator testPreviewControllerABS testGaitGeneratorABS testTwoDofControllerABS testZMPDistributorABS)
-set(target testRefZMPGenerator testLimbTrajectoryGenerator)
+set(target testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin

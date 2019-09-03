@@ -46,8 +46,8 @@ Eigen::Matrix<double, dim_state, dim_state> solveDiscreteAlgebraicRiccati(
         if (abs(eigenvals[i]) < 1) eigenvecs_inside.col(col++) = eigenvecs.col(i);
     }
 
-    const auto U1 = eigenvecs_inside.topRows<dim_state>();
-    const auto U2 = eigenvecs_inside.bottomRows<dim_state>();
+    const auto U1 = eigenvecs_inside.topRows(dim_state);
+    const auto U2 = eigenvecs_inside.bottomRows(dim_state);
 
     return (U2 * U1.inverse()).real();
 }
