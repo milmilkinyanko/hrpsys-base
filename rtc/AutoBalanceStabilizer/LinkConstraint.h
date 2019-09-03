@@ -162,33 +162,15 @@ class ConstraintsWithCount
         return cop_quat.toRotationMatrix();
     }
 
-    LinkConstraint* findConstraintFromLinkId(const int id)
+    int getConstraintIndexFromLinkId(const int id) const
     {
-        // TODO: idのループのほうが回数少なくて済みそう
-        //       unordered_mapかなんかを使ってidとindexを対応させたものを作っておくと速い？
-        for (auto& constraint : constraints) {
-            if (constraint.getLinkId() == id) return &constraint;
+        for (int idx = 0; idx < constraints.size(); ++idx) {
+            if (constraints[idx].getLinkId() == id) return idx;
         }
 
         std::cerr << "[LinkConstraint] Can't find constraint for " << id << " th link" << std::endl;
-        return nullptr;
+        return -1;
     }
-
-    // TODO: debug
-    // std::vector<LinkConstraint&> findConstraintsFromLinkIds(const std::vector<int>& ids)
-    // {
-    //     std::vector<LinkConstraint&> found_constraints;
-    //     found_constraints.reserve(constraints.size());
-
-    //     // TODO: idのループのほうが回数少なくて済みそう
-    //     for (auto& constraint : constraints) {
-    //         if (ids.end() != std::find(ids.begin(), ids.end(), constraint.getLinkId())) {
-    //             found_constraints.push_back(constraint);
-    //         }
-    //     }
-
-    //     return found_constraints;
-    // }
 
     std::vector<size_t> getConstraintIndicesFromType(const LinkConstraint::ConstraintType type) const
     {

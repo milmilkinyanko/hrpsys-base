@@ -112,19 +112,19 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
 
 // TODO: この辺はcountを渡すのではなくindexを渡すのでも良い
 void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
-                                            std::vector<ConstraintsWithCount>& constraints_list,
+                                            const std::vector<ConstraintsWithCount>& constraints_list,
                                             const int link_id, const size_t count, const double height)
 {
     // TODO: use next_turning_count
     const size_t cur_idx = getCurrentConstraintIndex(constraints_list, count);
     size_t goal_idx = cur_idx;
 
-    const LinkConstraint* goal_constraint;
+    int goal_constraint_idx;
     while (goal_idx < constraints_list.size()) {
         // TODO: constraintのindexを渡してしまうのも手．その場合前後でconstraints_listの数が変わるとまずい
-        goal_constraint = constraints_list[goal_idx].findConstraintFromLinkId(link_id);
-        if (!goal_constraint) break;
-        if (goal_constraint->getConstraintType() == LinkConstraint::FLOAT) ++goal_idx;
+        goal_constraint_idx = constraints_list[goal_idx].getConstraintIndexFromLinkId(link_id);
+        if (goal_constraint_idx == -1) break;
+        if (constraints_list[goal_idx].constraints[goal_constraint_idx].getConstraintType() == LinkConstraint::FLOAT) ++goal_idx;
         else break;
     }
 
@@ -133,19 +133,21 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
         return;
     }
 
-    if (!goal_constraint || goal_idx == constraints_list.size()) {
+    if (goal_constraint_idx == -1 || goal_idx == constraints_list.size()) {
         std::cerr << "[LimbTrajectoryGenerator] Can't find landing position" << std::endl;
         return;
     }
 
     traj_type = _traj_type;
-    const LinkConstraint* const start_constraint = constraints_list[cur_idx].findConstraintFromLinkId(link_id);
-    if (!start_constraint) {
+    int start_constraint_idx = constraints_list[cur_idx].getConstraintIndexFromLinkId(link_id);
+    if (start_constraint_idx == -1) {
         std::cerr << "[LimbTrajectoryGenerator] Can't find start constraint" << std::endl;
         return;
     }
 
-    calcViaPoints(traj_type, start_constraint->targetPos(), goal_constraint->targetPos(),
+    calcViaPoints(traj_type,
+                  constraints_list[cur_idx].constraints[start_constraint_idx].targetPos(),
+                  constraints_list[goal_idx].constraints[goal_constraint_idx].targetPos(),
                   constraints_list[cur_idx].start_count, constraints_list[goal_idx].start_count,
                   height);
 }

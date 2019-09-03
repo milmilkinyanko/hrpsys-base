@@ -62,7 +62,7 @@ class LimbTrajectoryGenerator
     void clearViaPoints() { via_points.clear(); }
     // TODO: posだけでなくrotも対応したい
     void calcViaPoints(const TrajectoryType traj_type,
-                       std::vector<ConstraintsWithCount>& constraints_list, // TODO: constつけたいけどつけられない
+                       const std::vector<ConstraintsWithCount>& constraints_list,
                        const int link_id, const size_t count, const double height);
 
     /**
