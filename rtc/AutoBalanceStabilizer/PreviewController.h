@@ -194,7 +194,7 @@ private:
 
     Eigen::Matrix<double, 1, 2> calc_u(const std::deque<Eigen::Vector3d>& ref_zmp)
     {
-        // assert ref_zmp.size() >= preview_window
+        // TODO: assert ref_zmp.size() >= preview_window
         Eigen::Matrix<double, 1, 2> gfp(Eigen::Matrix<double, 1, 2>::Zero());
         for (size_t i = 0; i < preview_window; ++i) {
             gfp += f_vec(i) * ref_zmp[i].head<2>();

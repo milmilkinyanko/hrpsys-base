@@ -19,7 +19,7 @@ void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refz
 {
     if (calculation_type == PREVIEW_CONTROL) {
         preview_controller->calc_x_k(refzmp_list);
-        cog = preview_controller->getRefCog();
+        cog     = preview_controller->getRefCog();
         cog_vel = preview_controller->getRefCogVel();
         cog_acc = preview_controller->getRefCogAcc();
     }
