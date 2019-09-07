@@ -16,8 +16,7 @@
 #include <hrpUtil/EigenTypes.h>
 #include "../ImpedanceController/RatsMatrix.h"
 
-namespace hrp
-{
+namespace hrp {
 
 class LinkConstraint
 {
@@ -28,33 +27,18 @@ class LinkConstraint
     int link_id;
     std::vector<hrp::Vector3> link_contact_points; // Link local
     hrp::Vector3 link_representative_point = hrp::Vector3::Zero(); // Link local
-    Eigen::AffineCompact3d transformation_matrix; // transformation from world
-    Eigen::AffineCompact3d target_coord = Eigen::AffineCompact3d::Identity(); // TODO: local or global
+    // Eigen::AffineCompact3d transformation_matrix; // transformation from world
+    Eigen::AffineCompact3d target_coord = Eigen::AffineCompact3d::Identity(); // Global
 
-    hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // local or global
+    hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // Link local
     double weight = 1.0;
     ConstraintType constraint_type = FIX;
 
-    size_t next_turning_count; // TODO: 着地のカウントなど，補間に使うカウントを保存
-    // LimbTrajectoryGenerator ltg; // TODO: 別にvectorかmapで持ったほうが良い? => TrajectoryTypeの変更周りが微妙になりそう
-
-    // TODO: pos, vel, accなどlimbの状態を表す変数を持つクラスを上位に作って，それがcontactを持つクラスを持つ？微妙
-    // Robot local or global
-    hrp::Vector3 pos;
-    hrp::Vector3 vel;
-    hrp::Vector3 acc;
+    // size_t next_turning_count; // TODO: 着地のカウントなど，補間に使うカウントを保存
 
   public:
     LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX) // TODO: FLOATではweightを0に
         : link_id(_link_id), constraint_type(_constraint_type) {}
-
-    void copyLimbStates(const LinkConstraint& other)
-    {
-        // ltg = other.ltg;
-        pos = other.pos;
-        vel = other.vel;
-        acc = other.acc;
-    }
 
     const int getLinkId() const { return link_id; }
     const std::vector<hrp::Vector3>& getLinkContactPoints() const { return link_contact_points; }
@@ -93,26 +77,21 @@ class LinkConstraint
     void setConstraintType(ConstraintType type) { constraint_type = type; }
     ConstraintType getConstraintType() const { return constraint_type; }
 
-    void setTransformationMatrix(const Eigen::AffineCompact3d& trans)
-    {
-        transformation_matrix = trans;
-    }
+    // void setTransformationMatrix(const Eigen::AffineCompact3d& trans)
+    // {
+    //     transformation_matrix = trans;
+    // }
 
-    void setTransformationMatrix(const hrp::Vector3& pos, const hrp::Matrix33& rot)
-    {
-        transformation_matrix.translation() = pos;
-        transformation_matrix.linear() = rot;
-    }
+    // void setTransformationMatrix(const hrp::Vector3& pos, const hrp::Matrix33& rot)
+    // {
+    //     transformation_matrix.translation() = pos;
+    //     transformation_matrix.linear() = rot;
+    // }
 
-    const Eigen::AffineCompact3d& getTransformationMatrix() const
-    {
-        return transformation_matrix;
-    }
-
-    // TODO: 座標変換 ?
-    const hrp::Vector3& getPos() const { return pos; }
-    const hrp::Vector3& getVel() const { return vel; }
-    const hrp::Vector3& getAcc() const { return acc; }
+    // const Eigen::AffineCompact3d& getTransformationMatrix() const
+    // {
+    //     return transformation_matrix;
+    // }
 
     void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::AffineCompact3d>& coords);
 
@@ -123,9 +102,8 @@ class LinkConstraint
     const Eigen::AffineCompact3d calcTransformedCoord(const Eigen::AffineCompact3d& coord); // TODO: ここか？
 };
 
-class ConstraintsWithCount
+struct ConstraintsWithCount
 {
-  public:
     std::vector<LinkConstraint> constraints;
     size_t start_count = 0;
 
@@ -136,12 +114,17 @@ class ConstraintsWithCount
 
         for (const LinkConstraint& constraint : constraints) {
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
+            std::cerr << "id: " << constraint.getLinkId() << std::endl;
             const double weight = constraint.getWeight();
             // TODO: 座標変換
-            cop_pos += constraint.getLinkRepresentativePoint() * weight; // TODO: representative pointを使うかどうか
+            //       target_coordを使うのは?
+            //       representative pointを使うかどうか
+            //       面接触してる時みたいに、target_coordと実際がずれているときは？
+            // cop_pos += constraint.getLinkRepresentativePoint() * weight;
+            cop_pos += constraint.targetPos() * weight;
             sum_weight += weight;
         }
-        cop_pos /= sum_weight;
+        if (sum_weight > 0) cop_pos /= sum_weight;
 
         return cop_pos;
     }
@@ -186,8 +169,8 @@ class ConstraintsWithCount
 
 // Utility functions
 
-inline size_t getCurrentConstraintIndex(const std::vector<ConstraintsWithCount>& constraints_list,
-                                        const size_t count, const size_t start_idx = 0)
+inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount>& constraints_list,
+                                          const size_t count, const size_t start_idx = 0)
 {
     size_t constraint_index = start_idx;
     for (size_t i = start_idx; i < constraints_list.size() && constraints_list[i].start_count <= count; ++i) {

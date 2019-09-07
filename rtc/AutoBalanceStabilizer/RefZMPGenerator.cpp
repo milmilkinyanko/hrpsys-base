@@ -16,7 +16,7 @@ namespace hrp {
 hrp::Vector3 RefZMPGenerator::calcRefZMPUsingConstraintList(const std::vector<ConstraintsWithCount>& constraints_list,
                                                             const size_t count)
 {
-    const size_t constraint_idx = getCurrentConstraintIndex(constraints_list, count);
+    const size_t constraint_idx = getConstraintIndexFromCount(constraints_list, count);
     return constraints_list[constraint_idx].calcCOPFromConstraints();
 }
 

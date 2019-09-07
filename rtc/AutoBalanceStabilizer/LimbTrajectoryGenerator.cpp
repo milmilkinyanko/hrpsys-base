@@ -116,7 +116,7 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
                                             const int link_id, const size_t count, const double height)
 {
     // TODO: use next_turning_count
-    const size_t cur_idx = getCurrentConstraintIndex(constraints_list, count);
+    const size_t cur_idx = getConstraintIndexFromCount(constraints_list, count);
     size_t goal_idx = cur_idx;
 
     int goal_constraint_idx;
