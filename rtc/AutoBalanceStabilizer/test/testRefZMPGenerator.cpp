@@ -13,39 +13,60 @@
 namespace
 {
 
-std::vector<hrp::Vector3> rleg_contact_points;
-std::vector<hrp::Vector3> lleg_contact_points;
+// std::vector<hrp::Vector3> rleg_contact_points;
+// std::vector<hrp::Vector3> lleg_contact_points;
 
-void forwardFootstep(std::vector<hrp::Vector3>& contact_points, const double stride)
+void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
+                     const double stride, const size_t step_limb,
+                     const size_t start_count, const size_t step_count)
 {
-    for (auto& point : contact_points) point += hrp::Vector3(stride, 0, 0);
+    constraints_list.reserve(constraints_list.size() + 2);
+
+    const std::vector<hrp::LinkConstraint>& cur_constraints = constraints_list.back().constraints;
+
+    {
+        // Swinging phase
+        hrp::ConstraintsWithCount const_with_count;
+        const_with_count.start_count = start_count;
+        const_with_count.constraints = cur_constraints;
+        const_with_count.constraints[step_limb].setConstraintType(hrp::LinkConstraint::FLOAT);
+
+        constraints_list.push_back(const_with_count);
+    }
+
+    {
+        // Double support phase
+        hrp::ConstraintsWithCount const_with_count;
+        const_with_count.start_count = start_count + step_count;
+        const_with_count.constraints = cur_constraints;
+        const_with_count.constraints[step_limb].targetPos() += hrp::Vector3(stride, 0, 0);
+
+        constraints_list.push_back(const_with_count);
+    }
 }
 
-void addConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, const size_t start_count,
-                    const int leg_mask = 0b11, const double rleg_weight = 1.0, const double lleg_weight = 1.0)
+void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, const size_t start_count)
 {
-    if (!(leg_mask & 0b11)) return;
+    hrp::ConstraintsWithCount const_with_count;
+    const_with_count.start_count = start_count;
 
-    hrp::ConstraintsWithCount constraint_count;
-    constraint_count.start_count = start_count;
-
-    if (leg_mask & 0b10) {
+    {
         hrp::LinkConstraint rleg_constraint(0);
-        for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        rleg_constraint.calcLinkRepresentativePoint();
-        rleg_constraint.setWeight(rleg_weight);
-        constraint_count.constraints.push_back(rleg_constraint);
+        // for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
+        // rleg_constraint.calcLinkRepresentativePoint();
+        rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
+        const_with_count.constraints.push_back(rleg_constraint);
     }
 
-    if (leg_mask & 0b01) {
+    {
         hrp::LinkConstraint lleg_constraint(1);
-        for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        lleg_constraint.calcLinkRepresentativePoint();
-        lleg_constraint.setWeight(lleg_weight);
-        constraint_count.constraints.push_back(lleg_constraint);
+        // for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
+        // lleg_constraint.calcLinkRepresentativePoint();
+        lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
+        const_with_count.constraints.push_back(lleg_constraint);
     }
 
-    constraints_list.push_back(constraint_count);
+    constraints_list.push_back(const_with_count);
 }
 
 }
@@ -53,7 +74,6 @@ void addConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, co
 int main(int argc, char **argv)
 {
     constexpr double dt = 0.002;
-    constexpr size_t LIST_SIZE = 5.0 / dt;
 
     bool use_gnuplot = true;
     if (argc > 2) {
@@ -62,59 +82,62 @@ int main(int argc, char **argv)
         }
     }
 
+    // rleg_contact_points.emplace_back(0.15, 0.05, 0);
+    // rleg_contact_points.emplace_back(0.15, -0.05, 0);
+    // rleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    // rleg_contact_points.emplace_back(-0.15, 0.05, 0);
+
+    // lleg_contact_points.emplace_back(0.15, 0.05, 0);
+    // lleg_contact_points.emplace_back(0.15, -0.05, 0);
+    // lleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    // lleg_contact_points.emplace_back(-0.15, 0.05, 0);
+
     std::vector<hrp::ConstraintsWithCount> constraints_list;
+
+    size_t start_count = 0;
+    constexpr size_t SUPPORT_COUNT = static_cast<size_t>(1.0 / dt);
+    constexpr size_t STEP_COUNT = static_cast<size_t>(1.0 / dt);
+
+    initConstraints(constraints_list, start_count);
+
+    start_count += SUPPORT_COUNT;
+    forwardFootstep(constraints_list, 0.4, 0, start_count, STEP_COUNT);
+
+    start_count += STEP_COUNT + SUPPORT_COUNT;
+    forwardFootstep(constraints_list, 0.8, 1, start_count, STEP_COUNT);
+
+    start_count += STEP_COUNT + SUPPORT_COUNT;
+    forwardFootstep(constraints_list, 0.8, 0, start_count, STEP_COUNT);
+
+    start_count += STEP_COUNT + SUPPORT_COUNT;
+    forwardFootstep(constraints_list, 0.4, 1, start_count, STEP_COUNT);
+
+    const size_t FINISH_COUNT = start_count + STEP_COUNT + SUPPORT_COUNT;
     hrp::RefZMPGenerator zmp_generator;
-
-    rleg_contact_points.emplace_back(0.15, 0.05, 0);
-    rleg_contact_points.emplace_back(0.15, 0.15, 0);
-    rleg_contact_points.emplace_back(-0.15, 0.15, 0);
-    rleg_contact_points.emplace_back(-0.15, 0.05, 0);
-
-    lleg_contact_points.emplace_back(0.15, -0.05, 0);
-    lleg_contact_points.emplace_back(0.15, -0.15, 0);
-    lleg_contact_points.emplace_back(-0.15, -0.15, 0);
-    lleg_contact_points.emplace_back(-0.15, -0.05, 0);
-
-    addConstraints(constraints_list, 0);
-    addConstraints(constraints_list, static_cast<size_t>(0.5 / dt), 0b01);
-
-    // TODO: 動かし方が違う．
-    //       contact_point はローカル座標の点の話で，動かすべきはtarget_coord
-    forwardFootstep(rleg_contact_points, 0.4);
-    addConstraints(constraints_list, static_cast<size_t>(1.0 / dt), 0b11, 1.0, 0.0);
-    addConstraints(constraints_list, static_cast<size_t>(1.5 / dt), 0b10);
-
-    forwardFootstep(lleg_contact_points, 0.8);
-    addConstraints(constraints_list, static_cast<size_t>(2.0 / dt), 0b11, 0.0, 1.0);
-    addConstraints(constraints_list, static_cast<size_t>(2.5 / dt), 0b01);
-
-    forwardFootstep(rleg_contact_points, 0.8);
-    addConstraints(constraints_list, static_cast<size_t>(3.0 / dt), 0b11, 1.0, 0.0);
-    addConstraints(constraints_list, static_cast<size_t>(3.5 / dt), 0b10);
-
-    forwardFootstep(lleg_contact_points, 0.4);
-    addConstraints(constraints_list, static_cast<size_t>(4.0 / dt));
-
-    zmp_generator.setRefZMPListUsingConstraintList(constraints_list, LIST_SIZE);
-
+    zmp_generator.setRefZMPListUsingConstraintList(constraints_list, FINISH_COUNT);
 
     const std::string fname("/tmp/testRefZMP.dat");
-    std::ofstream ofs(fname);
+    {
+        std::ofstream ofs(fname);
 
-    for (const auto& ref_zmp : zmp_generator.getRefZMPList()) {
-        ofs << ref_zmp(0) << " " << ref_zmp(1) << " " << ref_zmp(2) << std::endl;
+        size_t count = 0;
+        for (const auto& ref_zmp : zmp_generator.getRefZMPList()) {
+            ofs << count * dt << " " << ref_zmp(0) << " " << ref_zmp(1) << " " << ref_zmp(2) << std::endl;
+            ++count;
+        }
+        ofs.close();
     }
-    ofs.close();
 
     if (use_gnuplot) {
         FILE* gp;
         gp = popen("gnuplot", "w");
 
-        fprintf(gp, "set multiplot layout 1, 2\n");
+        fprintf(gp, "set multiplot layout 2, 1\n");
         fprintf(gp, "set title \"ZMP\"\n");
-        fprintf(gp, "plot \"%s\" using 1 with lines title \"X\"\n", fname.c_str());
-        fprintf(gp, "plot \"%s\" using 2 with lines title \"Y\"\n", fname.c_str());
-        fprintf(gp, "unset multiplot\n");
+        fprintf(gp, "set xlabel \"time [s]\"\n");
+        fprintf(gp, "plot \"%s\" using 1:2 with lines title \"X\"\n", fname.c_str());
+        fprintf(gp, "plot \"%s\" using 1:3 with lines title \"Y\"\n", fname.c_str());
+        // fprintf(gp, "unset multiplot\n");
         fflush(gp);
 
         std::cerr << "Type some character to finish this test: " << std::flush;

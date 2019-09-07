@@ -13,8 +13,8 @@
 namespace
 {
 
-std::vector<hrp::Vector3> rleg_contact_points;
-std::vector<hrp::Vector3> lleg_contact_points;
+// std::vector<hrp::Vector3> rleg_contact_points;
+// std::vector<hrp::Vector3> lleg_contact_points;
 
 void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
                      const double stride, const size_t step_limb,
@@ -45,37 +45,28 @@ void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
     }
 }
 
-void addConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, const size_t start_count,
-                    const int leg_mask = 0b11, const double rleg_weight = 1.0, const double lleg_weight = 1.0)
+void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, const size_t start_count)
 {
-    if (!(leg_mask & 0b11)) return;
-
-    hrp::ConstraintsWithCount constraint_count;
-    constraint_count.start_count = start_count;
+    hrp::ConstraintsWithCount const_with_count;
+    const_with_count.start_count = start_count;
 
     {
         hrp::LinkConstraint rleg_constraint(0);
-        for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        rleg_constraint.calcLinkRepresentativePoint();
-        rleg_constraint.setWeight(rleg_weight);
-        if (!(leg_mask & 0b10)) {
-            rleg_constraint.setConstraintType(hrp::LinkConstraint::FLOAT);
-        }
-        constraint_count.constraints.push_back(rleg_constraint);
+        // for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
+        // rleg_constraint.calcLinkRepresentativePoint();
+        rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
+        const_with_count.constraints.push_back(rleg_constraint);
     }
 
     {
         hrp::LinkConstraint lleg_constraint(1);
-        for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        lleg_constraint.calcLinkRepresentativePoint();
-        lleg_constraint.setWeight(lleg_weight);
-        if (!(leg_mask & 0b01)) {
-            lleg_constraint.setConstraintType(hrp::LinkConstraint::FLOAT);
-        }
-        constraint_count.constraints.push_back(lleg_constraint);
+        // for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
+        // lleg_constraint.calcLinkRepresentativePoint();
+        lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
+        const_with_count.constraints.push_back(lleg_constraint);
     }
 
-    constraints_list.push_back(constraint_count);
+    constraints_list.push_back(const_with_count);
 }
 
 }
@@ -92,15 +83,15 @@ int main(int argc, char **argv)
         }
     }
 
-    rleg_contact_points.emplace_back(0.15, 0.05, 0);
-    rleg_contact_points.emplace_back(0.15, 0.15, 0);
-    rleg_contact_points.emplace_back(-0.15, 0.15, 0);
-    rleg_contact_points.emplace_back(-0.15, 0.05, 0);
+    // rleg_contact_points.emplace_back(0.15, 0.05, 0);
+    // rleg_contact_points.emplace_back(0.15, -0.05, 0);
+    // rleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    // rleg_contact_points.emplace_back(-0.15, 0.05, 0);
 
-    lleg_contact_points.emplace_back(0.15, -0.05, 0);
-    lleg_contact_points.emplace_back(0.15, -0.15, 0);
-    lleg_contact_points.emplace_back(-0.15, -0.15, 0);
-    lleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    // lleg_contact_points.emplace_back(0.15, 0.05, 0);
+    // lleg_contact_points.emplace_back(0.15, -0.05, 0);
+    // lleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    // lleg_contact_points.emplace_back(-0.15, 0.05, 0);
 
     std::vector<hrp::ConstraintsWithCount> constraints_list;
 
@@ -108,7 +99,7 @@ int main(int argc, char **argv)
     constexpr size_t SUPPORT_COUNT = static_cast<size_t>(1.0 / dt);
     constexpr size_t STEP_COUNT = static_cast<size_t>(1.0 / dt);
 
-    addConstraints(constraints_list, start_count);
+    initConstraints(constraints_list, start_count);
 
     start_count += SUPPORT_COUNT;
     forwardFootstep(constraints_list, 0.4, 0, start_count, STEP_COUNT);
