@@ -129,7 +129,7 @@ public:
 class PreviewController : public PreviewControllerBase<3>
 {
 private:
-    void calc_f()
+    void calc_f() override
     {
         f_vec.resize(preview_window);
         Eigen::Matrix<double, 3, 3> gsi(Eigen::Matrix<double, 3, 3>::Identity());
@@ -139,7 +139,7 @@ private:
         }
     }
 
-    Eigen::Matrix<double, 1, 2> calc_u(const std::deque<Eigen::Vector3d>& ref_zmp)
+    Eigen::Matrix<double, 1, 2> calc_u(const std::deque<Eigen::Vector3d>& ref_zmp) override
     {
         // assert ref_zmp.size() >= preview_window
         Eigen::Matrix<double, 1, 2> gfp(Eigen::Matrix<double, 1, 2>::Zero());\
@@ -149,12 +149,7 @@ private:
         return -K * x_k + gfp;
     }
 
-    void calc_x_k(const std::deque<Eigen::Vector3d>& ref_zmp)
-    {
-        x_k = tcA * x_k + tcB * calc_u(ref_zmp);
-    }
-
-    void initMatrix()
+    void initMatrix() override
     {
         initRiccati(tcA, tcB, tcC);
     }
@@ -170,6 +165,11 @@ public:
         {
             initMatrix();
         }
+
+    void calc_x_k(const std::deque<Eigen::Vector3d>& ref_zmp) override
+    {
+        x_k = tcA * x_k + tcB * calc_u(ref_zmp);
+    }
 };
 
 class ExtendedPreviewController : public PreviewControllerBase<4>
@@ -180,7 +180,7 @@ private:
     Eigen::Matrix<double, 1, 4> C;
     Eigen::Matrix<double, 4, 2> x_k_e;
 
-    void calc_f()
+    void calc_f() override
     {
         f_vec.resize(preview_window);
         Eigen::Matrix<double, 4, 4> gsi(Eigen::Matrix<double, 4, 4>::Identity());
@@ -192,7 +192,7 @@ private:
         }
     }
 
-    Eigen::Matrix<double, 1, 2> calc_u(const std::deque<Eigen::Vector3d>& ref_zmp)
+    Eigen::Matrix<double, 1, 2> calc_u(const std::deque<Eigen::Vector3d>& ref_zmp) override
     {
         // TODO: assert ref_zmp.size() >= preview_window
         Eigen::Matrix<double, 1, 2> gfp(Eigen::Matrix<double, 1, 2>::Zero());
@@ -202,7 +202,7 @@ private:
         return -K * x_k_e + gfp;
     }
 
-    void initMatrix()
+    void initMatrix() override
     {
         const Eigen::Matrix<double, 1, 3> tmpca(tcC * tcA);
         const Eigen::Matrix<double, 1, 1> tmpcb(tcC * tcB);
@@ -233,7 +233,7 @@ public:
         initMatrix();
     }
 
-    void calc_x_k(const std::deque<Eigen::Vector3d>& ref_zmp)
+    void calc_x_k(const std::deque<Eigen::Vector3d>& ref_zmp) override
     {
         x_k_e = A * x_k_e + B * calc_u(ref_zmp);
         x_k += x_k_e.block<3, 2>(1, 0);
