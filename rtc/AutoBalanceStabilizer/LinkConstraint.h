@@ -15,6 +15,7 @@
 #include <Eigen/Geometry>
 #include <hrpUtil/EigenTypes.h>
 #include "../ImpedanceController/RatsMatrix.h"
+#include "PlaneGeometry.h"
 
 namespace hrp {
 
@@ -77,6 +78,18 @@ class LinkConstraint
     void setConstraintType(ConstraintType type) { constraint_type = type; }
     ConstraintType getConstraintType() const { return constraint_type; }
 
+    std::vector<Eigen::Vector2d> calcContactConvexHull() const
+    {
+        std::vector<Eigen::Vector2d> vertices;
+        vertices.reserve(link_contact_points.size());
+        Eigen::AffineCompact3d::ConstTranslationPart target_pos = target_coord.translation();
+        Eigen::AffineCompact3d::ConstLinearPart target_rot = target_coord.linear();
+        for (const hrp::Vector3& point : link_contact_points) {
+            vertices.push_back((target_pos - target_rot * (link_representative_point + point)).head<2>()); // TODO: rot確認
+        }
+        return calcConvexHull(vertices); // TODO: 1点のときと2点のときの確認
+    }
+
     // void setTransformationMatrix(const Eigen::AffineCompact3d& trans)
     // {
     //     transformation_matrix = trans;
@@ -93,13 +106,13 @@ class LinkConstraint
     //     return transformation_matrix;
     // }
 
-    void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::AffineCompact3d>& coords);
+    // void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::AffineCompact3d>& coords);
 
-    Eigen::AffineCompact3d calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
+    // Eigen::AffineCompact3d calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
 
-    void rotateLinkRot(const hrp::Matrix33& rot);
+    // void rotateLinkRot(const hrp::Matrix33& rot);
 
-    const Eigen::AffineCompact3d calcTransformedCoord(const Eigen::AffineCompact3d& coord); // TODO: ここか？
+    // const Eigen::AffineCompact3d calcTransformedCoord(const Eigen::AffineCompact3d& coord); // TODO: ここか？
 };
 
 struct ConstraintsWithCount
@@ -114,7 +127,6 @@ struct ConstraintsWithCount
 
         for (const LinkConstraint& constraint : constraints) {
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
-            std::cerr << "id: " << constraint.getLinkId() << std::endl;
             const double weight = constraint.getWeight();
             // TODO: 座標変換
             //       target_coordを使うのは?
@@ -163,6 +175,22 @@ struct ConstraintsWithCount
             if (constraints[i].getConstraintType() == type) indices.push_back(i);
         }
         return indices;
+    }
+
+    std::vector<Eigen::Vector2d> calcContactConvexHullForAllConstraints() const
+    {
+        std::vector<Eigen::Vector2d> vertices;
+        for (const LinkConstraint& constraint : constraints) {
+            if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
+
+            Eigen::AffineCompact3d::ConstTranslationPart target_pos = constraint.targetPos();
+            Eigen::AffineCompact3d::ConstLinearPart target_rot = constraint.targetRot();
+            const hrp::Vector3& link_representative_point = constraint.getLinkRepresentativePoint();
+            for (const hrp::Vector3& point : constraint.getLinkContactPoints()) {
+                vertices.push_back((target_pos - target_rot * (link_representative_point + point)).head<2>()); // TODO: rot
+            }
+        }
+        return calcConvexHull(vertices);
     }
 };
 
