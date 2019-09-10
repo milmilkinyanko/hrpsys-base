@@ -98,10 +98,13 @@ int main(int argc, char **argv)
         gp = popen("gnuplot", "w");
 
         fprintf(gp, "set multiplot layout 2, 1\n");
-        fprintf(gp, "set title \"Pos\"\n");
+        fprintf(gp, "set xlabel \"time [s]\"\n");
+        fprintf(gp, "set ylabel \"COG [m]\"\n");
+        fprintf(gp, "set title \"COG X\"\n");
         fprintf(gp, "plot \"%s\" using 1:2 with lines title \"Cog X\"\n", fname.c_str());
+        fprintf(gp, "set title \"COG Y\"\n");
         fprintf(gp, "plot \"%s\" using 1:3 with lines title \"Cog Y\"\n", fname.c_str());
-        fprintf(gp, "unset multiplot\n");
+        // fprintf(gp, "unset multiplot\n");
         fflush(gp);
 
         std::cerr << "Type some character to finish this test: " << std::flush;
