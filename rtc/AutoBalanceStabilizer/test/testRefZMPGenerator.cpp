@@ -13,8 +13,8 @@
 namespace
 {
 
-// std::vector<hrp::Vector3> rleg_contact_points;
-// std::vector<hrp::Vector3> lleg_contact_points;
+std::vector<hrp::Vector3> rleg_contact_points;
+std::vector<hrp::Vector3> lleg_contact_points;
 
 void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
                      const double stride, const size_t step_limb,
@@ -52,16 +52,16 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
 
     {
         hrp::LinkConstraint rleg_constraint(0);
-        // for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        // rleg_constraint.calcLinkRepresentativePoint();
+        for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
+        rleg_constraint.calcLinkRepresentativePoint();
         rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
         const_with_count.constraints.push_back(rleg_constraint);
     }
 
     {
         hrp::LinkConstraint lleg_constraint(1);
-        // for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        // lleg_constraint.calcLinkRepresentativePoint();
+        for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
+        lleg_constraint.calcLinkRepresentativePoint();
         lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
         const_with_count.constraints.push_back(lleg_constraint);
     }
@@ -82,15 +82,15 @@ int main(int argc, char **argv)
         }
     }
 
-    // rleg_contact_points.emplace_back(0.15, 0.05, 0);
-    // rleg_contact_points.emplace_back(0.15, -0.05, 0);
-    // rleg_contact_points.emplace_back(-0.15, -0.05, 0);
-    // rleg_contact_points.emplace_back(-0.15, 0.05, 0);
+    rleg_contact_points.emplace_back(0.15, 0.05, 0);
+    rleg_contact_points.emplace_back(0.15, -0.05, 0);
+    rleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    rleg_contact_points.emplace_back(-0.15, 0.05, 0);
 
-    // lleg_contact_points.emplace_back(0.15, 0.05, 0);
-    // lleg_contact_points.emplace_back(0.15, -0.05, 0);
-    // lleg_contact_points.emplace_back(-0.15, -0.05, 0);
-    // lleg_contact_points.emplace_back(-0.15, 0.05, 0);
+    lleg_contact_points.emplace_back(0.15, 0.05, 0);
+    lleg_contact_points.emplace_back(0.15, -0.05, 0);
+    lleg_contact_points.emplace_back(-0.15, -0.05, 0);
+    lleg_contact_points.emplace_back(-0.15, 0.05, 0);
 
     std::vector<hrp::ConstraintsWithCount> constraints_list;
 
@@ -112,9 +112,9 @@ int main(int argc, char **argv)
     start_count += STEP_COUNT + SUPPORT_COUNT;
     forwardFootstep(constraints_list, 0.4, 1, start_count, STEP_COUNT);
 
-    const size_t FINISH_COUNT = start_count + STEP_COUNT + SUPPORT_COUNT;
-    hrp::RefZMPGenerator zmp_generator;
-    zmp_generator.setRefZMPListUsingConstraintList(constraints_list, FINISH_COUNT);
+    const size_t FINISH_COUNT = start_count + STEP_COUNT + SUPPORT_COUNT + static_cast<size_t>(3.0 / dt);
+    hrp::RefZMPGenerator zmp_generator(dt, constraints_list[0]);
+    zmp_generator.setRefZMPList(constraints_list, FINISH_COUNT);
 
     const std::string fname("/tmp/testRefZMP.dat");
     {
