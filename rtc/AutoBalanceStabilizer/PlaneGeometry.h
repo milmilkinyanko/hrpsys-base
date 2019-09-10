@@ -25,6 +25,20 @@ inline double calcCrossProduct(const Eigen::Ref<const Eigen::Vector2d>& a,
     return (a(0) - o(0)) * (b(1) - o(1)) - (a(1) - o(1)) * (b(0) - o(0));
 }
 
+// Calculate the direction when moving from a to b to c
+inline int ccw(const Eigen::Ref<const Eigen::Vector2d>& a,
+               const Eigen::Ref<const Eigen::Vector2d>& b,
+               const Eigen::Ref<const Eigen::Vector2d>& c)
+{
+    const double cross = calcCrossProduct(b, c, a);
+
+    if      (cross > 0)                       return 1;  // counter clockwise
+    else if (cross < 0)                       return -1; // clockwise
+    else if ((b - a).dot(c - a) < 0)          return 2;  // c--a--b on line
+    else if ((b - a).norm() < (c - a).norm()) return -2; // a--b--c on line
+    return 0;
+}
+
 // Calculate 2D convex hull based on Andrew's algorithm
 inline std::vector<Eigen::Vector2d> calcConvexHull(const std::vector<Eigen::Vector2d>& points)
 {
@@ -33,17 +47,25 @@ inline std::vector<Eigen::Vector2d> calcConvexHull(const std::vector<Eigen::Vect
 
     std::vector<Eigen::Vector2d> convex_hull(2 * num_points);
     std::vector<Eigen::Vector2d> sorted_points = points;
+
+    // Sort by x axis (or y axis)
     std::sort(sorted_points.begin(), sorted_points.end(),
               [](const Eigen::Vector2d& lv, const Eigen::Vector2d& rv) {
                   return lv(0) < rv(0) || (lv(0) == rv(0) && lv(1) < rv(1));
               });
 
-    for (size_t i = 0; i < num_points; convex_hull[num_verts++] = sorted_points[i++]) {
-        while (num_verts >= 2 && calcCrossProduct(convex_hull[num_verts - 1], sorted_points[i], convex_hull[num_verts - 2]) <= 0) num_verts--;
+    // lower hull
+    for (size_t i = 0; i < num_points; ++i) {
+        while (num_verts >= 2 && ccw(convex_hull[num_verts - 2], convex_hull[num_verts - 1], sorted_points[i]) <= 0) --num_verts;
+        convex_hull[num_verts] = sorted_points[i];
+        ++num_verts;
     }
 
-    for (size_t i = num_points - 2, j = num_verts + 1; i >= 0; convex_hull[num_verts++] = sorted_points[i--]) {
-        while (num_verts >= j && calcCrossProduct(convex_hull[num_verts - 1], sorted_points[i], convex_hull[num_verts - 2]) <= 0) num_verts--;
+    // upper hull
+    for (int i = num_points - 2, j = num_verts + 1; i >= 0; --i) {
+        while (num_verts >= j && ccw(convex_hull[num_verts - 2], convex_hull[num_verts - 1], sorted_points[i]) <= 0) --num_verts;
+        convex_hull[num_verts] = sorted_points[i];
+        ++num_verts;
     }
 
     convex_hull.resize(num_verts - 1);
@@ -137,64 +159,66 @@ inline std::pair<size_t, size_t> findVerticesContainingPoint(const std::vector<E
 }
 
 inline bool isInsideConvexHull(const std::vector<Eigen::Vector2d>& convex_hull,
-                               const Eigen::Ref<const Eigen::Vector2d>& point)
+                               const Eigen::Ref<const Eigen::Vector2d>& point,
+                               const double EPS = 1e-8)
 {
     // set any inner point and binary search two vertices(convex_hull[v_a], convex_hull[v_b]) between which p is.
     const size_t num_verts = convex_hull.size();
     const Eigen::Vector2d inner_p = (convex_hull[0] + convex_hull[num_verts / 3] + convex_hull[2 * num_verts / 3]) / 3.0;
     const std::pair<size_t, size_t> verts = findVerticesContainingPoint(convex_hull, point, inner_p);
 
-    if (calcCrossProduct(convex_hull[verts.first], convex_hull[verts.second], point) < 0) return false;
-    return true;
-}
-
-inline bool isInsideConvexHull(const std::vector<Eigen::Vector2d>& convex_hull,
-                               const Eigen::Ref<const Eigen::Vector2d>& point,
-                               const Eigen::Ref<const Eigen::Vector2d>& inner_p)
-{
-    const std::pair<size_t, size_t> verts = findVerticesContainingPoint(convex_hull, point, inner_p);
-    if (calcCrossProduct(convex_hull[verts.first], convex_hull[verts.second], point) < 0) return false;
+    if (calcCrossProduct(convex_hull[verts.first], convex_hull[verts.second], point) < -EPS) return false;
     return true;
 }
 
 inline bool isInsideConvexHull(const std::vector<Eigen::Vector2d>& convex_hull,
                                const Eigen::Ref<const Eigen::Vector2d>& point,
                                const Eigen::Ref<const Eigen::Vector2d>& inner_p,
-                               size_t& v_a, size_t& v_b)
+                               const double EPS = 1e-8)
 {
-    std::tie(v_a, v_b) = findVerticesContainingPoint(convex_hull, point, inner_p);
-
-    if (calcCrossProduct(convex_hull[v_a], convex_hull[v_b], point) < 0) return false;
+    const std::pair<size_t, size_t> verts = findVerticesContainingPoint(convex_hull, point, inner_p);
+    if (calcCrossProduct(convex_hull[verts.first], convex_hull[verts.second], point) < -EPS) return false;
     return true;
 }
 
-inline bool isIntersectingTwoLines(const Eigen::Ref<const Eigen::Vector2d>& pa_1,
-                                   const Eigen::Ref<const Eigen::Vector2d>& pa_2,
-                                   const Eigen::Ref<const Eigen::Vector2d>& pb_1,
-                                   const Eigen::Ref<const Eigen::Vector2d>& pb_2,
-                                   const double EPS = 1e-6)
+inline bool isInsideConvexHull(const std::vector<Eigen::Vector2d>& convex_hull,
+                               const Eigen::Ref<const Eigen::Vector2d>& point,
+                               const Eigen::Ref<const Eigen::Vector2d>& inner_p,
+                               size_t& v_a, size_t& v_b, const double EPS = 1e-8)
+{
+    std::tie(v_a, v_b) = findVerticesContainingPoint(convex_hull, point, inner_p);
+
+    if (calcCrossProduct(convex_hull[v_a], convex_hull[v_b], point) < -EPS) return false;
+    return true;
+}
+
+inline bool isIntersectingTwoLines(const Eigen::Ref<const Eigen::Vector2d>& a_p1,
+                                   const Eigen::Ref<const Eigen::Vector2d>& a_p2,
+                                   const Eigen::Ref<const Eigen::Vector2d>& b_p1,
+                                   const Eigen::Ref<const Eigen::Vector2d>& b_p2,
+                                   const double EPS = 1e-8)
 {
     const auto zero_vec = Eigen::Vector2d::Zero();
-    return abs(calcCrossProduct(pa_2 - pa_1, pb_2 - pb_1, zero_vec)) > EPS || // non-parallel
-        abs(calcCrossProduct(pa_2 - pa_1, pb_1 - pa_1, zero_vec)) < EPS; // same line
+    return abs(calcCrossProduct(a_p2 - a_p1, b_p2 - b_p1, zero_vec)) > EPS || // non-parallel
+        abs(calcCrossProduct(a_p2 - a_p1, b_p1 - a_p1, zero_vec)) < -EPS; // same line
 }
 
 inline bool calcIntersectionOfTwoLines(Eigen::Ref<Eigen::Vector2d> intersection,
-                                       const Eigen::Ref<const Eigen::Vector2d>& pa_1,
-                                       const Eigen::Ref<const Eigen::Vector2d>& pa_2,
-                                       const Eigen::Ref<const Eigen::Vector2d>& pb_1,
-                                       const Eigen::Ref<const Eigen::Vector2d>& pb_2,
-                                       const double EPS = 1e-6)
+                                       const Eigen::Ref<const Eigen::Vector2d>& a_p1,
+                                       const Eigen::Ref<const Eigen::Vector2d>& a_p2,
+                                       const Eigen::Ref<const Eigen::Vector2d>& b_p1,
+                                       const Eigen::Ref<const Eigen::Vector2d>& b_p2,
+                                       const double EPS = 1e-8)
 {
-    const bool is_intersecting = isIntersectingTwoLines(pa_1, pa_2, pb_1, pb_2, EPS);
+    const bool is_intersecting = isIntersectingTwoLines(a_p1, a_p2, b_p1, b_p2, EPS);
     if (is_intersecting) {
-        const Eigen::Vector2d line_a = pa_2 - pa_1;
+        const Eigen::Vector2d line_a = a_p2 - a_p1;
         const auto zero_vec = Eigen::Vector2d::Zero();
-        const double d1 = abs(calcCrossProduct(line_a, pb_1 - pa_1, zero_vec));
-        const double d2 = abs(calcCrossProduct(line_a, pb_2 - pa_1, zero_vec));
+        const double d1 = abs(calcCrossProduct(line_a, b_p1 - a_p1, zero_vec));
+        const double d2 = abs(calcCrossProduct(line_a, b_p2 - a_p1, zero_vec));
         const double t = d1 / (d1 + d2);
 
-        intersection = pb_1 + (pb_2 - pb_1) * t;
+        intersection = b_p1 + (b_p2 - b_p1) * t;
     }
 
     return is_intersecting;
