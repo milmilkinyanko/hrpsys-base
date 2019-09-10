@@ -41,7 +41,7 @@ class LinkConstraint
     LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX) // TODO: FLOATではweightを0に
         : link_id(_link_id), constraint_type(_constraint_type) {}
 
-    const int getLinkId() const { return link_id; }
+    int getLinkId() const { return link_id; }
     const std::vector<hrp::Vector3>& getLinkContactPoints() const { return link_contact_points; }
 
     void addLinkContactPoint(const hrp::Vector3& pos)

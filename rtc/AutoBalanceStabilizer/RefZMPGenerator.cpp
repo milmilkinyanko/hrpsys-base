@@ -12,11 +12,16 @@
 
 namespace hrp {
 
-RefZMPGenerator::RefZMPGenerator(const double _dt, const ConstraintsWithCount& constraints) : dt(_dt)
+RefZMPGenerator::RefZMPGenerator(const double _dt, const size_t list_size,
+                                 const ConstraintsWithCount& init_constraints)
+    : dt(_dt)
 {
+    const hrp::Vector3 init_zmp = calcRefZMP(init_constraints);
+    refzmp_list.resize(list_size, init_zmp);
+
     zmp_interpolator = std::make_unique<interpolator>(3, _dt, interpolator::LINEAR);
     zmp_interpolator->setName("RefZMPGenerator zmp_interpolator");
-    zmp_interpolator->set(calcRefZMP(constraints).data());
+    zmp_interpolator->set(init_zmp.data());
 }
 
 hrp::Vector3 RefZMPGenerator::calcRefZMP(const ConstraintsWithCount& constraints) const

@@ -113,7 +113,7 @@ int main(int argc, char **argv)
     forwardFootstep(constraints_list, 0.4, 1, start_count, STEP_COUNT);
 
     const size_t FINISH_COUNT = start_count + STEP_COUNT + SUPPORT_COUNT + static_cast<size_t>(3.0 / dt);
-    hrp::RefZMPGenerator zmp_generator(dt, constraints_list[0]);
+    hrp::RefZMPGenerator zmp_generator(dt, FINISH_COUNT, constraints_list[0]);
     zmp_generator.setRefZMPList(constraints_list, FINISH_COUNT);
 
     const std::string fname("/tmp/testRefZMP.dat");

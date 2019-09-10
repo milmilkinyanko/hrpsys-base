@@ -24,9 +24,6 @@ class RefZMPGenerator
     double dt;
     std::deque<hrp::Vector3> refzmp_list;
     std::unique_ptr<interpolator> zmp_interpolator;
-    // size_t next_zmp_count;
-
-    // hrp::Vector3 start_zmp; // TODO: 必要かどうか
 
     hrp::Vector3 calcRefZMP(const ConstraintsWithCount& constraints) const;
     void calcZMPInterpolationGoal(const std::vector<ConstraintsWithCount>& constraints_list,
@@ -34,7 +31,8 @@ class RefZMPGenerator
                                   const size_t cur_count,
                                   const double last_interpolation_time = 2.0);
   public:
-    RefZMPGenerator(const double dt, const ConstraintsWithCount& constraints);
+    RefZMPGenerator(const double dt, const size_t list_size,
+                    const ConstraintsWithCount& init_constraints);
 
     const std::deque<hrp::Vector3>& getRefZMPList() const { return refzmp_list; }
 
