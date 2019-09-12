@@ -1381,9 +1381,11 @@ namespace rats
           double D = A * ewt * ewt + B * ewt + C;
           double tmp_dt = 0.0;
           if (D >= 0) {
+            Eigen::Vector2d tmp_pos = ewt * cp;
             // preprev foot frame
-            p += prev_fs_pos.head(2);
-            if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+            tmp_pos += prev_fs_pos.head(2);
+            if (!calc_closest_boundary_point(tmp_pos, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
+            p = tmp_pos;
           } else {
             D = B*B - 4*A*C;
             if (D >= 0) {
