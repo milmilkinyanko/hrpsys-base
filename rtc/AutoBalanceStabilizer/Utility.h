@@ -3,6 +3,7 @@
 /**
  * @file  Utility.h
  * @brief
+ * @date  $Date$
  */
 
 #ifndef ABST_UTILITY_H
@@ -57,6 +58,7 @@ inline void copyJointAnglesToRobotModel(const hrp::BodyPtr& m_robot,
                                         const hrp::dvector& joint_angles)
 {
     const size_t num_joints = m_robot->numJoints();
+    assert(num_joints <= joint_angles.size());
     for (size_t i = 0; i < num_joints; ++i) {
         m_robot->joint(i)->q = joint_angles[i];
     }

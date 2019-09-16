@@ -65,7 +65,6 @@ hoffArbibInterpolation(const double remain_time, const double dt,
 
 namespace hrp {
 
-// std::tuple<hrp::Vector3, hrp::Vector3, hrp::Vector3> calcTrajectory(const size_t count)
 void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt)
 {
     if (via_points.empty()) return;

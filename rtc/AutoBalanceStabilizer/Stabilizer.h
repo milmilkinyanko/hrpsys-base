@@ -27,10 +27,10 @@ struct paramsFromAutoBalancer {
     hrp::Vector3 base_rpy_ref;
     bool is_walking;
     std::vector<bool> ref_contact_states;
-    std::vector<double> toe_heel_ratio;
+    // std::vector<double> toe_heel_ratio;
     std::vector<double> control_swing_support_time;
     std::vector<hrp::dvector6> wrenches_ref;
-    std::vector<hrp::Vector3> limb_cop_offsets;
+    // std::vector<hrp::Vector3> limb_cop_offsets;
     hrp::Vector3 sbp_cog_offset;
 };
 

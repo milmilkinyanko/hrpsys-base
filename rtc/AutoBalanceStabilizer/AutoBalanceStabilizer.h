@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <mutex>
+#include <boost/make_shared.hpp>
 
 #include <rtm/idl/BasicDataType.hh>
 #include <rtm/idl/ExtendedDataTypes.hh>
@@ -24,6 +25,7 @@
 #include <rtm/idl/BasicDataTypeSkel.h>
 #include <rtm/idl/ExtendedDataTypesSkel.h>
 
+#include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
 #include <hrpModel/ModelLoaderUtil.h>
 
@@ -31,12 +33,12 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "interpolator.h"
 #include "../TorqueFilter/IIRFilter.h"
+#include "FullbodyInverseKinematicsSolver.h"
 #include "GaitGenerator.h"
 #include "Stabilizer.h"
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalanceStabilizerService_impl.h"
-#include "SimpleFullbodyInverseKinematicsSolver.h" // TODO: This should be included after AutoBalanceStabilizerService_impl.h
 
 
 // </rtc-template>
@@ -49,60 +51,32 @@
 using namespace RTC;
 using paramsToStabilizer = paramsFromAutoBalancer;
 
-class AutoBalanceStabilizer
-  : public RTC::DataFlowComponentBase
+class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 {
   public:
     AutoBalanceStabilizer(RTC::Manager* manager);
-    virtual ~AutoBalanceStabilizer();
+    // virtual ~AutoBalanceStabilizer();
 
     // The initialize action (on CREATED->ALIVE transition)
     // formaer rtc_init_entry()
-    virtual RTC::ReturnCode_t onInitialize();
+    RTC::ReturnCode_t onInitialize() override;
 
     // The finalize action (on ALIVE->END transition)
     // formaer rtc_exiting_entry()
-    virtual RTC::ReturnCode_t onFinalize();
-
-    // The startup action when ExecutionContext startup
-    // former rtc_starting_entry()
-    // virtual RTC::ReturnCode_t onStartup(RTC::UniqueId ec_id);
-
-    // The shutdown action when ExecutionContext stop
-    // former rtc_stopping_entry()
-    // virtual RTC::ReturnCode_t onShutdown(RTC::UniqueId ec_id);
+    RTC::ReturnCode_t onFinalize() override;
 
     // The activated action (Active state entry action)
     // former rtc_active_entry()
-    virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
+    RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id) override;
 
     // The deactivated action (Active state exit action)
     // former rtc_active_exit()
-    virtual RTC::ReturnCode_t onDeactivated(RTC::UniqueId ec_id);
+    RTC::ReturnCode_t onDeactivated(RTC::UniqueId ec_id) override;
 
     // The execution action that is invoked periodically
     // former rtc_active_do()
-    virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
+    RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id) override;
 
-    // The aborting action when main logic error occurred.
-    // former rtc_aborting_entry()
-    // virtual RTC::ReturnCode_t onAborting(RTC::UniqueId ec_id);
-
-    // The error action in ERROR state
-    // former rtc_error_do()
-    // virtual RTC::ReturnCode_t onError(RTC::UniqueId ec_id);
-
-    // The reset action that is invoked resetting
-    // This is same but different the former rtc_init_entry()
-    // virtual RTC::ReturnCode_t onReset(RTC::UniqueId ec_id);
-
-    // The state update action that is invoked after onExecute() action
-    // no corresponding operation exists in OpenRTm-aist-0.2.0
-    // virtual RTC::ReturnCode_t onStateUpdate(RTC::UniqueId ec_id);
-
-    // The action that is invoked when execution context's rate is changed
-    // no corresponding operation exists in OpenRTm-aist-0.2.0
-    // virtual RTC::ReturnCode_t onRateChanged(RTC::UniqueId ec_id);
     bool goPos(const double& x, const double& y, const double& th);
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
@@ -215,13 +189,40 @@ class AutoBalanceStabilizer
     AutoBalanceStabilizerService_impl m_service0;
 
   private:
-    struct ABCIKparam {
-        hrp::Vector3 target_p0, localPos, adjust_interpolation_target_p0, adjust_interpolation_org_p0;
-        hrp::Matrix33 target_r0, localR, adjust_interpolation_target_r0, adjust_interpolation_org_r0;
-        hrp::Link* target_link;
-        bool is_active, has_toe_joint;
-    };
-    void readInportData();
+    hrp::BodyPtr m_robot = boost::make_shared<hrp::Body>();
+    double m_dt;
+    std::mutex m_mutex;
+    unsigned int m_debugLevel = 0;
+    unsigned int loop = 0;
+
+    // Fullbody Inverse Kinematics Solver
+    size_t max_ik_iteration = 10;
+    std::vector<hrp::IKConstraint> ik_constraints;
+    std::unique_ptr<hrp::FullbodyInverseKinematicsSolver> fik;
+
+    inline bool loadModel(hrp::BodyPtr body, const string& model_path);
+
+    // -- Functions for OpenRTM port --
+    inline void setupBasicPort();
+    inline void readInportData();
+    inline void writeOutPortData(const hrp::Vector3& base_pos,
+                                 const hrp::Matrix33& base_rot,
+                                 const hrp::Vector3& ref_zmp_base_frame,
+                                 const hrp::Vector3& ref_cog,
+                                 const hrp::Vector3& sbp_cog_offset,
+                                 const hrp::Vector3& acc_ref,
+                                 const stabilizerLogData& st_log_data);
+
+    // -- Functions for OpenRTM port --
+    std::vector<hrp::LinkConstraint> readContactPointsFromProps(const RTC::Properties& prop);
+    void addBodyConstraint(std::vector<hrp::LinkConstraint>& constraints,
+                           const hrp::BodyPtr& _robot);
+    void setupIKConstraints(const hrp::BodyPtr& _robot,
+                            const std::vector<hrp::LinkConstraint>& constraints);
+    void setIKConstraintsTarget();
+
+
+
     void writeOutportDataForLeggedRobot();
     void getTargetParameters();
     void getActualParameters();
@@ -230,73 +231,56 @@ class AutoBalanceStabilizer
     void stopABCparam();
     void waitABCTransition();
     // Functions to calculate parameters for ABC output.
-    // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRatio
-    void getOutputParametersForWalking ();
-    void getOutputParametersForABC ();
-    void getOutputParametersForIDLE ();
+    // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRation
     void interpolateLegNamesAndZMPOffsets();
-    void calcFixCoordsForAdjustFootstep (rats::coordinates& tmp_fix_coords);
-    void rotateRefForcesForFixCoords (rats::coordinates& tmp_fix_coords);
-    void updateTargetCoordsForHandFixMode (rats::coordinates& tmp_fix_coords);
+    // void updateTargetCoordsForHandFixMode (rats::coordinates& tmp_fix_coords);
     void calculateOutputRefForces ();
-    hrp::Vector3 calcFootMidPosUsingZMPWeightMap ();
-    void updateWalkingVelocityFromHandError (rats::coordinates& tmp_fix_coords);
-    void calcReferenceJointAnglesForIK ();
     hrp::Matrix33 OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2);
     void fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot);
     void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
     bool startWalking ();
     void stopWalking ();
-    void copyRatscoords2Footstep(OpenHRP::AutoBalanceStabilizerService::Footstep& out_fs, const rats::coordinates& in_fs);
     // static balance point offsetting
     void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);
     void calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height);
     hrp::Vector3 calc_vel_from_hand_error (const rats::coordinates& tmp_fix_coords);
-    bool isOptionalDataContact (const std::string& ee_name)
-    {
-        return (std::fabs(m_optionalData.data[contact_states_index_map[ee_name]]-1.0)<0.1)?true:false;
-    };
-    bool calc_inital_support_legs(const double& y, std::vector<rats::coordinates>& initial_support_legs_coords, std::vector<rats::leg_type>& initial_support_legs, rats::coordinates& start_ref_coords);
+    // bool isOptionalDataContact (const std::string& ee_name)
+    // {
+    //     return (std::fabs(m_optionalData.data[contact_states_index_map[ee_name]] - 1.0) < 0.1) ? true : false;
+    // }
     std::string getUseForceModeString ();
 
-    hrp::BodyPtr m_robot;
-    double m_dt;
-    std::mutex m_mutex;
-    unsigned int m_debugLevel;
-
     // member variables to store values for data ports
-    hrp::dvector q_current;
-    hrp::dvector q_ref;
-    hrp::Vector3 act_rpy;
-    hrp::Vector3 ref_base_pos;
-    hrp::Matrix33 ref_base_rot;
+    hrp::dvector q_current; // TODO: m_robot_act があればいらない
+    hrp::dvector q_ref; // TODO: m_robotだけで十分?
+    hrp::Vector3 act_rpy; // TODO: m_robot_act があればいらない ?
+    hrp::Vector3 ref_base_pos; // TODO: m_robotだけで十分?
+    hrp::Matrix33 ref_base_rot; // TODO: m_robotだけで十分?
+
     hrp::Vector3 input_ref_zmp;
     std::vector<hrp::dvector6> ref_wrenches;
     std::vector<hrp::dvector6> ref_wrenches_for_st;
     std::vector<hrp::dvector6> act_wrenches;
-    std::vector<bool> ref_contact_states;
-    std::vector<double> control_swing_support_time;
+
+    std::vector<bool> ref_contact_states; // TODO: delete
+    std::vector<double> control_swing_support_time; // TODO: delete
     hrp::Vector3 ref_foot_origin_ext_moment;
     bool is_ref_foot_origin_ext_moment_hold_value;
 
     std::unique_ptr<Stabilizer> st;
+
     // for gg
-    std::unique_ptr<rats::gait_generator> gg;
+    std::unique_ptr<hrp::GaitGenerator> gg;
     bool gg_is_walking, gg_solved;
+
     // for abc
-    std::unique_ptr<SimpleFullbodyInverseKinematicsSolver> fik;
     hrp::Vector3 ref_cog, ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
-    enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
+    // enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
     enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
-    std::map<std::string, ABCIKparam> ikp;
-    std::map<std::string, size_t> contact_states_index_map;
     std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
     std::vector<std::string> sensor_names, leg_names, ee_vec;
-    hrp::Vector3 target_root_p;
-    hrp::Matrix33 target_root_R;
-    rats::coordinates fix_leg_coords, fix_leg_coords2;
-    std::vector<hrp::Vector3> default_zmp_offsets;
-    std::vector<hrp::Vector3> limb_cop_offsets;
+    Eigen::Isometry3d target_root;
+    rats::coordinates fix_leg_coords, fix_leg_coords2; // TODO: rename
     double d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2];
     bool use_limb_stretch_avoidance;
 
@@ -312,7 +296,6 @@ class AutoBalanceStabilizer
     std::vector<hrp::Vector3> ref_forces, ref_moments;
 
     bool is_legged_robot, is_stop_mode, is_hand_fix_mode, is_hand_fix_initial;
-    unsigned int loop;
     bool graspless_manip_mode;
     std::string graspless_manip_arm;
     hrp::Vector3 graspless_manip_p_gain;
@@ -322,11 +305,8 @@ class AutoBalanceStabilizer
     std::vector<IIRFilter> invdyn_zmp_filters;
 
     // Used for ref force balancing.
-    hrp::Link* additional_force_applied_link;
+    hrp::Link* additional_force_applied_link; // TODO: raw pointer?
     hrp::Vector3 additional_force_applied_point_offset;
-
-    // For stabilizer
-    std::vector<double> toe_heel_ratio;
 };
 
 

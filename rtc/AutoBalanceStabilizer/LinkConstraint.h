@@ -25,17 +25,20 @@ class LinkConstraint
     enum ConstraintType {FIX, FLOAT, FREE};
 
   private:
-    int link_id;
+    int link_id; // TODO: Link id にするか Joint idにするか
     std::vector<hrp::Vector3> link_contact_points; // Link local
-    hrp::Vector3 link_representative_point = hrp::Vector3::Zero(); // Link local
-    // Eigen::AffineCompact3d transformation_matrix; // transformation from world
-    Eigen::AffineCompact3d target_coord = Eigen::AffineCompact3d::Identity(); // Global
+    Eigen::Isometry3d link_representative_coord = Eigen::Isometry3d::Identity(); // Link local
+    Eigen::Isometry3d target_coord = Eigen::Isometry3d::Identity(); // Global
 
+    // TODO: sensorやref forceなど入れる？
     hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // Link local
-    double weight = 1.0;
+    double cop_weight = 1.0;
     ConstraintType constraint_type = FIX;
 
-    // size_t next_turning_count; // TODO: 着地のカウントなど，補間に使うカウントを保存
+    // // IK variables
+    // hrp::dvector6 constraint_weight = hrp::dvector6::Ones(); // Pos + Rot (Axis-angle)
+    // double pos_precision = 1e-4;
+    // double rot_precision = deg2rad(0.1);
 
   public:
     LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX) // TODO: FLOATではweightを0に
@@ -56,24 +59,26 @@ class LinkConstraint
 
     void calcLinkRepresentativePoint()
     {
-        link_representative_point = std::accumulate(link_contact_points.begin(), link_contact_points.end(), hrp::Vector3::Zero().eval())
+        link_representative_coord.translation() = std::accumulate(link_contact_points.begin(), link_contact_points.end(),
+                                                                  hrp::Vector3::Zero().eval())
             / link_contact_points.size() + cop_offset;
     }
-    const hrp::Vector3& getLinkRepresentativePoint() const { return link_representative_point; }
+    Eigen::Isometry3d::ConstTranslationPart getLinkRepresentativePoint() const { return link_representative_coord.translation(); }
 
-    // Eigen::AffineCompact3d& envRepresentativeCoord() { return env_representative_coord; }
-    // const Eigen::AffineCompact3d& envRepresentativeCoord() const { return env_representative_coord; }
-    Eigen::AffineCompact3d& targetCoord() { return target_coord; } // TODO: use affine() ?
-    const Eigen::AffineCompact3d& targetCoord() const { return target_coord; }
+    Eigen::Isometry3d::LinearPart linkRot() { return link_representative_coord.linear(); }
+    Eigen::Isometry3d::ConstLinearPart linkRot() const { return link_representative_coord.linear(); }
 
-    Eigen::AffineCompact3d::TranslationPart targetPos() { return target_coord.translation(); }
-    Eigen::AffineCompact3d::ConstTranslationPart targetPos() const { return target_coord.translation(); }
+    Eigen::Isometry3d& targetCoord() { return target_coord; }
+    const Eigen::Isometry3d& targetCoord() const { return target_coord; }
 
-    Eigen::AffineCompact3d::LinearPart targetRot() { return target_coord.linear(); }
-    Eigen::AffineCompact3d::ConstLinearPart targetRot() const { return target_coord.linear(); }
+    Eigen::Isometry3d::TranslationPart targetPos() { return target_coord.translation(); }
+    Eigen::Isometry3d::ConstTranslationPart targetPos() const { return target_coord.translation(); }
 
-    void setWeight(double _weight) { weight = _weight; }
-    double getWeight() const { return weight; }
+    Eigen::Isometry3d::LinearPart targetRot() { return target_coord.linear(); }
+    Eigen::Isometry3d::ConstLinearPart targetRot() const { return target_coord.linear(); }
+
+    void setCOPWeight(double _weight) { cop_weight = _weight; }
+    double getCOPWeight() const { return cop_weight; }
 
     void setConstraintType(ConstraintType type) { constraint_type = type; }
     ConstraintType getConstraintType() const { return constraint_type; }
@@ -82,37 +87,21 @@ class LinkConstraint
     {
         std::vector<Eigen::Vector2d> vertices;
         vertices.reserve(link_contact_points.size());
-        Eigen::AffineCompact3d::ConstTranslationPart target_pos = target_coord.translation();
-        Eigen::AffineCompact3d::ConstLinearPart target_rot = target_coord.linear();
+        Eigen::Isometry3d::ConstTranslationPart target_pos = target_coord.translation();
+        Eigen::Isometry3d::ConstLinearPart target_rot = target_coord.linear();
         for (const hrp::Vector3& point : link_contact_points) {
-            vertices.push_back((target_pos - target_rot * (link_representative_point + point)).head<2>()); // TODO: rot確認
+            vertices.push_back((target_pos - target_rot * (link_representative_coord.translation() + point)).head<2>()); // TODO: rot確認
         }
         return calcConvexHull(vertices); // TODO: 1点のときと2点のときの確認
     }
 
-    // void setTransformationMatrix(const Eigen::AffineCompact3d& trans)
-    // {
-    //     transformation_matrix = trans;
-    // }
+    // void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::Isometry3d>& coords);
 
-    // void setTransformationMatrix(const hrp::Vector3& pos, const hrp::Matrix33& rot)
-    // {
-    //     transformation_matrix.translation() = pos;
-    //     transformation_matrix.linear() = rot;
-    // }
-
-    // const Eigen::AffineCompact3d& getTransformationMatrix() const
-    // {
-    //     return transformation_matrix;
-    // }
-
-    // void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::AffineCompact3d>& coords);
-
-    // Eigen::AffineCompact3d calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
+    // Eigen::Isometry3d calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
 
     // void rotateLinkRot(const hrp::Matrix33& rot);
 
-    // const Eigen::AffineCompact3d calcTransformedCoord(const Eigen::AffineCompact3d& coord); // TODO: ここか？
+    // const Eigen::Isometry3d calcTransformedCoord(const Eigen::Isometry3d& coord); // TODO: ここか？
 };
 
 struct ConstraintsWithCount
@@ -127,7 +116,7 @@ struct ConstraintsWithCount
 
         for (const LinkConstraint& constraint : constraints) {
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
-            const double weight = constraint.getWeight();
+            const double weight = constraint.getCOPWeight();
             // TODO: 座標変換
             //       target_coordを使うのは?
             //       representative pointを使うかどうか
@@ -147,7 +136,7 @@ struct ConstraintsWithCount
         double sum_weight = 0;
 
         for (const LinkConstraint& constraint : constraints) {
-            const double weight = constraint.getWeight();
+            const double weight = constraint.getCOPWeight();
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT || weight == 0 /* to avoid zero division */) continue;
             sum_weight += weight;
             const Eigen::Quaternion<double> contact_quat(constraint.targetRot());
@@ -157,9 +146,17 @@ struct ConstraintsWithCount
         return cop_quat.toRotationMatrix();
     }
 
-    int getConstraintIndexFromLinkId(const int id) const
+    Eigen::Isometry3d calcCOPCoord() const
     {
-        for (int idx = 0; idx < constraints.size(); ++idx) {
+        Eigen::Isometry3d coord;
+        coord.translation() = calcCOPFromConstraints();
+        coord.linear() = calcCOPRotationFromConstraints();
+        return coord;
+    }
+
+    size_t getConstraintIndexFromLinkId(const int id) const
+    {
+        for (size_t idx = 0; idx < constraints.size(); ++idx) {
             if (constraints[idx].getLinkId() == id) return idx;
         }
 
@@ -183,8 +180,8 @@ struct ConstraintsWithCount
         for (const LinkConstraint& constraint : constraints) {
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
 
-            Eigen::AffineCompact3d::ConstTranslationPart target_pos = constraint.targetPos();
-            Eigen::AffineCompact3d::ConstLinearPart target_rot = constraint.targetRot();
+            Eigen::Isometry3d::ConstTranslationPart target_pos = constraint.targetPos();
+            Eigen::Isometry3d::ConstLinearPart target_rot = constraint.targetRot();
             const hrp::Vector3& link_representative_point = constraint.getLinkRepresentativePoint();
             for (const hrp::Vector3& point : constraint.getLinkContactPoints()) {
                 vertices.push_back((target_pos - target_rot * (link_representative_point + point)).head<2>()); // TODO: rot

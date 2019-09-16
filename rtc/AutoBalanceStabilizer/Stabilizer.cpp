@@ -280,7 +280,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     // Act: rpy, wrenches,
 
     ref_contact_states = abc_param.ref_contact_states;
-    toe_heel_ratio = abc_param.toe_heel_ratio;
+    // toe_heel_ratio = abc_param.toe_heel_ratio;
     control_swing_support_time = abc_param.control_swing_support_time;
     is_walking = abc_param.is_walking;
     sbp_cog_offset = abc_param.sbp_cog_offset;
@@ -339,7 +339,8 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     ref_total_foot_origin_moment = hrp::Vector3::Zero();
     for (size_t i = 0; i < stikp.size(); i++) {
         // TODO: なぜかyは0
-        const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
+        // const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
+        const hrp::Vector3 limb_cop_offset = hrp::Vector3::Zero(); // TODO: tmp
         stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * limb_cop_offset;
         const hrp::Link* target = m_robot->link(stikp[i].target_name);
         target_ee_p[i] = target->p + target->R * stikp[i].localp;

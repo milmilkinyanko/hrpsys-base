@@ -14,40 +14,40 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::goPos( CORBA::Double x,  CORBA
   return m_autobalancestabilizer->goPos(x, y, th);
 };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::goVelocity( CORBA::Double vx,  CORBA::Double vy,  CORBA::Double vth)
-{
-  return m_autobalancestabilizer->goVelocity(vx, vy, vth);
-};
+// CORBA::Boolean AutoBalanceStabilizerService_impl::goVelocity( CORBA::Double vx,  CORBA::Double vy,  CORBA::Double vth)
+// {
+//   return m_autobalancestabilizer->goVelocity(vx, vy, vth);
+// };
 
 CORBA::Boolean AutoBalanceStabilizerService_impl::goStop()
 {
   return m_autobalancestabilizer->goStop();
 };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::emergencyStop()
-{
-  return m_autobalancestabilizer->emergencyStop();
-};
+// CORBA::Boolean AutoBalanceStabilizerService_impl::emergencyStop()
+// {
+//   return m_autobalancestabilizer->emergencyStop();
+// };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx)
-{
-  return m_autobalancestabilizer->setFootSteps(fss, overwrite_fs_idx);
-}
+// CORBA::Boolean AutoBalanceStabilizerService_impl::setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx)
+// {
+//   return m_autobalancestabilizer->setFootSteps(fss, overwrite_fs_idx);
+// }
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
-{
-  return m_autobalancestabilizer->setFootStepsWithParam(fss, spss, overwrite_fs_idx);
-}
+// CORBA::Boolean AutoBalanceStabilizerService_impl::setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
+// {
+//   return m_autobalancestabilizer->setFootStepsWithParam(fss, spss, overwrite_fs_idx);
+// }
 
 void AutoBalanceStabilizerService_impl::waitFootSteps()
 {
   return m_autobalancestabilizer->waitFootSteps();
 };
 
-void AutoBalanceStabilizerService_impl::waitFootStepsEarly(CORBA::Double tm)
-{
-  return m_autobalancestabilizer->waitFootStepsEarly(tm);
-};
+// void AutoBalanceStabilizerService_impl::waitFootStepsEarly(CORBA::Double tm)
+// {
+//   return m_autobalancestabilizer->waitFootStepsEarly(tm);
+// };
 
 CORBA::Boolean AutoBalanceStabilizerService_impl::startAutoBalancer(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
 {
@@ -111,20 +111,20 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::getFootstepParam(OpenHRP::Auto
   return m_autobalancestabilizer->getFootstepParam(*i_param);
 };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::adjustFootSteps(const OpenHRP::AutoBalanceStabilizerService::Footstep& rfootstep, const OpenHRP::AutoBalanceStabilizerService::Footstep& lfootstep)
-{
-    return m_autobalancestabilizer->adjustFootSteps(rfootstep, lfootstep);
-};
+// CORBA::Boolean AutoBalanceStabilizerService_impl::adjustFootSteps(const OpenHRP::AutoBalanceStabilizerService::Footstep& rfootstep, const OpenHRP::AutoBalanceStabilizerService::Footstep& lfootstep)
+// {
+//     return m_autobalancestabilizer->adjustFootSteps(rfootstep, lfootstep);
+// };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx)
-{
-    return m_autobalancestabilizer->getRemainingFootstepSequence(o_footstep, o_current_fs_idx);
-};
+// CORBA::Boolean AutoBalanceStabilizerService_impl::getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx)
+// {
+//     return m_autobalancestabilizer->getRemainingFootstepSequence(o_footstep, o_current_fs_idx);
+// };
 
-CORBA::Boolean AutoBalanceStabilizerService_impl::getGoPosFootstepsSequence(CORBA::Double x, CORBA::Double y, CORBA::Double th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep)
-{
-    return m_autobalancestabilizer->getGoPosFootstepsSequence(x, y, th, o_footstep);
-};
+// CORBA::Boolean AutoBalanceStabilizerService_impl::getGoPosFootstepsSequence(CORBA::Double x, CORBA::Double y, CORBA::Double th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep)
+// {
+//     return m_autobalancestabilizer->getGoPosFootstepsSequence(x, y, th, o_footstep);
+// };
 
 CORBA::Boolean AutoBalanceStabilizerService_impl::releaseEmergencyStop()
 {
@@ -134,5 +134,4 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::releaseEmergencyStop()
 void AutoBalanceStabilizerService_impl::autobalancestabilizer(AutoBalanceStabilizer *i_autobalancestabilizer)
 {
   m_autobalancestabilizer = i_autobalancestabilizer;
-} 
-
+}

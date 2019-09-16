@@ -34,6 +34,7 @@ class RefZMPGenerator
     RefZMPGenerator(const double dt, const size_t list_size,
                     const ConstraintsWithCount& init_constraints);
 
+    const hrp::Vector3& getCurrentRefZMP() const { return refzmp_list.front(); }
     const std::deque<hrp::Vector3>& getRefZMPList() const { return refzmp_list; }
 
     void setInterpolationAlgorithm(const interpolator::interpolation_mode i_mode)
