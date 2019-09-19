@@ -4,16 +4,18 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERS
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra")
 
-set(comp_sources AutoBalanceStabilizer.cpp AutoBalanceStabilizerService_impl.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp ../SequencePlayer/interpolator.cpp ../TorqueFilter/IIRFilter.cpp)
+set(comp_sources AutoBalanceStabilizer.cpp AutoBalanceStabilizerService_impl.cpp ../SequencePlayer/interpolator.cpp ../TorqueFilter/IIRFilter.cpp)
 set(libs hrpModel-3.1 hrpCollision-3.1 hrpUtil-3.1 hrpsysBaseStub)
+set(abst_libs EigenUtil GaitGenerator Stabilizer)
 
 include_directories(${PROJECT_SOURCE_DIR}/rtc/SequencePlayer)
 
 add_library(AutoBalanceStabilizer SHARED ${comp_sources})
-target_link_libraries(AutoBalanceStabilizer PRIVATE GaitGenerator Stabilizer ${libs})
+target_link_libraries(AutoBalanceStabilizer PRIVATE ${abst_libs} ${libs})
 set_target_properties(AutoBalanceStabilizer PROPERTIES PREFIX "")
+
+add_library(EigenUtil SHARED EigenUtil.cpp)
 
 add_library(GaitGenerator SHARED GaitGenerator.cpp RefZMPGenerator.cpp LimbTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
 target_link_libraries(GaitGenerator PRIVATE ${libs})
@@ -22,9 +24,7 @@ add_library(Stabilizer SHARED Integrator.cpp TwoDofController.cpp Stabilizer.cpp
 target_link_libraries(Stabilizer PRIVATE ${libs})
 
 add_executable(AutoBalanceStabilizerComp AutoBalanceStabilizerComp.cpp ${comp_sources})
-target_link_libraries(AutoBalanceStabilizerComp PRIVATE GaitGenerator Stabilizer ${libs})
-
-# TODO: RefZMPGeneratorのライブラリ作る?
+target_link_libraries(AutoBalanceStabilizerComp PRIVATE ${abst_libs} ${libs})
 
 add_executable(testRefZMPGenerator test/testRefZMPGenerator.cpp RefZMPGenerator.cpp ../SequencePlayer/interpolator.cpp)
 target_link_libraries(testRefZMPGenerator PRIVATE ${libs})
@@ -54,7 +54,7 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test1 testZMPDistributorABS --jaxon_red --test1 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
-set(target AutoBalanceStabilizer AutoBalanceStabilizerComp GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
+set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin

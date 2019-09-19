@@ -8,9 +8,9 @@
  */
 
 #include <boost/make_shared.hpp>
-#include "hrpsys/util/Hrpsys.h"
+#include <hrpModel/ModelLoaderUtil.h>
 #include <hrpModel/Sensor.h>
-#include <hrpUtil/MatrixSolvers.h>
+#include "EigenUtil.h"
 #include "AutoBalanceStabilizer.h"
 
 // TODO: use inline function
@@ -18,7 +18,6 @@
 #define DEBUGP ((m_debugLevel == 1 && loop % 200 == 0) || m_debugLevel > 1)
 #endif
 
-using namespace rats;
 using Guard = std::lock_guard<std::mutex>;
 // Utility functions
 using hrp::deg2rad;
@@ -107,7 +106,6 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       // gait_type(BIPED),
       gg_is_walking(false),
       gg_solved(false),
-      fix_leg_coords(coordinates()),
       sbp_offset(hrp::Vector3::Zero()),
       sbp_cog_offset(hrp::Vector3::Zero()),
       use_force(MODE_REF_FORCE),
@@ -410,7 +408,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // transition_interpolator_ratio 1=>0 : ABC => IDLE
         ref_basePos = calcInteriorPoint(ref_base_pos, m_robot->rootLink()->p, transition_interpolator_ratio);
         ref_zmp_base_frame = calcInteriorPoint(input_ref_zmp, ref_zmp_base_frame, transition_interpolator_ratio);
-        rats::mid_rot(ref_baseRot, transition_interpolator_ratio, ref_base_rot, m_robot->rootLink()->R);
+        ref_baseRot = hrp::slerpMat(ref_baseRot, m_robot->rootLink()->R, transition_interpolator_ratio);
 
         for (size_t i = 0, num_joints = m_robot->numJoints(); i < num_joints; ++i) {
             m_robot->joint(i)->q = calcInteriorPoint(q_ref[i], m_robot->joint(i)->q, transition_interpolator_ratio);
@@ -1035,7 +1033,7 @@ void AutoBalanceStabilizer::waitABCTransition()
     usleep(1000);
 }
 
-bool AutoBalanceStabilizer::goPos(const double& x, const double& y, const double& th)
+bool AutoBalanceStabilizer::goPos(const double x, const double y, const double th)
 {
     if (is_stop_mode) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos while stopping mode." << std::endl;
@@ -1045,8 +1043,8 @@ bool AutoBalanceStabilizer::goPos(const double& x, const double& y, const double
     gg->setDefaultStepHeight(x);
 
     const size_t start_loop = loop + static_cast<size_t>(5 / m_dt);
-    constexpr double velocity = 0;
-    constexpr double step_time = 2;
+    const double velocity = y;
+    const double step_time = th;
     const size_t step_count = static_cast<size_t>(step_time / m_dt);
     gg->addCurrentConstraintForDummy(loop + static_cast<size_t>(2 / m_dt));
     gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop,                  step_time, m_dt, 0.3, deg2rad(10), 7, 13);

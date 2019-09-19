@@ -23,15 +23,15 @@ inline bool eps_eq(const double a, const double b, const double eps = 0.001)
     return fabs(a - b) <= eps;
 }
 
-inline double calcInteriorPoint(const double start, const double end, const double ratio)
+inline double calcInteriorPoint(const double start, const double goal, const double ratio)
 {
-    return (1 - ratio) * start + ratio * end;
+    return (1 - ratio) * start + ratio * goal;
 }
 
 template<typename T>
-inline T calcInteriorPoint(const T& start, const T& end, const double ratio)
+inline T calcInteriorPoint(const T& start, const T& goal, const double ratio)
 {
-    return (1 - ratio) * start + ratio * end;
+    return (1 - ratio) * start + ratio * goal;
 }
 
 inline double clamp(const double value, const double llimit_value, const double ulimit_value)

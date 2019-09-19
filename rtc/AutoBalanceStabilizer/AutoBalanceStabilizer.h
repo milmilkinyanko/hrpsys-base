@@ -27,15 +27,11 @@
 
 #include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
-#include <hrpModel/ModelLoaderUtil.h>
 
-#include "../ImpedanceController/JointPathEx.h"
-#include "../ImpedanceController/RatsMatrix.h"
 #include "interpolator.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include "Utility.h"
 #include "FullbodyInverseKinematicsSolver.h"
-// #include "FullbodyInverseKinematicsSolver_orig.h"
 #include "GaitGenerator.h"
 #include "Stabilizer.h"
 // Service implementation headers
@@ -78,7 +74,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // former rtc_active_do()
     RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id) override;
 
-    bool goPos(const double& x, const double& y, const double& th);
+    bool goPos(const double x, const double y, const double th);
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
     bool emergencyStop ();
@@ -258,14 +254,14 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // void updateTargetCoordsForHandFixMode (rats::coordinates& tmp_fix_coords);
     void calculateOutputRefForces ();
     hrp::Matrix33 OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2);
-    void fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot);
-    void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
+    // void fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot);
+    // void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
     bool startWalking ();
     void stopWalking ();
     // static balance point offsetting
     void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);
     void calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height);
-    hrp::Vector3 calc_vel_from_hand_error (const rats::coordinates& tmp_fix_coords);
+    // hrp::Vector3 calc_vel_from_hand_error (const rats::coordinates& tmp_fix_coords);
     // bool isOptionalDataContact (const std::string& ee_name)
     // {
     //     return (std::fabs(m_optionalData.data[contact_states_index_map[ee_name]] - 1.0) < 0.1) ? true : false;
@@ -302,7 +298,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
     std::vector<std::string> sensor_names, leg_names, ee_vec;
     Eigen::Isometry3d target_root;
-    rats::coordinates fix_leg_coords, fix_leg_coords2; // TODO: rename
+    // rats::coordinates fix_leg_coords, fix_leg_coords2; // TODO: rename
     double d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2];
     bool use_limb_stretch_avoidance;
 
@@ -321,7 +317,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     bool graspless_manip_mode;
     std::string graspless_manip_arm;
     hrp::Vector3 graspless_manip_p_gain;
-    rats::coordinates graspless_manip_reference_trans_coords;
+    // rats::coordinates graspless_manip_reference_trans_coords;
 
     hrp::InvDynStateBuffer idsb;
     std::vector<IIRFilter> invdyn_zmp_filters;

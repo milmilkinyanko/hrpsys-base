@@ -13,12 +13,9 @@
 
 namespace hrp {
 
-inline Eigen::Isometry3d transform(const Eigen::Isometry3d& target,
-                                   const Eigen::Isometry3d& target_origin,
-                                   const Eigen::Isometry3d& new_origin)
-{
-    return new_origin.inverse() * target_origin * target;
-}
+Eigen::Matrix3d slerpMat(const Eigen::Ref<Eigen::Matrix3d>& start,
+                         const Eigen::Ref<Eigen::Matrix3d>& goal,
+                         const double ratio);
 
 }
 
