@@ -1525,14 +1525,13 @@ void AutoBalancer::solveFullbodyIK ()
 
     std::vector<IKConstraint> ik_tgt_list;
     {
-        double tmp_const = 1e-3 * transition_interpolator_ratio + 1 * (1.0 - transition_interpolator_ratio);
         IKConstraint tmp;
         tmp.target_link_name = "WAIST";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,tmp_const,tmp_const,tmp_const; // COMMON
+        tmp.constraint_weight << 0,0,0,1e-7,1e-7,1e-8; // COMMON
         ik_tgt_list.push_back(tmp);
     }{
         IKConstraint tmp;
