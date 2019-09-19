@@ -16,6 +16,7 @@
 #include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
 
+#include "Utility.h"
 #include "LinkConstraint.h"
 #include "RefZMPGenerator.h"
 #include "LimbTrajectoryGenerator.h"
@@ -26,14 +27,26 @@ namespace hrp {
 class GaitGenerator
 {
   private:
-    hrp::BodyPtr m_robot;
     const size_t root_id = 0;
-    Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity(); // m_robot とどっちか？
-
-    // size_t count = 0;
-    // double dt;
+    Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
 
     size_t cur_const_idx = 0; // To reduce calculation time
+
+    // Gait parameter
+    double default_single_support_time = 1.0;
+    double default_double_support_time = 0.25;
+    double default_step_height = 0.10;
+    double max_stride = 1.5;
+    double max_rot_angle = deg2rad(90);
+    std::vector<int> default_support_cycle; // TODO: std::vector<std::vector<int>>
+    std::vector<int> default_swing_cycle;
+    size_t current_cycle = 0;
+
+    // Velocity mode parameter
+    bool is_velocity_mode = false; // TODO: enum?
+    double vel_x = 0;
+    double vel_y = 0;
+    double vel_yaw = 0;
 
     // Instance
     std::vector<ConstraintsWithCount> constraints_list;
@@ -42,6 +55,7 @@ class GaitGenerator
     std::unique_ptr<COGTrajectoryGenerator> cog_gen;
     // TODO: STも持っても良いかも (AutoBalancerを上ではなくする)
 
+    hrp::Vector3 prev_ref_cog = hrp::Vector3::Zero();
     // TODO: 使い方をよく考える
     //       default
     std::vector<std::vector<int>> support_limb_cycle;
@@ -53,15 +67,17 @@ class GaitGenerator
 
     // -- LimbTrajectoryGenerator --
     LimbTrajectoryGenerator::TrajectoryType default_traj_type = LimbTrajectoryGenerator::CYCLOIDDELAY;
-    double default_step_height = 0.10;
     // -- LimbTrajectoryGenerator --
 
+    void addFootStepVelocityMode(const size_t cur_count);
+
   public:
-    // GaitGenerator(hrp::BodyPtr _robot, const double _dt, const double preview_time = 1.6);
     GaitGenerator(const hrp::BodyPtr& _robot,
                   const double _dt,
                   std::vector<LinkConstraint>&& init_constraints,
                   const double preview_time = 1.6);
+
+    void setDefaultStepHeight(const double _height) { default_step_height = _height; }
 
     void forwardTimeStep(const size_t cur_count);
     void calcCogAndLimbTrajectory(const size_t cur_count, const double dt);
@@ -81,12 +97,21 @@ class GaitGenerator
     Eigen::Isometry3d::LinearPart rootRot() { return root_coord.linear(); }
     Eigen::Isometry3d::ConstLinearPart rootRot() const { return root_coord.linear(); }
 
+    // Todo: Private ?
+    hrp::Vector3 calcReferenceCOPFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
+    hrp::Matrix33 calcReferenceCOPRotFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
+    void adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const size_t count);
 
     // -- RefZMPGenerator --
     const hrp::Vector3& getCurrentRefZMP() const { return zmp_gen->getCurrentRefZMP(); }
     // -- RefZMPGenerator --
 
     // -- COGTrajectoryGenerator --
+    void resetCOGTrajectoryGenerator(const hrp::Vector3& init_cog, const double dt)
+    {
+        cog_gen.reset(new COGTrajectoryGenerator(init_cog));
+        cog_gen->initPreviewController(dt, zmp_gen->getCurrentRefZMP());
+    }
     const hrp::Vector3& getCog()    const { return cog_gen->getCog(); }
     const hrp::Vector3& getCogVel() const { return cog_gen->getCogVel(); }
     const hrp::Vector3& getCogAcc() const { return cog_gen->getCogAcc(); }
@@ -96,6 +121,30 @@ class GaitGenerator
     }
     // -- COGTrajectoryGenerator --
 
+    void startVelocityMode(const double _vel_x, const double _vel_y, const double _vel_yaw)
+    {
+        vel_x = _vel_x;
+        vel_y = _vel_y;
+        vel_yaw = _vel_yaw;
+        is_velocity_mode = true;
+    }
+
+    void stopVelocityMode()
+    {
+        // TODO: addNextFootStepFromVelocity(0, 0, 0, ...) // ２脚ならこれでそろうが // cycleが終わるまでやる？
+        is_velocity_mode = false;
+    }
+
+    // TODO: for debug
+    void addCurrentConstraintForDummy(const size_t start_count)
+    {
+        const size_t cur_idx = getConstraintIndexFromCount(constraints_list, start_count);
+        constraints_list.reserve(constraints_list.size() + 1);
+
+        ConstraintsWithCount dummy_constraints(constraints_list[cur_idx]);
+        dummy_constraints.start_count = start_count;
+        constraints_list.push_back(std::move(dummy_constraints));
+    }
 
     void addNextFootStepFromVelocity(const double vel_x, const double vel_y, const double vel_yaw,
                                      const size_t swing_start_count, const double step_time, const double dt,

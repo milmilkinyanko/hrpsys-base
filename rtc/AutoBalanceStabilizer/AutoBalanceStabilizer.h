@@ -33,13 +33,14 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "interpolator.h"
 #include "../TorqueFilter/IIRFilter.h"
+#include "Utility.h"
 #include "FullbodyInverseKinematicsSolver.h"
+// #include "FullbodyInverseKinematicsSolver_orig.h"
 #include "GaitGenerator.h"
 #include "Stabilizer.h"
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalanceStabilizerService_impl.h"
-
 
 // </rtc-template>
 
@@ -140,11 +141,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedDoubleSeq> m_qOut;
     // TimedDoubleSeq m_tau;
     // OutPort<TimedDoubleSeq> m_tauOut;
-    OutPort<TimedPoint3D> m_refZmpOut;
     OutPort<TimedPoint3D> m_basePosOut;
     OutPort<TimedOrientation3D> m_baseRpyOut;
-    TimedDoubleSeq m_baseTform;
-    OutPort<TimedDoubleSeq> m_baseTformOut;
     TimedPose3D m_basePose;
     OutPort<TimedPose3D> m_basePoseOut;
     TimedAcceleration3D m_accRef;
@@ -161,6 +159,11 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedLong> m_emergencySignalOut;
 
     // for debug
+    TimedDoubleSeq m_baseTform;
+    OutPort<TimedDoubleSeq> m_baseTformOut;
+    OutPort<TimedPoint3D> m_refZmpOut;
+    TimedPoint3D m_baseOriginRefZmp;
+    OutPort<TimedPoint3D> m_baseOriginRefZmpOut;
     TimedPoint3D m_refCog;
     OutPort<TimedPoint3D> m_refCogOut;
     TimedPoint3D m_originNewRefZmp;
@@ -196,7 +199,11 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     unsigned int loop = 0;
 
     // Fullbody Inverse Kinematics Solver
-    size_t max_ik_iteration = 10;
+    hrp::dvector q_prev_ik;
+    hrp::Vector3 root_pos_prev_ik = hrp::Vector3::Zero();
+    hrp::Matrix33 root_rot_prev_ik = hrp::Matrix33::Identity();
+
+    size_t max_ik_iteration = 3;
     std::vector<hrp::IKConstraint> ik_constraints;
     std::unique_ptr<hrp::FullbodyInverseKinematicsSolver> fik;
 
@@ -207,6 +214,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     inline void readInportData();
     inline void writeOutPortData(const hrp::Vector3& base_pos,
                                  const hrp::Matrix33& base_rot,
+                                 const hrp::Vector3& ref_zmp_global,
                                  const hrp::Vector3& ref_zmp_base_frame,
                                  const hrp::Vector3& ref_cog,
                                  const hrp::Vector3& sbp_cog_offset,
@@ -214,12 +222,26 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
                                  const stabilizerLogData& st_log_data);
 
     // -- Functions for OpenRTM port --
+
     std::vector<hrp::LinkConstraint> readContactPointsFromProps(const RTC::Properties& prop);
     void addBodyConstraint(std::vector<hrp::LinkConstraint>& constraints,
                            const hrp::BodyPtr& _robot);
     void setupIKConstraints(const hrp::BodyPtr& _robot,
                             const std::vector<hrp::LinkConstraint>& constraints);
     void setIKConstraintsTarget();
+    void storeRobotStatesForIK()
+    {
+        hrp::copyJointAnglesFromRobotModel(q_prev_ik, m_robot);
+        root_pos_prev_ik = m_robot->rootLink()->p;
+        root_rot_prev_ik = m_robot->rootLink()->R;
+    }
+    void restoreRobotStatesForIK()
+    {
+        hrp::copyJointAnglesToRobotModel(m_robot, q_prev_ik);
+        m_robot->rootLink()->p = root_pos_prev_ik;
+        m_robot->rootLink()->R = root_rot_prev_ik;
+        m_robot->calcForwardKinematics();
+    }
 
 
 
@@ -251,7 +273,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     std::string getUseForceModeString ();
 
     // member variables to store values for data ports
-    hrp::dvector q_current; // TODO: m_robot_act があればいらない
+    hrp::dvector q_act; // TODO: m_robot_act があればいらない ?
     hrp::dvector q_ref; // TODO: m_robotだけで十分?
     hrp::Vector3 act_rpy; // TODO: m_robot_act があればいらない ?
     hrp::Vector3 ref_base_pos; // TODO: m_robotだけで十分?

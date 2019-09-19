@@ -53,7 +53,7 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
     {
         hrp::LinkConstraint rleg_constraint(0);
         // for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        // rleg_constraint.calcLinkRepresentativePoint();
+        // rleg_constraint.calcLinkLocalPos();
         rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
         const_with_count.constraints.push_back(rleg_constraint);
     }
@@ -61,7 +61,7 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
     {
         hrp::LinkConstraint lleg_constraint(1);
         // for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        // lleg_constraint.calcLinkRepresentativePoint();
+        // lleg_constraint.calcLinkLocalPos();
         lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
         const_with_count.constraints.push_back(lleg_constraint);
     }
@@ -116,8 +116,8 @@ int main(int argc, char **argv)
     size_t next_turning_count = 0;
     int index = -1;
     std::vector<hrp::LimbTrajectoryGenerator> ltg(2); // TODO: 使い方変わるかも
-    ltg[0].setPos(constraints_list[0].constraints[0].getLinkRepresentativePoint());
-    ltg[0].setPos(constraints_list[0].constraints[1].getLinkRepresentativePoint());
+    ltg[0].setPos(constraints_list[0].constraints[0].localPos());
+    ltg[0].setPos(constraints_list[0].constraints[1].localPos());
     constexpr double FOOTSTEP_HEIGHT = 0.15;
     const size_t FINISH = start_count + STEP_COUNT + SUPPORT_COUNT;
 
@@ -136,8 +136,8 @@ int main(int argc, char **argv)
                                          constraints_list[index].start_count,
                                          FOOTSTEP_HEIGHT);
 
-                    const std::vector<hrp::ViaPoint>& via_points = ltg[i].getViaPoints();
                     // TODO: debug
+                    const std::vector<hrp::ViaPoint>& via_points = ltg[i].getViaPoints();
                     std::cerr << "size: " << via_points.size() << ", via point: \n";
                     for (size_t j = 0; j < via_points.size(); ++j) {
                         std::cerr << via_points[j].point.transpose() << std::endl;

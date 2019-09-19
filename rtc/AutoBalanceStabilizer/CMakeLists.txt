@@ -22,7 +22,7 @@ add_library(Stabilizer SHARED Integrator.cpp TwoDofController.cpp Stabilizer.cpp
 target_link_libraries(Stabilizer PRIVATE ${libs})
 
 add_executable(AutoBalanceStabilizerComp AutoBalanceStabilizerComp.cpp ${comp_sources})
-target_link_libraries(AutoBalanceStabilizerComp PRIVATE AutoBalanceStabilizer GaitGenerator Stabilizer ${libs})
+target_link_libraries(AutoBalanceStabilizerComp PRIVATE GaitGenerator Stabilizer ${libs})
 
 # TODO: RefZMPGeneratorのライブラリ作る?
 
@@ -55,7 +55,6 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
 set(target AutoBalanceStabilizer AutoBalanceStabilizerComp GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
-# set(target GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin

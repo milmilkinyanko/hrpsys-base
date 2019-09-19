@@ -69,7 +69,7 @@ void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt
 {
     if (via_points.empty()) return;
 
-    if (traj_type > DELAY_HOFFARBIB) calcDelayHoffArbibTrajectory(count, dt);
+    if (traj_type >= DELAY_HOFFARBIB) calcDelayHoffArbibTrajectory(count, dt);
 }
 
 // Calculate Hoff & Arbib trajectory following preceding point by delay_time_offset [s]
@@ -81,7 +81,7 @@ void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, c
     for (size_t i = 0; i < via_points.size() && via_points[i].count < preceding_count; ++i) idx = i;
 
     hrp::Vector3 target;
-    if (idx == via_points.size() - 1)      target = via_points.back().point;
+    if (idx == via_points.size() - 1)                target = via_points.back().point;
     else if (preceding_count <= via_points[0].count) target = via_points[0].point;
     else {
         const double ratio = static_cast<double>(preceding_count - via_points[idx].count) / (via_points[idx + 1].count - via_points[idx].count);

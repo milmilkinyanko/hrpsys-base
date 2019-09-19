@@ -27,7 +27,7 @@ class LinkConstraint
   private:
     int link_id; // TODO: Link id にするか Joint idにするか
     std::vector<hrp::Vector3> link_contact_points; // Link local
-    Eigen::Isometry3d link_representative_coord = Eigen::Isometry3d::Identity(); // Link local
+    Eigen::Isometry3d link_local_coord = Eigen::Isometry3d::Identity(); // Link local
     Eigen::Isometry3d target_coord = Eigen::Isometry3d::Identity(); // Global
 
     // TODO: sensorやref forceなど入れる？
@@ -41,7 +41,7 @@ class LinkConstraint
     // double rot_precision = deg2rad(0.1);
 
   public:
-    LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX) // TODO: FLOATではweightを0に
+    LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX) // TODO: FLOATではweightを0に?
         : link_id(_link_id), constraint_type(_constraint_type) {}
 
     int getLinkId() const { return link_id; }
@@ -57,16 +57,16 @@ class LinkConstraint
         link_contact_points.clear();
     }
 
-    void calcLinkRepresentativePoint()
+    void calcLinkLocalPos()
     {
-        link_representative_coord.translation() = std::accumulate(link_contact_points.begin(), link_contact_points.end(),
-                                                                  hrp::Vector3::Zero().eval())
+        link_local_coord.translation() = std::accumulate(link_contact_points.begin(), link_contact_points.end(),
+                                                         hrp::Vector3::Zero().eval())
             / link_contact_points.size() + cop_offset;
     }
-    Eigen::Isometry3d::ConstTranslationPart getLinkRepresentativePoint() const { return link_representative_coord.translation(); }
+    Eigen::Isometry3d::ConstTranslationPart localPos() const { return link_local_coord.translation(); }
 
-    Eigen::Isometry3d::LinearPart linkRot() { return link_representative_coord.linear(); }
-    Eigen::Isometry3d::ConstLinearPart linkRot() const { return link_representative_coord.linear(); }
+    Eigen::Isometry3d::LinearPart localRot() { return link_local_coord.linear(); }
+    Eigen::Isometry3d::ConstLinearPart localRot() const { return link_local_coord.linear(); }
 
     Eigen::Isometry3d& targetCoord() { return target_coord; }
     const Eigen::Isometry3d& targetCoord() const { return target_coord; }
@@ -87,21 +87,23 @@ class LinkConstraint
     {
         std::vector<Eigen::Vector2d> vertices;
         vertices.reserve(link_contact_points.size());
-        Eigen::Isometry3d::ConstTranslationPart target_pos = target_coord.translation();
-        Eigen::Isometry3d::ConstLinearPart target_rot = target_coord.linear();
+        Eigen::Isometry3d::ConstTranslationPart target_pos = targetPos();
+        Eigen::Isometry3d::ConstLinearPart target_rot = targetRot();
         for (const hrp::Vector3& point : link_contact_points) {
-            vertices.push_back((target_pos - target_rot * (link_representative_coord.translation() + point)).head<2>()); // TODO: rot確認
+            vertices.push_back((target_pos - target_rot * (link_local_coord.translation() + point)).head<2>()); // TODO: rot確認
         }
         return calcConvexHull(vertices); // TODO: 1点のときと2点のときの確認
     }
 
-    // void calcEnvironmentRepresentativeCoordFromContacts(const std::vector<Eigen::Isometry3d>& coords);
+    hrp::Vector3 calcActualTargetPosFromLinkState(const hrp::Vector3& link_pos, const hrp::Matrix33& link_rot) const
+    {
+        return link_pos + link_rot * localPos();
+    }
 
-    // Eigen::Isometry3d calcRepresentativeCoord(const std::vector<hrp::Vector3>& points, const hrp::Matrix33& rot);
-
-    // void rotateLinkRot(const hrp::Matrix33& rot);
-
-    // const Eigen::Isometry3d calcTransformedCoord(const Eigen::Isometry3d& coord); // TODO: ここか？
+    hrp::Matrix33 calcActualTargetRotFromLinkState(const hrp::Matrix33& link_rot) const
+    {
+        return link_rot * localRot();
+    }
 };
 
 struct ConstraintsWithCount
@@ -117,11 +119,8 @@ struct ConstraintsWithCount
         for (const LinkConstraint& constraint : constraints) {
             if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
             const double weight = constraint.getCOPWeight();
-            // TODO: 座標変換
-            //       target_coordを使うのは?
-            //       representative pointを使うかどうか
+            // TODO:
             //       面接触してる時みたいに、target_coordと実際がずれているときは？
-            // cop_pos += constraint.getLinkRepresentativePoint() * weight;
             cop_pos += constraint.targetPos() * weight;
             sum_weight += weight;
         }
@@ -182,9 +181,9 @@ struct ConstraintsWithCount
 
             Eigen::Isometry3d::ConstTranslationPart target_pos = constraint.targetPos();
             Eigen::Isometry3d::ConstLinearPart target_rot = constraint.targetRot();
-            const hrp::Vector3& link_representative_point = constraint.getLinkRepresentativePoint();
+            const hrp::Vector3& link_local_pos = constraint.localPos();
             for (const hrp::Vector3& point : constraint.getLinkContactPoints()) {
-                vertices.push_back((target_pos - target_rot * (link_representative_point + point)).head<2>()); // TODO: rot
+                vertices.push_back((target_pos - target_rot * (link_local_pos + point)).head<2>()); // TODO: rot
             }
         }
         return calcConvexHull(vertices);

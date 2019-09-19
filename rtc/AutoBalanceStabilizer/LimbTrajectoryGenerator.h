@@ -35,6 +35,7 @@ class LimbTrajectoryGenerator
     hrp::Vector3 pos = hrp::Vector3::Zero();
     hrp::Vector3 vel = hrp::Vector3::Zero();
     hrp::Vector3 acc = hrp::Vector3::Zero();
+    hrp::Matrix33 rot = hrp::Matrix33::Identity();
 
     // Params for delay Hoff & Arbib
     double delay_time_offset = 0.2; // [s]
@@ -68,17 +69,17 @@ class LimbTrajectoryGenerator
     /**
      * @fn
      * Calculate limb trajectory using via points and a current count
-     * @return std::tuple<position, velocity, acceleration>
      */
-    // std::tuple<hrp::Vector3, hrp::Vector3, hrp::Vector3> calcTrajectory(const size_t count);
     void calcTrajectory(const size_t count, const double dt);
 
     void setPos(const hrp::Vector3& _pos) { pos = _pos; }
     void setVel(const hrp::Vector3& _vel) { vel = _vel; }
     void setAcc(const hrp::Vector3& _acc) { acc = _acc; }
+    void setRot(const hrp::Matrix33& _rot) { rot = _rot; }
     const hrp::Vector3& getPos() const { return pos; }
     const hrp::Vector3& getVel() const { return vel; }
     const hrp::Vector3& getAcc() const { return acc; }
+    const hrp::Matrix33& getRot() const { return rot; }
 
     void setDelayTimeOffset(const double offset) { delay_time_offset = offset; }
     double getDelayTimeOffset() const { return delay_time_offset; }

@@ -53,7 +53,7 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
     {
         hrp::LinkConstraint rleg_constraint(0);
         for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        rleg_constraint.calcLinkRepresentativePoint();
+        rleg_constraint.calcLinkLocalPos();
         rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
         const_with_count.constraints.push_back(rleg_constraint);
     }
@@ -61,7 +61,7 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
     {
         hrp::LinkConstraint lleg_constraint(1);
         for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        lleg_constraint.calcLinkRepresentativePoint();
+        lleg_constraint.calcLinkLocalPos();
         lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
         const_with_count.constraints.push_back(lleg_constraint);
     }

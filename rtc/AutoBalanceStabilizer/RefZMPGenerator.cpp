@@ -93,7 +93,7 @@ void RefZMPGenerator::popAndPushRefZMP(const std::vector<ConstraintsWithCount>& 
     refzmp_list.pop_front();
 
     const size_t cur_index = getConstraintIndexFromCount(constraints_list, count);
-    if (constraints_list[cur_index].start_count == count) {
+    if (constraints_list[cur_index].start_count == count) { // 歩き始めにZMPの補間がされなくなる
         calcZMPInterpolationGoal(constraints_list, cur_index, count);
     }
 
