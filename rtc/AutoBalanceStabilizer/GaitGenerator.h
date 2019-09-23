@@ -103,6 +103,10 @@ class GaitGenerator
     void adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const size_t count);
 
     // -- RefZMPGenerator --
+    void setRefZMPList(const size_t count, const size_t start_index = 0)
+    {
+        zmp_gen->setRefZMPList(constraints_list, count, start_index);
+    }
     const hrp::Vector3& getCurrentRefZMP() const { return zmp_gen->getCurrentRefZMP(); }
     // -- RefZMPGenerator --
 

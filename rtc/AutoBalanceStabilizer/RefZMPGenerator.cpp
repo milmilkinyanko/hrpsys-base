@@ -37,10 +37,9 @@ void RefZMPGenerator::calcZMPInterpolationGoal(const std::vector<ConstraintsWith
                                                const double last_interpolation_time)
 
 {
-    hrp::Vector3 cur_zmp;
-    zmp_interpolator->get(cur_zmp.data(), false);
+    hrp::Vector3 goal_zmp;
+    zmp_interpolator->get(goal_zmp.data(), false); // Set current zmp as goal_zmp
 
-    hrp::Vector3 goal_zmp = cur_zmp;
     size_t goal_count = cur_count;
 
     if (cur_constraint_idx + 1 < constraints_list.size()) {
@@ -56,7 +55,6 @@ void RefZMPGenerator::calcZMPInterpolationGoal(const std::vector<ConstraintsWith
         goal_count = cur_count + static_cast<size_t>(last_interpolation_time / dt);
     }
 
-    zmp_interpolator->set(cur_zmp.data());
     zmp_interpolator->setGoal(goal_zmp.data(), (goal_count - cur_count) * dt, true);
 }
 
@@ -64,15 +62,11 @@ void RefZMPGenerator::calcZMPInterpolationGoal(const std::vector<ConstraintsWith
 // 次のZMPを見て，現在のZMPから補間するようにする
 // ZMPは支持領域で打ち切る
 void RefZMPGenerator::setRefZMPList(const std::vector<ConstraintsWithCount>& constraints_list,
-                                    const size_t list_size,
-                                    const size_t start_index)
+                                    const size_t cur_count, const size_t start_index)
 {
-    refzmp_list.resize(list_size);
-
-    size_t count = constraints_list[0].start_count;
     const size_t constraint_size = constraints_list.size();
-    const size_t max_count = count + list_size;
-    count += start_index;
+    const size_t max_count = cur_count + refzmp_list.size();
+    size_t count = cur_count + start_index;
     size_t zmp_index = start_index;
     size_t constraint_index = getConstraintIndexFromCount(constraints_list, count);
 
@@ -88,13 +82,15 @@ void RefZMPGenerator::setRefZMPList(const std::vector<ConstraintsWithCount>& con
 }
 
 void RefZMPGenerator::popAndPushRefZMP(const std::vector<ConstraintsWithCount>& constraints_list,
-                                       const size_t count)
+                                       const size_t cur_count)
 {
     refzmp_list.pop_front();
+    const size_t future_count = cur_count + refzmp_list.size() - 1;
 
-    const size_t cur_index = getConstraintIndexFromCount(constraints_list, count);
-    if (constraints_list[cur_index].start_count == count) { // 歩き始めにZMPの補間がされなくなる
-        calcZMPInterpolationGoal(constraints_list, cur_index, count);
+    // TODO: ZMPを補間するのではなく、Constraintのweightを補間する方が自然で楽? ZMP制御ではなくなった時も応用が効きそうだし、力分配もそのまま使えそう
+    const size_t cur_index = getConstraintIndexFromCount(constraints_list, future_count);
+    if (constraints_list[cur_index].start_count == future_count) { // 歩き始めにZMPの補間がされなくなる
+        calcZMPInterpolationGoal(constraints_list, cur_index, future_count);
     }
 
     hrp::Vector3 next_zmp;

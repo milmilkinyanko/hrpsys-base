@@ -13,11 +13,6 @@
 #include "EigenUtil.h"
 #include "AutoBalanceStabilizer.h"
 
-// TODO: use inline function
-#ifndef DEBUGP
-#define DEBUGP ((m_debugLevel == 1 && loop % 200 == 0) || m_debugLevel > 1)
-#endif
-
 using Guard = std::lock_guard<std::mutex>;
 // Utility functions
 using hrp::deg2rad;
@@ -100,20 +95,8 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_actCPOut("actCapturePoint", m_actCP),
       m_COPInfoOut("COPInfo", m_COPInfo),
 
-      m_AutoBalanceStabilizerServicePort("AutoBalanceStabilizerService"),
+      m_AutoBalanceStabilizerServicePort("AutoBalanceStabilizerService")
       // </rtc-template>
-      control_mode(MODE_IDLE),
-      // gait_type(BIPED),
-      gg_is_walking(false),
-      gg_solved(false),
-      sbp_offset(hrp::Vector3::Zero()),
-      sbp_cog_offset(hrp::Vector3::Zero()),
-      use_force(MODE_REF_FORCE),
-      prev_imu_sensor_vel(hrp::Vector3::Zero()),
-      graspless_manip_mode(false),
-      graspless_manip_arm("arms"),
-      graspless_manip_p_gain(hrp::Vector3::Zero()),
-      is_stop_mode(false)
 {
     m_service0.autobalancestabilizer(this);
 }
@@ -189,18 +172,18 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
                 }
 
                 // TODO: tmp, delete
-                hrp::Vector3 localPos;
+                hrp::Vector3 local_pos;
                 for (size_t j = 0; j < 3; j++) {
-                    coil::stringTo(localPos(j), end_effectors_str[i*ee_prop_num+3+j].c_str());
+                    coil::stringTo(local_pos(j), end_effectors_str[i*ee_prop_num+3+j].c_str());
                 }
 
-                double tmpv[4];
+                double axis_angle[4];
                 for (int j = 0; j < 4; j++ ) {
-                    coil::stringTo(tmpv[j], end_effectors_str[i*ee_prop_num+6+j].c_str());
+                    coil::stringTo(axis_angle[j], end_effectors_str[i*ee_prop_num+6+j].c_str());
                 }
-                const hrp::Matrix33 localR = Eigen::AngleAxis<double>(tmpv[3], hrp::Vector3(tmpv[0], tmpv[1], tmpv[2])).toRotationMatrix(); // rotation in VRML is represented by axis + angle
+                const hrp::Matrix33 local_rot = Eigen::AngleAxis<double>(axis_angle[3], hrp::Vector3(axis_angle[0], axis_angle[1], axis_angle[2])).toRotationMatrix(); // rotation in VRML is represented by axis + angle
 
-                st->addSTIKParam(ee_name, ee_target, ee_base, ikp_sensor_name, localPos,localR);
+                st->addSTIKParam(ee_name, ee_target, ee_base, ikp_sensor_name, local_pos, local_rot);
             }
         }
 
@@ -225,15 +208,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     //     }
     // }
 
-    // TODO: delete
     transition_interpolator = std::make_unique<interpolator>(1, m_dt, interpolator::HOFFARBIB, 1);
     transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
-    transition_interpolator_ratio = 0.0;
-    transition_time = 2.0;
-
-    adjust_footstep_interpolator = std::make_unique<interpolator>(1, m_dt, interpolator::HOFFARBIB, 1);
-    adjust_footstep_interpolator->setName(std::string(m_profile.instance_name)+" adjust_footstep_interpolator");
-    adjust_footstep_transition_time = 2.0;
 
     // load virtual force sensors
     readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
@@ -303,6 +279,10 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         ref_wrenches.resize(num_fsensors, hrp::dvector6::Zero());
         ref_wrenches_for_st.resize(num_fsensors, hrp::dvector6::Zero());
         act_wrenches.resize(num_fsensors, hrp::dvector6::Zero());
+
+        // Debug
+        m_refContactStates.data.length(2);
+        m_controlSwingSupportTime.data.length(3 * 2);
     }
 
     storeRobotStatesForIK();
@@ -351,28 +331,17 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     m_robot->calcForwardKinematics();
 
     if (control_mode != MODE_IDLE) {
-        // fixLegToCoords
-        gg->adjustCOPCoordToTarget(m_robot, loop);
-        m_robot->rootLink()->p = gg->rootPos();
-        m_robot->rootLink()->R = gg->rootRot();
-        m_robot->calcForwardKinematics();
+        adjustCOPCoordToTarget();
 
         // 脚軌道, COP, RootLink計算
         gg->forwardTimeStep(loop);
         gg->calcCogAndLimbTrajectory(loop, m_dt);
         ref_zmp = gg->getCurrentRefZMP();
 
-        // const hrp::ConstraintsWithCount& cur_const = gg->getCurrentConstraints(loop);
-        // std::cerr << "target pos: " << cur_const.calcCOPFromConstraints().transpose() << std::endl;
-        // std::cerr << "calc pos:   " << gg->calcReferenceCOPFromModel(m_robot, cur_const.constraints).transpose() << std::endl;
-        // std::cerr << "target rot:\n" << cur_const.calcCOPRotationFromConstraints() << std::endl;
-        // std::cerr << "calc rot:\n" << gg->calcReferenceCOPRotFromModel(m_robot, cur_const.constraints) << std::endl;
-
         // TODO: rootlink計算
         // TODO: IKを後ろに回す
         setIKConstraintsTarget();
-        fik->solveFullbodyIKLoop(ik_constraints, 1);
-        // fik->solveFullbodyIKLoop(ik_constraints, max_ik_iteration);
+        fik->solveFullbodyIKLoop(ik_constraints, max_ik_iteration);
     }
 
     storeRobotStatesForIK();
@@ -396,7 +365,6 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     } else {
         // TODO: 座標変換をライブラリ使うか関数実装する transform(vec, cur_coord, new_coord)
         ref_zmp_base_frame = m_robot->rootLink()->R.transpose() * (ref_zmp - m_robot->rootLink()->p);
-        // std::cerr << "ref_zmp_base: " << ref_zmp_base_frame.transpose() << std::endl;
     }
 
     hrp::Vector3  ref_basePos = m_robot->rootLink()->p;
@@ -429,10 +397,10 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     }
 
     // Set reference acceleration for kalman filter before executing stabilizer
-    hrp::Vector3 kf_acc_ref;
+    hrp::Vector3 kf_acc_ref = hrp::Vector3::Zero();
     {
-        const hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
-        if (sen != NULL) {
+        const hrp::Sensor* const sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
+        if (sen) {
             const hrp::Vector3 imu_sensor_pos = sen->link->p + sen->link->R * sen->localPos;
             const hrp::Vector3 imu_sensor_vel = (imu_sensor_pos - prev_imu_sensor_pos) / m_dt;
             // convert to imu sensor local acceleration
@@ -679,17 +647,22 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_accRefOut.write();
 
     // control parameters
-    // m_refContactStates.tm = m_qRef.tm;
-    // for (size_t i = 0; i < m_refContactStates.data.length(); ++i) {
-    //     m_refContactStates.data[i] = ref_contact_states[i];
-    // }
-    // m_refContactStatesOut.write();
+    {
+        m_refContactStates.tm = m_qRef.tm;
+        const auto& cs = gg->getCurrentConstraints(loop);
+        for (size_t i = 0; i < m_refContactStates.data.length(); ++i) {
+            m_refContactStates.data[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
+        }
+        m_refContactStatesOut.write();
+    }
 
-    // m_controlSwingSupportTime.tm = m_qRef.tm;
-    // for (size_t i = 0; i < m_controlSwingSupportTime.data.length(); ++i) {
-    //     m_controlSwingSupportTime.data[i] = control_swing_support_time[i];
-    // }
-    // m_controlSwingSupportTimeOut.write();
+    m_controlSwingSupportTime.tm = m_qRef.tm;
+    for (size_t i = 0; i < 2; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+            m_controlSwingSupportTime.data[3 * i + j] = ik_constraints[i].targetPos[j];
+        }
+    }
+    m_controlSwingSupportTimeOut.write();
 
     // Data from Stabilizer
     m_originNewRefZmp.tm = m_qRef.tm;
@@ -798,16 +771,6 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     return init_constraints;
 }
 
-// void AutoBalanceStabilizer::addBodyConstraint(std::vector<hrp::LinkConstraint>& constraints,
-//                                               const hrp::BodyPtr& _robot)
-// {
-//     constraints.reserve(constraints.size() + 1);
-//     hrp::LinkConstraint body_constraint(_robot->rootLink()->index);
-//     body_constraint.setConstraintType(hrp::LinkConstraint::FLOAT);
-//     body_constraint.setCOPWeight(0.0);
-//     constraints.push_back(std::move(body_constraint));
-// }
-
 void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
                                                const std::vector<hrp::LinkConstraint>& constraints)
 {
@@ -825,7 +788,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // Body
     ik_constraints[i].target_link_name = _robot->rootLink()->name;
     hrp::dvector6 root_weight;
-    root_weight << 0, 0, 0, 1e-3, 1e-3, 1e-3;
+    root_weight << 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3;
     ik_constraints[i].constraint_weight = root_weight;
     fik->rootlink_rpy_llimit << deg2rad(-15), deg2rad(-30), deg2rad(-180);
     fik->rootlink_rpy_ulimit << deg2rad(15), deg2rad(45), deg2rad(180);
@@ -931,6 +894,14 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
 //     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 // }
 
+void AutoBalanceStabilizer::adjustCOPCoordToTarget()
+{
+    gg->adjustCOPCoordToTarget(m_robot, loop);
+    m_robot->rootLink()->p = gg->rootPos();
+    m_robot->rootLink()->R = gg->rootRot();
+    m_robot->calcForwardKinematics();
+}
+
 // TODO: delete limbs
 void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
 {
@@ -949,11 +920,7 @@ void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerSe
     //     gg.reset(new hrp::GaitGenerator(m_robot, m_dt, std::move(cur_constraints), PREVIEW_TIME));
     // }
 
-    // fixLegToCoords
-    gg->adjustCOPCoordToTarget(m_robot, loop);
-    m_robot->rootLink()->p = gg->rootPos();
-    m_robot->rootLink()->R = gg->rootRot();
-    m_robot->calcForwardKinematics();
+    adjustCOPCoordToTarget();
 
     gg->resetCOGTrajectoryGenerator(m_robot->calcCM(), m_dt);
     control_mode = MODE_SYNC_TO_ABC;
@@ -1044,17 +1011,21 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
 
     const size_t start_loop = loop + static_cast<size_t>(5 / m_dt);
     const double velocity = y;
-    const double step_time = th;
+    const double step_time = std::max(0.6, th);
     const size_t step_count = static_cast<size_t>(step_time / m_dt);
+
+    Guard guard(m_mutex);
     gg->addCurrentConstraintForDummy(loop + static_cast<size_t>(2 / m_dt));
     gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop,                  step_time, m_dt, 0.3, deg2rad(10), 7, 13);
     gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 2, step_time, m_dt, 0.3, deg2rad(10), 13, 7);
     gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 4, step_time, m_dt, 0.3, deg2rad(10), 7, 13);
     gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 6, step_time, m_dt, 0.3, deg2rad(10), 13, 7);
 
-    for (auto&& constraint : gg->getConstraintsList()) {
-        std::cerr << "pos0: " << constraint.constraints[0].targetPos().transpose() << " pos1: " << constraint.constraints[1].targetPos().transpose() << " count: " << constraint.start_count << " type0: " << constraint.constraints[0].getConstraintType() << " type1: " << constraint.constraints[1].getConstraintType() << std::endl;
-    }
+    gg->setRefZMPList(loop); // addCurrentConstraintForDummyのカウントからでよい
+
+    // for (auto&& constraint : gg->getConstraintsList()) {
+    //     std::cerr << "pos0: " << constraint.constraints[0].targetPos().transpose() << " pos1: " << constraint.constraints[1].targetPos().transpose() << " count: " << constraint.start_count << " type0: " << constraint.constraints[0].getConstraintType() << " type1: " << constraint.constraints[1].getConstraintType() << std::endl;
+    // }
 
     return true;
 }

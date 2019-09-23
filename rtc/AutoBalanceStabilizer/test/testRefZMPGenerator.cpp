@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 
     const size_t FINISH_COUNT = start_count + STEP_COUNT + SUPPORT_COUNT + static_cast<size_t>(3.0 / dt);
     hrp::RefZMPGenerator zmp_generator(dt, FINISH_COUNT, constraints_list[0]);
-    zmp_generator.setRefZMPList(constraints_list, FINISH_COUNT);
+    zmp_generator.setRefZMPList(constraints_list, 0);
 
     const std::string fname("/tmp/testRefZMP.dat");
     {

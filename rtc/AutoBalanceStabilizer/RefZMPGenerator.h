@@ -42,10 +42,9 @@ class RefZMPGenerator
         zmp_interpolator->setInterpolationMode(i_mode);
     }
     void setRefZMPList(const std::vector<ConstraintsWithCount>& constraints_list,
-                       const size_t list_size,
-                       const size_t start_index = 0);
+                       const size_t cur_count, const size_t start_index = 0);
     void popAndPushRefZMP(const std::vector<ConstraintsWithCount>& constraints_list,
-                          const size_t count);
+                          const size_t cur_count);
 };
 
 }

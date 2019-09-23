@@ -203,6 +203,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     std::vector<hrp::IKConstraint> ik_constraints;
     std::unique_ptr<hrp::FullbodyInverseKinematicsSolver> fik;
 
+    inline bool DEBUGP() { return (m_debugLevel == 1 && loop % 200 == 0) || m_debugLevel > 1; }
+
     inline bool loadModel(hrp::BodyPtr body, const string& model_path);
 
     // -- Functions for OpenRTM port --
@@ -216,7 +218,6 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
                                  const hrp::Vector3& sbp_cog_offset,
                                  const hrp::Vector3& acc_ref,
                                  const stabilizerLogData& st_log_data);
-
     // -- Functions for OpenRTM port --
 
     std::vector<hrp::LinkConstraint> readContactPointsFromProps(const RTC::Properties& prop);
@@ -239,7 +240,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
         m_robot->calcForwardKinematics();
     }
 
-
+    void adjustCOPCoordToTarget();
 
     void writeOutportDataForLeggedRobot();
     void getTargetParameters();
@@ -289,12 +290,16 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 
     // for gg
     std::unique_ptr<hrp::GaitGenerator> gg;
-    bool gg_is_walking, gg_solved;
+    bool gg_is_walking = false;
 
     // for abc
-    hrp::Vector3 ref_cog, ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset;
+    hrp::Vector3 ref_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 prev_ref_zmp = hrp::Vector3::Zero();
+
+    hrp::Vector3 prev_imu_sensor_pos = hrp::Vector3::Zero();
+    hrp::Vector3 prev_imu_sensor_vel = hrp::Vector3::Zero();
     // enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
-    enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
+    enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode = MODE_IDLE;
     std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
     std::vector<std::string> sensor_names, leg_names, ee_vec;
     Eigen::Isometry3d target_root;
@@ -302,22 +307,17 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     double d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2];
     bool use_limb_stretch_avoidance;
 
-    double transition_interpolator_ratio, transition_time, zmp_transition_time, adjust_footstep_transition_time, leg_names_interpolator_ratio;
-    std::unique_ptr<interpolator> zmp_offset_interpolator;
+    double transition_interpolator_ratio = 0;
+    double transition_time = 2.0;
     std::unique_ptr<interpolator> transition_interpolator;
-    std::unique_ptr<interpolator> adjust_footstep_interpolator;
-    std::unique_ptr<interpolator> leg_names_interpolator;
 
     // static balance point offsetting
-    hrp::Vector3 sbp_offset, sbp_cog_offset;
-    enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force;
+    hrp::Vector3 sbp_offset = hrp::Vector3::Zero();
+    hrp::Vector3 sbp_cog_offset = hrp::Vector3::Zero();
+    enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force = MODE_REF_FORCE;
     std::vector<hrp::Vector3> ref_forces, ref_moments;
 
-    bool is_legged_robot, is_stop_mode, is_hand_fix_mode, is_hand_fix_initial;
-    bool graspless_manip_mode;
-    std::string graspless_manip_arm;
-    hrp::Vector3 graspless_manip_p_gain;
-    // rats::coordinates graspless_manip_reference_trans_coords;
+    bool is_stop_mode = false;
 
     hrp::InvDynStateBuffer idsb;
     std::vector<IIRFilter> invdyn_zmp_filters;
