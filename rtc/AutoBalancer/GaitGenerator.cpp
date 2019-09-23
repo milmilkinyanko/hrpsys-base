@@ -1273,7 +1273,7 @@ namespace rats
 
     // check for touch wall
     // TODO: should consider the case where is_out = true while footstep is inside the limit_stride (like stepping stone)
-    if (short_of_footstep.norm() > 5e-2 && (cur_fs.worldcoords.pos - fs_for_touch_wall.worldcoords.pos).norm() > 1e-2) { // 1cm
+    if (short_of_footstep.norm() > 5e-2 && (cur_fs.worldcoords.pos - fs_for_touch_wall.worldcoords.pos).norm() > 1e-2 && lcg.get_footstep_index() > 1) { // 1cm
       is_emergency_touch_wall = true;
     }
   }

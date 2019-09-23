@@ -609,6 +609,7 @@ bool EmergencyStopper::setEmergencyJointAngles(const double *angles, const bool 
     else m_stop_posture[i] = deg2rad(angles[i]);
     m_qTouchWall.data[i] = m_stop_posture[i];
   }
+  retrieve_time = default_retrieve_time;
   m_qTouchWall.tm = m_qRef.tm;
   m_qTouchWallOut.write();
   solved = _solved;
