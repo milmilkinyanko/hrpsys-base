@@ -1531,7 +1531,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = target_root_p;// will be ignored by selection_vec
         tmp.targetRpy = hrp::rpyFromRot(target_root_R);
-        tmp.constraint_weight << 0,0,0,1e-7,1e-7,1e-8; // COMMON
+        tmp.constraint_weight << 0,0,0,1e-5,1e-5,1e-5; // COMMON
         ik_tgt_list.push_back(tmp);
     }{
         IKConstraint tmp;
