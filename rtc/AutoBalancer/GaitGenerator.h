@@ -1466,7 +1466,7 @@ namespace rats
             }
             // preprev foot frame
             target_p = prev_fs_pos + prev_fs_rot * target_p;
-            short_of_footstep.head(2) = target_p.head(2) - p;
+            short_of_footstep.head(2) = p - target_p.head(2);
           }
         }
         p += offset.head(2);
