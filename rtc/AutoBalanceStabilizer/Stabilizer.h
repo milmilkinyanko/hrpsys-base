@@ -12,15 +12,17 @@
 
 #include <memory>
 #include <mutex>
+#include <array>
 #include <hrpModel/Body.h>
-#include "../ImpedanceController/JointPathEx.h"
-#include "../ImpedanceController/RatsMatrix.h"
+#include "../ImpedanceController/JointPathEx.h" // TODO: delete
+#include "../ImpedanceController/RatsMatrix.h" // TODO: delete
 #include "../TorqueFilter/IIRFilter.h"
 #include "hrpsys/idl/AutoBalanceStabilizerService.hh"
-#include "TwoDofController.h"
+#include "Utility.h"
 #include "ZMPDistributor.h"
 
-struct paramsFromAutoBalancer {
+struct paramsFromAutoBalancer
+{
     hrp::dvector q_ref;
     hrp::Vector3 zmp_ref;
     hrp::Vector3 base_pos_ref;
@@ -34,13 +36,15 @@ struct paramsFromAutoBalancer {
     hrp::Vector3 sbp_cog_offset;
 };
 
-struct paramsFromSensors {
+struct paramsFromSensors
+{
     hrp::dvector q_current;
     hrp::Vector3 rpy;
     std::vector<hrp::dvector6> wrenches;
 };
 
-struct stabilizerLogData {
+struct stabilizerLogData
+{
     hrp::Vector3 new_ref_zmp;
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
@@ -62,10 +66,9 @@ class Stabilizer
     void calcTargetParameters(const paramsFromAutoBalancer& abc_param);
     void calcActualParameters(const paramsFromSensors& sensor_param);
     void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
-    void sync_2_st();
-    void sync_2_idle();
+    void syncToSt();
+    void syncToIdle();
     bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
-    void calcRUNST();
     void moveBasePosRotForBodyRPYControl ();
     void calcSwingSupportLimbGain();
     void calcTPCC();
@@ -75,7 +78,7 @@ class Stabilizer
     void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
     void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
     void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
-    std::string getStabilizerAlgorithmString (OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm);
+    std::string getStabilizerAlgorithmString(const OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm);
     void waitSTTransition();
     // funcitons for calc final torque output
     void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
@@ -152,8 +155,6 @@ class Stabilizer
               target_ee_diff_r(hrp::Matrix33::Identity()),
               d_rpy_swing(hrp::Vector3::Zero()),
               d_pos_swing(hrp::Vector3::Zero()),
-              // target_ee_diff_p_filter(std::make_shared<FirstOrderLowPassFilter<hrp::Vector3>>(50.0, m_dt, hrp::Vector3::Zero())), // [Hz]
-              // target_ee_diff_r_filter(std::make_shared<FirstOrderLowPassFilter<hrp::Vector3>>(50.0, m_dt, hrp::Vector3::Zero())), // [Hz]
               prev_d_pos_swing(hrp::Vector3::Zero()),
               prev_d_rpy_swing(hrp::Vector3::Zero()),
               // IK param
@@ -187,27 +188,31 @@ class Stabilizer
         size_t ik_loop_count;
     };
 
-    enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
+    enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
 
     hrp::BodyPtr m_robot;
-    std::string comp_name;
-    double dt;
-    unsigned int loop;
     std::mutex m_mutex;
+    const std::string comp_name;
+    const double dt;
+    unsigned int loop = 0;
+    double gravitational_acceleration = 9.80665; // [m/s^2]
+    double total_mass;
 
     // TODO: 整理
     int transition_count;
+    double transition_time = 2.0;
     // std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
     std::vector<std::shared_ptr<hrp::JointPathEx>> jpe_v;
     hrp::dvector transition_joint_q, qorg, qrefv;
     std::vector<STIKParam> stikp;
     std::map<std::string, size_t> contact_states_index_map;
     std::vector<bool> ref_contact_states, prev_ref_contact_states, act_contact_states, is_ik_enable, is_feedback_control_enable, is_zmp_calc_enable;
-    std::vector<double> toe_heel_ratio;
+    std::vector<double> toe_heel_ratio; // TODO: delete
     int m_is_falling_counter;
     std::vector<int> m_will_fall_counter;
-    int is_air_counter, detection_count_to_air;
-    bool is_legged_robot, on_ground, is_seq_interpolating, eefm_use_force_difference_control, eefm_use_swing_damping, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
+    size_t is_air_counter = 0;
+    size_t detection_count_to_mode_air = 0;
+    bool is_legged_robot, on_ground, is_seq_interpolating, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
     bool is_walking, is_estop_while_walking;
     hrp::Vector3 current_root_p, target_root_p;
     hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot, act_Rs;
@@ -217,11 +222,11 @@ class Stabilizer
     rats::coordinates target_foot_midcoords;
     hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
     hrp::Vector3 act_zmp, act_cog, act_cogvel, act_cp, rel_act_zmp, rel_act_cp, prev_act_cog, act_base_rpy, current_base_rpy, current_base_pos, sbp_cog_offset, cp_offset, diff_cp;
-    hrp::Vector3 foot_origin_offset[2];
+    hrp::Vector3 foot_origin_offset[2]; // TODO: delete
     std::vector<double> prev_act_force_z;
     double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
     std::unique_ptr<FirstOrderLowPassFilter<hrp::Vector3>> act_cogvel_filter;
-    OpenHRP::AutoBalanceStabilizerService::STAlgorithm st_algorithm;
+    OpenHRP::AutoBalanceStabilizerService::STAlgorithm st_algorithm = OpenHRP::AutoBalanceStabilizerService::EEFM;
     std::unique_ptr<SimpleZMPDistributor> szd;
     std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
     std::vector<hrp::Vector3> contact_cop_info;
@@ -229,36 +234,50 @@ class Stabilizer
     std::vector<double> control_swing_support_time;
 
     // TPCC
-    double k_tpcc_p[2], k_tpcc_x[2], d_rpy[2], k_brot_p[2], k_brot_tc[2];
-
-    // RUN ST
-    TwoDofController m_tau_x[2], m_tau_y[2], m_f_z;
-    hrp::Vector3 pdr;
-    double m_torque_k[2], m_torque_d[2]; // 3D-LIP parameters (0: x, 1: y)
-    double pangx_ref, pangy_ref, pangx, pangy;
-    double k_run_b[2], d_run_b[2];
-    double rdx, rdy, rx, ry;
+    std::array<double, 2> k_tpcc_p{{0.2, 0.2}};
+    std::array<double, 2> k_tpcc_x{{4.0, 4.0}};
+    std::array<double, 2> k_brot_p{{0.1, 0.1}};
+    std::array<double, 2> k_brot_tc{{1.5, 1.5}};
+    std::array<double, 2> d_rpy{{0, 0}};
 
     // EEFM ST
-    double eefm_k1[2], eefm_k2[2], eefm_k3[2], eefm_zmp_delay_time_const[2], eefm_body_attitude_control_gain[2], eefm_body_attitude_control_time_const[2];
-    double eefm_pos_time_const_swing, eefm_pos_transition_time, eefm_pos_margin_time, eefm_gravitational_acceleration;
-    std::vector<double> eefm_swing_damping_force_thre, eefm_swing_damping_moment_thre;
+    constexpr static double K_RATIO = 0.9;
+    std::array<double, 2> eefm_k1{{-1.41429  * K_RATIO, -1.41429  * K_RATIO}};
+    std::array<double, 2> eefm_k2{{-0.404082 * K_RATIO, -0.404082 * K_RATIO}};
+    std::array<double, 2> eefm_k3{{-0.18     * K_RATIO, -0.18     * K_RATIO}};
+    std::array<double, 2> eefm_body_attitude_control_gain{{0.5, 0.5}};
+    std::array<double, 2> eefm_body_attitude_control_time_const{{1e5, 1e5}};
+    std::array<double, 2> eefm_zmp_delay_time_const{{0.055, 0.055}};
+
+    hrp::Vector3 eefm_swing_pos_damping_gain = hrp::Vector3(20 * 5, 20 * 5, 1e5);
+    hrp::Vector3 eefm_swing_rot_damping_gain = hrp::Vector3(33600, 33600, 7000);
+
+    bool eefm_use_force_difference_control = true;
+    bool eefm_use_swing_damping = false;
+
+    double eefm_pos_time_const_swing = 0.08;
+    double eefm_pos_transition_time = 0.01;
+    double eefm_pos_margin_time = 0.02;
+    std::vector<double> eefm_swing_damping_force_thre{3, 300};
+    std::vector<double> eefm_swing_damping_moment_thre{3, 15};
+
     hrp::Vector3 new_refzmp, rel_cog, ref_zmp_aux, diff_foot_origin_ext_moment;
     hrp::Vector3 pos_ctrl;
     hrp::Vector3 ref_total_force, ref_total_moment;
 
     // Total foot moment around the foot origin coords (relative to foot origin coords)
     hrp::Vector3 ref_total_foot_origin_moment, act_total_foot_origin_moment;
-    hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
-    double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
-    std::vector<double> cp_check_margin, tilt_margin;
+    double cop_check_margin = 20.0 * 1e-3; // [m]
+    double contact_decision_threshold;
+    std::vector<double> cp_check_margin{4, 30 * 1e-3}; // [m]
+    std::vector<double> tilt_margin{2, hrp::deg2rad(30)};
 
     // Emergency
     bool is_emergency;
     bool reset_emergency_flag;
     bool whether_send_emergency_signal; // temporary variable to send emergency signal
     int emergency_signal;
-    OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode;
+    OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode = OpenHRP::AutoBalanceStabilizerService::NO_CHECK;
 };
 
 #endif // ABS_STABILIZER_H

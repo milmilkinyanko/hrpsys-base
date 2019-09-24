@@ -10,9 +10,10 @@
 #ifndef ZMP_DISTRIBUTOR_H
 #define ZMP_DISTRIBUTOR_H
 
-#include <hrpModel/Body.h>
 #include <iostream>
 #include <iterator>
+#include <memory>
+#include <hrpModel/Body.h>
 #include "../ImpedanceController/JointPathEx.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include <hrpUtil/MatrixSolvers.h>
@@ -57,14 +58,14 @@ class SimpleZMPDistributor
 {
     FootSupportPolygon fs, fs_mgn;
     double leg_inside_margin, leg_outside_margin, leg_front_margin, leg_rear_margin, wrench_alpha_blending;
-    boost::shared_ptr<FirstOrderLowPassFilter<double> > alpha_filter;
+    std::unique_ptr<FirstOrderLowPassFilter<double> > alpha_filter;
     std::vector<Eigen::Vector2d> convex_hull;
     enum projected_point_region {LEFT, MIDDLE, RIGHT};
 public:
     enum leg_type {RLEG, LLEG, RARM, LARM, BOTH, ALL};
     SimpleZMPDistributor (const double _dt) : wrench_alpha_blending (0.5)
     {
-        alpha_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(1e7, _dt, 0.5)); // [Hz], Almost no filter by default
+        alpha_filter = std::make_unique<FirstOrderLowPassFilter<double>>(1e7, _dt, 0.5); // [Hz], Almost no filter by default
     };
 
     inline bool is_inside_foot (const hrp::Vector3& leg_pos, const bool is_lleg, const double margin = 0.0)
