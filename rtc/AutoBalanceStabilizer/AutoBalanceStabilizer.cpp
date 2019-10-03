@@ -133,7 +133,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
 
             m_robot->calcForwardKinematics();
             // TODO: FixLegToCoords ?
-            gg = std::make_unique<hrp::GaitGenerator>(m_robot, m_dt, std::move(init_constraints), PREVIEW_TIME);
+            gg = std::make_unique<hrp::GaitGenerator>(m_robot, m_mutex, m_dt, std::move(init_constraints), PREVIEW_TIME);
         } else {
             std::cerr << "[" << m_profile.instance_name << "] failed to read contact points. GaitGenerator cannot be created." << std::endl;
         }
@@ -322,6 +322,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     Guard guard(m_mutex); // TODO: スコープ確認
 
     ++loop;
+    gg->setCurrentLoop(loop);
     readInportData();
 
     // - 現在状態計算
@@ -414,14 +415,35 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     hrp::dvector abc_qref(m_robot->numJoints()); // TODO: IKなしで大丈夫なのか，必要なのか
     copyJointAnglesFromRobotModel(abc_qref, m_robot);
 
+    // TODO: StabilizerのLinkConstraints対応をしたら消す
+    const auto& cs = gg->getCurrentConstraints(loop);
+    const size_t cs_size = cs.constraints.size();
+    ref_contact_states.resize(cs_size);
+    control_swing_support_time.resize(cs_size);
+    for (size_t i = 0; i < cs_size; ++i) {
+        ref_contact_states[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
+
+        if (cs.constraints[i].getConstraintType() != hrp::LinkConstraint::FLOAT) {
+            control_swing_support_time[i] = 1.0;
+        } else {
+            const std::vector<hrp::ConstraintsWithCount>& constraints = gg->getConstraintsList();
+            size_t index = hrp::getConstraintIndexFromCount(constraints, loop);
+            for (; index < constraints.size(); ++index) {
+                if (constraints[index].constraints[i].getConstraintType() == hrp::LinkConstraint::FIX) break;
+            }
+            if (index == constraints.size()) control_swing_support_time[i] = 1.0;
+            else control_swing_support_time[i] = (constraints[index].start_count - cs.start_count) * m_dt;
+        }
+    }
+
     // TODO: Rotをわざわざrpyにして渡すのはNG
     // TODO: STでtarget_root_pとikpのtarget_p0, target_r0を更新
     //       ikpを共通化して、STに渡す (ぐずぐずになるのはいまいちな気もするが)
-    // st->execStabilizer(paramsToStabilizer{abc_qref, ref_zmp_base_frame, ref_basePos,
-    //                                       hrp::rpyFromRot(ref_baseRot), gg_is_walking, ref_contact_states, // toe_heel_ratio,
-    //                                       control_swing_support_time, ref_wrenches_for_st, // limb_cop_offsets,
-    //                                       sbp_cog_offset},
-    //                    paramsFromSensors{q_act, act_rpy, act_wrenches});
+    st->execStabilizer(paramsToStabilizer{abc_qref, ref_zmp_base_frame, ref_basePos,
+                                          hrp::rpyFromRot(ref_baseRot), gg_is_walking, ref_contact_states, // toe_heel_ratio,
+                                          control_swing_support_time, ref_wrenches_for_st, // limb_cop_offsets,
+                                          sbp_cog_offset},
+                       paramsFromSensors{q_act, act_rpy, act_wrenches});
 
     writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, ref_zmp_base_frame,
                      gg->getCog(), sbp_cog_offset, kf_acc_ref, st->getStabilizerLogData());
@@ -819,11 +841,7 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
 
     // COM
     ik_constraints[i].targetPos = gg->getCog();
-    // ik_constraints[i].targetPos = m_robot->calcCM();
-    // std::cerr << "ref cog: " << gg->getCog().transpose() << std::endl;
-    // std::cerr << "cur cog: " << m_robot->calcCM().transpose() << std::endl;
     ik_constraints[i].targetOmega = hrp::Vector3::Zero();
-    // ik_constraints[i].targetRpy = hrp::Vector3::Zero();
 
     restoreRobotStatesForIK();
     fik->setReferenceRobotStatesFromBody(m_robot);
@@ -914,12 +932,8 @@ void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerSe
     transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
     prev_ref_zmp = ref_zmp;
 
-    // {
-    //     constexpr double PREVIEW_TIME = 1.6; // TODO
-    //     std::vector<hrp::LinkConstraint> cur_constraints = gg->getCurrentConstraints(loop).constraints;
-    //     gg.reset(new hrp::GaitGenerator(m_robot, m_dt, std::move(cur_constraints), PREVIEW_TIME));
-    // }
-
+    // TODO: mutexのためSTが終わった段階で呼ばれるので，m_robotが想定外のところにあるのでその修正．いずれ無くしたい
+    restoreRobotStatesForIK();
     adjustCOPCoordToTarget();
 
     gg->resetCOGTrajectoryGenerator(m_robot->calcCM(), m_dt);
@@ -1007,25 +1021,18 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
         return false;
     }
 
-    gg->setDefaultStepHeight(x);
+    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
+    target.translation() += target.linear() * hrp::Vector3(x, y, 0);
+    target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d(0, 0, 1)).toRotationMatrix();
 
-    const size_t start_loop = loop + static_cast<size_t>(5 / m_dt);
-    const double velocity = y;
-    const double step_time = std::max(0.6, th);
-    const size_t step_count = static_cast<size_t>(step_time / m_dt);
+    // TODO: confファイルからcycleをよむ
+    std::vector<int> support_link_cycle{13, 7};
+    std::vector<int> swing_link_cycle{7, 13};
+    if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
 
     Guard guard(m_mutex);
-    gg->addCurrentConstraintForDummy(loop + static_cast<size_t>(2 / m_dt));
-    gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop,                  step_time, m_dt, 0.3, deg2rad(10), 7, 13);
-    gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 2, step_time, m_dt, 0.3, deg2rad(10), 13, 7);
-    gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 4, step_time, m_dt, 0.3, deg2rad(10), 7, 13);
-    gg->addNextFootStepFromVelocity(velocity, 0, 0, start_loop + step_count * 6, step_time, m_dt, 0.3, deg2rad(10), 13, 7);
-
-    gg->setRefZMPList(loop); // addCurrentConstraintForDummyのカウントからでよい
-
-    // for (auto&& constraint : gg->getConstraintsList()) {
-    //     std::cerr << "pos0: " << constraint.constraints[0].targetPos().transpose() << " pos1: " << constraint.constraints[1].targetPos().transpose() << " count: " << constraint.start_count << " type0: " << constraint.constraints[0].getConstraintType() << " type1: " << constraint.constraints[1].getConstraintType() << std::endl;
-    // }
+    gg_is_walking = true;
 
     return true;
 }

@@ -189,10 +189,10 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 
   private:
     hrp::BodyPtr m_robot = boost::make_shared<hrp::Body>();
-    double m_dt;
     std::mutex m_mutex;
+    double m_dt;
     unsigned int m_debugLevel = 0;
-    unsigned int loop = 0;
+    size_t loop = 0;
 
     // Fullbody Inverse Kinematics Solver
     hrp::dvector q_prev_ik;

@@ -10,8 +10,8 @@
 #define GAITGENERATORABS_H
 
 #include <vector>
-#include <deque>
 #include <memory>
+#include <mutex>
 
 #include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
@@ -27,20 +27,35 @@ namespace hrp {
 class GaitGenerator
 {
   private:
+    std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
     const size_t root_id = 0;
     Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
+    size_t loop = 0;
 
     size_t cur_const_idx = 0; // To reduce calculation time
 
-    // Gait parameter
-    double default_single_support_time = 1.0;
-    double default_double_support_time = 0.25;
+    /// Gait parameter
+    // double default_single_support_time = 1.0;
+    // double default_double_support_time = 0.25;
+    size_t default_single_support_count;
+    size_t default_double_support_count;
+    size_t default_toe_support_count; // memo: toeはsingle supportに含まれる
+    // size_t default_heel_support_count;
     double default_step_height = 0.10;
-    double max_stride = 1.5;
-    double max_rot_angle = deg2rad(90);
-    std::vector<int> default_support_cycle; // TODO: std::vector<std::vector<int>>
-    std::vector<int> default_swing_cycle;
+    double max_stride = 0.1;
+    double max_rot_angle = deg2rad(10);
+
+    // Walking cycle
+    std::vector<int> support_limb_cycle; // TODO: std::vector<std::vector<int>>
+    std::vector<int> swing_limb_cycle;
+    // std::vector<std::vector<int>> support_limb_cycle;
+    // std::vector<std::vector<int>> swing_limb_cycle;
     size_t current_cycle = 0;
+
+    // Toe-heel parameter
+    bool default_use_toe_heel = false;
+    double heel_contact_angle = deg2rad(15);
+    double toe_kick_angle = deg2rad(15);
 
     // Velocity mode parameter
     bool is_velocity_mode = false; // TODO: enum?
@@ -48,7 +63,7 @@ class GaitGenerator
     double vel_y = 0;
     double vel_yaw = 0;
 
-    // Instance
+    /// Instance
     std::vector<ConstraintsWithCount> constraints_list;
     std::vector<LimbTrajectoryGenerator> limb_gens;
     std::unique_ptr<RefZMPGenerator> zmp_gen;
@@ -56,10 +71,6 @@ class GaitGenerator
     // TODO: STも持っても良いかも (AutoBalancerを上ではなくする)
 
     hrp::Vector3 prev_ref_cog = hrp::Vector3::Zero();
-    // TODO: 使い方をよく考える
-    //       default
-    std::vector<std::vector<int>> support_limb_cycle;
-    std::vector<std::vector<int>> swing_limb_cycle;
 
     // -- COGTrajectoryGenerator --
     size_t preview_window = 800;
@@ -73,9 +84,12 @@ class GaitGenerator
 
   public:
     GaitGenerator(const hrp::BodyPtr& _robot,
+                  std::mutex& _mutex,
                   const double _dt,
                   std::vector<LinkConstraint>&& init_constraints,
                   const double preview_time = 1.6);
+
+    void setCurrentLoop(const size_t _loop) { loop = _loop; }
 
     void setDefaultStepHeight(const double _height) { default_step_height = _height; }
 
@@ -83,6 +97,14 @@ class GaitGenerator
     void calcCogAndLimbTrajectory(const size_t cur_count, const double dt);
     void addLinkConstraint(); // TODO
 
+    void setConstraintsList(const decltype(constraints_list)& _constraints) { constraints_list = _constraints; }
+    void addConstraintsList(const decltype(constraints_list)& _constraints)
+    {
+        constraints_list.reserve(constraints_list.size() + _constraints.size());
+        for (const auto& constraints : _constraints) {
+            constraints_list.push_back(constraints);
+        }
+    }
     const ConstraintsWithCount& getCurrentConstraints(const size_t count) const
     {
         const size_t index = getConstraintIndexFromCount(constraints_list, count);
@@ -103,9 +125,9 @@ class GaitGenerator
     void adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const size_t count);
 
     // -- RefZMPGenerator --
-    void setRefZMPList(const size_t count, const size_t start_index = 0)
+    void setRefZMPList(const size_t cur_count, const size_t start_index = 0)
     {
-        zmp_gen->setRefZMPList(constraints_list, count, start_index);
+        zmp_gen->setRefZMPList(constraints_list, cur_count, start_index);
     }
     const hrp::Vector3& getCurrentRefZMP() const { return zmp_gen->getCurrentRefZMP(); }
     // -- RefZMPGenerator --
@@ -150,10 +172,32 @@ class GaitGenerator
         constraints_list.push_back(std::move(dummy_constraints));
     }
 
-    void addNextFootStepFromVelocity(const double vel_x, const double vel_y, const double vel_yaw,
-                                     const size_t swing_start_count, const double step_time, const double dt,
-                                     const double max_step_length, const double max_rotate_angle /*[rad]*/,
-                                     const int support_id, const int swing_id);
+    std::vector<ConstraintsWithCount>
+    calcFootStepConstraints(const ConstraintsWithCount& last_constraints,
+                            const std::vector<size_t>& swing_indices,
+                            const std::vector<Eigen::Isometry3d>& targets,
+                            const size_t swing_start_count, const size_t one_step_count);
+    void addFootStep(const size_t cur_idx, const std::vector<size_t>& swing_indices,
+                     const std::vector<Eigen::Isometry3d>& targets,
+                     const size_t swing_start_count, const size_t one_step_count);
+
+    void addFootStep(const std::vector<int>& link_ids, const std::vector<Eigen::Isometry3d>& targets,
+                     const size_t swing_start_count, const size_t one_step_count);
+
+    void addFootStepToeHeel(const size_t cur_idx, const std::vector<size_t>& swing_indices,
+                            const std::vector<Eigen::Isometry3d>& targets,
+                            const size_t swing_start_count, const double step_time, const double dt,
+                            const bool use_toe_heel = false,
+                            const bool is_beginning = false, const bool is_last = false);
+
+    void addFootStepFromVelocity(const double vel_x, const double vel_y, const double vel_yaw,
+                                 const size_t swing_start_count, const double step_time, const double dt,
+                                 const double max_step_length, const double max_rotate_angle /*[rad]*/,
+                                 const int support_id, const int swing_id);
+
+    bool goPos(const Eigen::Isometry3d& target,
+               const std::vector<int>& support_link_cycle,
+               const std::vector<int>& swing_link_cycle);
 
     // gopos: 接触のCycleを記述したい
     // void goPos(const rats::coordinates& target, const size_t one_step_count,

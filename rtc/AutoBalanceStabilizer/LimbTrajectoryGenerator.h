@@ -17,6 +17,7 @@ namespace hrp {
 struct ViaPoint
 {
     hrp::Vector3 point;
+    double diff_rot_angle;
     size_t count;
 };
 
@@ -35,7 +36,12 @@ class LimbTrajectoryGenerator
     hrp::Vector3 pos = hrp::Vector3::Zero();
     hrp::Vector3 vel = hrp::Vector3::Zero();
     hrp::Vector3 acc = hrp::Vector3::Zero();
+
+    hrp::Matrix33 start_rot = hrp::Matrix33::Identity();
     hrp::Matrix33 rot = hrp::Matrix33::Identity();
+    Eigen::AngleAxisd diff_rot;
+    double rot_vel = 0;
+    double rot_acc = 0;
 
     // Params for delay Hoff & Arbib
     double delay_time_offset = 0.2; // [s]
@@ -44,7 +50,7 @@ class LimbTrajectoryGenerator
     void calcDelayHoffArbibTrajectory(const size_t count, const double dt);
 
     void calcViaPoints(const TrajectoryType traj_type,
-                       const hrp::Vector3& start, const hrp::Vector3& goal,
+                       const Eigen::Isometry3d& start, const Eigen::Isometry3d& goal,
                        const size_t start_count, const size_t goal_count,
                        const double height);
 

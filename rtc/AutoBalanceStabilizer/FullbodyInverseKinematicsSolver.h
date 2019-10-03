@@ -8,6 +8,7 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include "Utility.h"
+#include "EigenUtil.h"
 
 #define OPENHRP_PACKAGE_VERSION_320
 
@@ -80,7 +81,7 @@ class FullbodyInverseKinematicsSolver
             hrp::Vector3 pos_err, rot_err;
             if (link_tgt_ptr) {
                 pos_err = _ikc_list[i].targetPos - (link_tgt_ptr->p + link_tgt_ptr->R * _ikc_list[i].localPos);
-                rats::difference_rotation(rot_err, (link_tgt_ptr->R * _ikc_list[i].localR), calcRodriguesFromOmega(_ikc_list[i].targetOmega));
+                rats::difference_rotation(rot_err, (link_tgt_ptr->R * _ikc_list[i].localR), rotationMatrixFromOmega(_ikc_list[i].targetOmega));
             } else if (!link_tgt_ptr && _ikc_list[i].target_link_name == "COM") {
                 pos_err = _ikc_list[i].targetPos - (m_robot->calcCM() + _ikc_list[i].localR * _ikc_list[i].localPos);
                 rot_err = _ikc_list[i].targetOmega - cur_momentum_around_COM;
@@ -95,13 +96,6 @@ class FullbodyInverseKinematicsSolver
             }
         }
         return true;
-    }
-
-    inline hrp::Matrix33 calcRodriguesFromOmega(const hrp::Vector3& omega) {
-        // To avoid zero division when normalizing. This problem has been resolved in the latest version of Eigen.
-        const double omega_norm = omega.norm();
-        const hrp::Vector3 omega_normalized = omega_norm > 1e-4 ? omega.normalized() : omega;
-        return hrp::rodrigues(omega_normalized, omega_norm);
     }
 
   public:
@@ -204,7 +198,7 @@ class FullbodyInverseKinematicsSolver
                 const hrp::Vector3 tgt_cur_pos = link_tgt_ptr->p + link_tgt_ptr->R * _ikc_list[i].localPos;
                 const hrp::Matrix33 tgt_cur_rot = link_tgt_ptr->R * _ikc_list[i].localR;
                 dp_part.head<3>() =  _ikc_list[i].targetPos - tgt_cur_pos;
-                dp_part.tail<3>() = tgt_cur_rot * hrp::omegaFromRot(tgt_cur_rot.transpose() * calcRodriguesFromOmega(_ikc_list[i].targetOmega));
+                dp_part.tail<3>() = tgt_cur_rot * hrp::omegaFromRot(tgt_cur_rot.transpose() * rotationMatrixFromOmega(_ikc_list[i].targetOmega));
                 const hrp::JointPath tgt_jpath(m_robot->rootLink(), link_tgt_ptr);
                 hrp::dmatrix J_jpath;
                 tgt_jpath.calcJacobian(J_jpath, _ikc_list[i].localPos);
@@ -357,7 +351,7 @@ class FullbodyInverseKinematicsSolver
         // update rootlink pos rot
         m_robot->rootLink()->p += dq_all.tail<6>().head<3>();
         const hrp::Vector3 omega = dq_all.tail<6>().tail<3>();
-        const hrp::Matrix33 dR = calcRodriguesFromOmega(omega);
+        const hrp::Matrix33 dR = rotationMatrixFromOmega(omega);
         rats::rotm3times(m_robot->rootLink()->R, dR, m_robot->rootLink()->R); // safe rot operation with quartanion normalization
         if (!m_robot->rootLink()->R.isUnitary()) {
             std::cerr <<"[FullbodyIK] WARN m_robot->rootLink()->R is not Unitary, something wrong !" << std::endl;

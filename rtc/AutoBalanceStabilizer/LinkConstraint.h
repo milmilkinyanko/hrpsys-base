@@ -22,7 +22,7 @@ namespace hrp {
 class LinkConstraint
 {
   public:
-    enum ConstraintType {FIX, FLOAT, FREE};
+    enum ConstraintType : size_t {FIX, FLOAT, FREE};
 
   private:
     int link_id; // TODO: Link id にするか Joint idにするか
@@ -111,13 +111,13 @@ struct ConstraintsWithCount
     std::vector<LinkConstraint> constraints;
     size_t start_count = 0;
 
-    hrp::Vector3 calcCOPFromConstraints() const
+    hrp::Vector3 calcCOPFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const
     {
         hrp::Vector3 cop_pos = hrp::Vector3::Zero();
         double sum_weight = 0;
 
         for (const LinkConstraint& constraint : constraints) {
-            if (constraint.getConstraintType() >= LinkConstraint::FLOAT) continue;
+            if (constraint.getConstraintType() >= type_thre) continue;
             const double weight = constraint.getCOPWeight();
             // TODO:
             //       面接触してる時みたいに、target_coordと実際がずれているときは？
@@ -129,14 +129,14 @@ struct ConstraintsWithCount
         return cop_pos;
     }
 
-    hrp::Matrix33 calcCOPRotationFromConstraints() const
+    hrp::Matrix33 calcCOPRotationFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const
     {
         Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
         double sum_weight = 0;
 
         for (const LinkConstraint& constraint : constraints) {
             const double weight = constraint.getCOPWeight();
-            if (constraint.getConstraintType() >= LinkConstraint::FLOAT || weight == 0 /* to avoid zero division */) continue;
+            if (constraint.getConstraintType() >= type_thre || weight == 0 /* to avoid zero division */) continue;
             sum_weight += weight;
             const Eigen::Quaternion<double> contact_quat(constraint.targetRot());
             cop_quat = cop_quat.slerp(weight / sum_weight, contact_quat);
@@ -145,15 +145,15 @@ struct ConstraintsWithCount
         return cop_quat.toRotationMatrix();
     }
 
-    Eigen::Isometry3d calcCOPCoord() const
+    Eigen::Isometry3d calcCOPCoord(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const
     {
         Eigen::Isometry3d coord;
-        coord.translation() = calcCOPFromConstraints();
-        coord.linear() = calcCOPRotationFromConstraints();
+        coord.translation() = calcCOPFromConstraints(type_thre);
+        coord.linear() = calcCOPRotationFromConstraints(type_thre);
         return coord;
     }
 
-    size_t getConstraintIndexFromLinkId(const int id) const
+    int getConstraintIndexFromLinkId(const int id) const
     {
         for (size_t idx = 0; idx < constraints.size(); ++idx) {
             if (constraints[idx].getLinkId() == id) return idx;
