@@ -17,14 +17,14 @@ namespace hrp {
 struct IKConstraint
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    std::string target_link_name; // TODO: enumでCOMを指定して，target_nameはidにする
-    hrp::Vector3 targetPos = hrp::Vector3::Zero();
-    hrp::Vector3 targetOmega = hrp::Vector3::Zero(); // TODO
-    hrp::Vector3 localPos = hrp::Vector3::Zero();
-    hrp::Matrix33 localR = hrp::Matrix33::Identity();
+    std::string   target_link_name; // TODO: enumでCOMを指定して，target_nameはidにする
+    hrp::Vector3  targetPos         = hrp::Vector3::Zero();
+    hrp::Vector3  targetOmega       = hrp::Vector3::Zero(); // TODO
+    hrp::Vector3  localPos          = hrp::Vector3::Zero();
+    hrp::Matrix33 localR            = hrp::Matrix33::Identity();
     hrp::dvector6 constraint_weight = hrp::dvector6::Ones();
-    double pos_precision = 1e-4;
-    double rot_precision = deg2rad(0.1);
+    double        pos_precision     = 1e-4;
+    double        rot_precision     = deg2rad(0.1);
 
     hrp::Vector3 calcWorldPos(const hrp::BodyPtr& _robot)
     {
@@ -102,7 +102,7 @@ class FullbodyInverseKinematicsSolver
     hrp::BodyPtr m_robot;
     hrp::dvector dq_weight_all, q_ref_max_dq, q_ref_constraint_weight;
     hrp::Vector3 cur_momentum_around_COM = hrp::Vector3::Zero();
-    hrp::Vector3 cur_momentum_around_COM_filtered = hrp::Vector3::Zero();
+    // hrp::Vector3 cur_momentum_around_COM_filtered = hrp::Vector3::Zero();
     hrp::Vector3 rootlink_rpy_llimit = hrp::Vector3::Constant(-DBL_MAX);
     hrp::Vector3 rootlink_rpy_ulimit = hrp::Vector3::Constant(DBL_MAX);
     FullbodyInverseKinematicsSolver(const hrp::BodyPtr& _robot, const std::string& _print_str, const double _dt)
@@ -111,10 +111,11 @@ class FullbodyInverseKinematicsSolver
           J_DOF(_robot->numJoints()),
           ALL_DOF(J_DOF + BASE_DOF)
     {
-        dq_weight_all = hrp::dvector::Ones(ALL_DOF);
-        q_ref = q_ref_constraint_weight = hrp::dvector::Zero(ALL_DOF);
-        q_ref_max_dq = hrp::dvector::Constant(ALL_DOF, 1e-2);
-        jlim_avoid_weight_old = hrp::dvector::Constant(ALL_DOF, 0);
+        dq_weight_all           = hrp::dvector::Ones(ALL_DOF);
+        q_ref                   = hrp::dvector::Zero(ALL_DOF);
+        q_ref_constraint_weight = hrp::dvector::Zero(ALL_DOF);
+        q_ref_max_dq            = hrp::dvector::Constant(ALL_DOF, 1e-2);
+        jlim_avoid_weight_old   = hrp::dvector::Constant(ALL_DOF, 0);
 
         for(size_t i = 0; i < 3; ++i) {
             am_filters[i].setParameterAsBiquad(10, 1/std::sqrt(2), 1.0/m_dt);
@@ -244,15 +245,36 @@ class FullbodyInverseKinematicsSolver
             constraint_weight_all.segment(CURRENT_C_COUNT, q_ref_selection_mat.rows()) = q_ref_selection_mat * q_ref_constraint_weight;
             CURRENT_C_COUNT += q_ref_selection_mat.rows();
         }
-        assert(CURRENT_C_COUNT == VALID_C_NUM);
+
+        if (CURRENT_C_COUNT != VALID_C_NUM) {
+            std::cerr << "[FullbodyIK] CURRENT_C_COUNT != VALID_C_NUM, something wrong !" << std::endl;
+        }
+
 
         // joint limit avoidance (copy from JointPathEx)
         // TODO: このへんomegaだと無理かも
         hrp::dvector dq_weight_all_jlim = hrp::dvector::Ones(ALL_DOF);
         for (size_t j = 0; j < ALL_DOF; ++j) {
-            double jang       = (j < J_DOF) ? m_robot->joint(j)->q      : hrp::omegaFromRot(m_robot->rootLink()->R)(j - J_DOF);
-            const double jmax = (j < J_DOF) ? m_robot->joint(j)->ulimit : rootlink_rpy_ulimit(j - J_DOF);
-            const double jmin = (j < J_DOF) ? m_robot->joint(j)->llimit : rootlink_rpy_llimit(j - J_DOF);
+            double jang, jmax, jmin;
+
+            // Joints
+            if (j < J_DOF) {
+                jang = m_robot->joint(j)->q;
+                jmax = m_robot->joint(j)->ulimit;
+                jmin = m_robot->joint(j)->llimit;
+            }
+            else if (j < J_DOF + 3) continue; // Do nothing for base link pos
+            else { // Base link rot
+                const size_t root_omega_id = j - (J_DOF + 3);
+                if (root_omega_id >= 3) {
+                    std::cerr <<"[FullbodyIK] root_omega_id >= 3, something wrong !" << std::endl;
+                    break;
+                }
+
+                jang = hrp::omegaFromRot(m_robot->rootLink()->R)(root_omega_id);
+                jmax = rootlink_rpy_ulimit(root_omega_id);
+                jmin = rootlink_rpy_llimit(root_omega_id);
+            }
 
             constexpr double eps = deg2rad(1);
             if (eps_eq(jang, jmax, eps) && !eps_eq(jang, jmin, eps)) {
