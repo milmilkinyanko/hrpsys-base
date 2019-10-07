@@ -179,16 +179,27 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 // joint limit avoidance (copy from JointPathEx)
                 hrp::dvector dq_weight_all_jlim = hrp::dvector::Ones(ALL_DOF);
                 for ( int j = 0; j < ALL_DOF ; j++ ) {
-                    double jang = (j<J_DOF) ? _robot->joint(j)->q       :   hrp::rpyFromRot(_robot->rootLink()->R)(j - J_DOF);
-                    double jmax = (j<J_DOF) ? _robot->joint(j)->ulimit  :   rootlink_rpy_ulimit(j - J_DOF);
-                    double jmin = (j<J_DOF) ? _robot->joint(j)->llimit  :   rootlink_rpy_llimit(j - J_DOF);
-                    double e = deg2rad(1);
-                    if ( eps_eq(jang, jmax,e) && eps_eq(jang, jmin,e) ) {
-                    } else if ( eps_eq(jang, jmax,e) ) {
-                        jang = jmax - e;
-                    } else if ( eps_eq(jang, jmin,e) ) {
-                        jang = jmin + e;
-                    }
+                  double jang, jmax, jmin;
+                  if(j<J_DOF){
+                    jang = m_robot->joint(j)->q;
+                    jmax = m_robot->joint(j)->ulimit;
+                    jmin = m_robot->joint(j)->llimit;
+                  }else if(j<J_DOF+3){
+                    continue;// do nothing about base link pos
+                  }else{
+                    const int rpy_id = j - (J_DOF+3);
+                    if(!(0 <= rpy_id && rpy_id < 3)){ std::cerr <<"[FullbodyIK] !(0 <= rpy_id && rpy_id < 3), something wrong !" << std::endl; }
+                    jang = hrp::rpyFromRot(m_robot->rootLink()->R)(rpy_id);
+                    jmax = rootlink_rpy_ulimit(rpy_id);
+                    jmin = rootlink_rpy_llimit(rpy_id);
+                  }
+                  const double e = deg2rad(1);
+                  if ( eps_eq(jang, jmax,e) && eps_eq(jang, jmin,e) ) {
+                  } else if ( eps_eq(jang, jmax,e) ) {
+                    jang = jmax - e;
+                  } else if ( eps_eq(jang, jmin,e) ) {
+                    jang = jmin + e;
+                  }
                     double jlim_avoid_weight;
                     if ( eps_eq(jang, jmax,e) && eps_eq(jang, jmin,e) ) {
                         jlim_avoid_weight = DBL_MAX;
