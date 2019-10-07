@@ -1502,8 +1502,12 @@ namespace rats
           }
         }
         prev_short_of_zmp = short_of_zmp;
+        prev_use_roll_flywheel = use_roll_flywheel;
+        prev_use_pitch_flywheel = use_pitch_flywheel;
       } else {
         short_of_zmp = prev_short_of_zmp;
+        use_roll_flywheel = prev_use_roll_flywheel;
+        use_pitch_flywheel = prev_use_pitch_flywheel;
       }
       flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
       // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
