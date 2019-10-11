@@ -33,15 +33,10 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     for (auto& constraint : init_constraints) {
         const hrp::Link* const link = _robot->link(constraint.getLinkId());
         constraint.targetPos() = constraint.calcActualTargetPosFromLinkState(link->p, link->R);
-        std::cerr << "link   " << link->name << " pos: " << link->p.transpose() << std::endl;
-        std::cerr << "target " << link->name << " pos: " << constraint.targetPos().transpose() << std::endl;
-        std::cerr << "local  " << link->name << " pos: " << constraint.localPos().transpose() << std::endl;
+        // std::cerr << "link   " << link->name << " pos: " << link->p.transpose() << std::endl;
+        // std::cerr << "target " << link->name << " pos: " << constraint.targetPos().transpose() << std::endl;
+        // std::cerr << "local  " << link->name << " pos: " << constraint.localPos().transpose() << std::endl;
         constraint.targetRot() = constraint.calcActualTargetRotFromLinkState(link->R);
-    }
-
-    limb_gens.resize(num_limbs);
-    for (size_t i = 0; i < num_limbs; ++i) {
-        limb_gens[i].setPos(static_cast<hrp::Vector3>(init_constraints[i].targetPos()));
     }
 
     constraints_list.resize(1);
@@ -62,36 +57,16 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 {
     zmp_gen->popAndPushRefZMP(constraints_list, cur_count);
     cur_const_idx = getConstraintIndexFromCount(constraints_list, cur_count);
-
-    // TODO: 関数化?
-    if (cur_count == constraints_list[cur_const_idx].start_count) {
-        for (size_t i = 0; i < constraints_list[cur_const_idx].constraints.size(); ++i) {
-            if (constraints_list[cur_const_idx].constraints[i].getConstraintType() == hrp::LinkConstraint::FLOAT) {
-                limb_gens[i].calcViaPoints(default_traj_type, constraints_list,
-                                           constraints_list[cur_const_idx].constraints[i].getLinkId(),
-                                           cur_count, default_step_height); // TODO: step_heightをconstraintに持たせるのもあり
-            }
-        }
-    }
 }
 
 void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const double dt)
 {
     cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList());
-
-    for (auto& limb_gen : limb_gens) {
-        limb_gen.calcTrajectory(cur_count, dt);
-    }
-
-    for (size_t i = 0; i < limb_gens.size(); ++i) {
-        constraints_list[cur_const_idx].constraints[i].targetPos() = limb_gens[i].getPos();
-        constraints_list[cur_const_idx].constraints[i].targetRot() = limb_gens[i].getRot();
-    }
+    constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt);
 
     root_coord.translation() += cog_gen->getCog() - prev_ref_cog;
     // TODO: 手が追加された時やその他の時にも対応できるように
     root_coord.linear() = constraints_list[cur_const_idx].calcCOPRotationFromConstraints(LinkConstraint::FREE);
-    // std::cerr << "rootR\n" << root_coord.linear() << std::endl;
     prev_ref_cog = cog_gen->getCog();
 
     return;
@@ -146,7 +121,7 @@ void GaitGenerator::adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const siz
     rootRot() = target_cop_rot * cop_rot.transpose() * _robot->rootLink()->R;
 }
 
-// TODO: merge addFootStep
+// // TODO: merge addFootStep
 // void GaitGenerator::addFootStepToeHeel(const size_t cur_idx, const std::vector<size_t>& swing_indices,
 //                                        const std::vector<Eigen::Isometry3d>& targets,
 //                                        const size_t swing_start_count, const double step_time, const double dt,
@@ -175,9 +150,9 @@ void GaitGenerator::adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const siz
 //         ConstraintsWithCount swing_toe_constraints(constraints_list[cur_idx]);
 //         swing_toe_constraints.start_count = next_count;
 //         for (const size_t swing_idx : swing_indices) {
-//             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
+//             swing_toe_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
 //         }
-//         constraints_list.push_back(std::move(swing_phase_constraints));
+//         constraints_list.push_back(std::move(swing_toe_constraints));
 //         next_count += default_toe_support_count;
 //     }
 
@@ -214,9 +189,10 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
     footstep_constraints.push_back(last_constraints);
     footstep_constraints.push_back(last_constraints);
 
+    ConstraintsWithCount& swing_phase_constraints = footstep_constraints[0];
     {
-        ConstraintsWithCount& swing_phase_constraints = footstep_constraints[0];
         swing_phase_constraints.start_count = swing_start_count;
+        swing_phase_constraints.clearLimbViaPoints();
         for (const size_t swing_idx : swing_indices) {
             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
         }
@@ -225,11 +201,19 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
     {
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints[1];
         landing_phase_constraints.start_count = swing_start_count + one_step_count;
+        landing_phase_constraints.clearLimbViaPoints();
 
         for (size_t i = 0; i < swing_indices.size(); ++i) {
             LinkConstraint& landing_constraint = landing_phase_constraints.constraints[swing_indices[i]];
             landing_constraint.setConstraintType(LinkConstraint::FIX);
             landing_constraint.targetCoord() = targets[i];
+
+            // TODO: trajectory type, step heightを引数で与える．
+            //       将来的にvia pointsまで含めて与えられるようにする．
+            swing_phase_constraints.constraints[swing_indices[i]]
+                .calcLimbViaPoints(default_traj_type, targets[i],
+                                   swing_start_count, landing_phase_constraints.start_count,
+                                   default_step_height);
         }
     }
 
@@ -240,47 +224,24 @@ void GaitGenerator::addFootStep(const size_t cur_idx, const std::vector<size_t>&
                                 const std::vector<Eigen::Isometry3d>& targets,
                                 const size_t swing_start_count, const size_t one_step_count)
 {
-    // constraints_list.reserve(constraints_list.size() + 2);
-
-    // {
-    //     ConstraintsWithCount swing_phase_constraints(constraints_list[cur_idx]);
-    //     swing_phase_constraints.start_count = swing_start_count;
-    //     for (const size_t swing_idx : swing_indices) {
-    //         swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
-    //     }
-    //     constraints_list.push_back(std::move(swing_phase_constraints));
-    // }
-
-    // {
-    //     ConstraintsWithCount landing_phase_constraints(constraints_list[cur_idx]);
-    //     landing_phase_constraints.start_count = swing_start_count + one_step_count;
-
-    //     for (size_t i = 0; i < swing_indices.size(); ++i) {
-    //         LinkConstraint& landing_constraint = landing_phase_constraints.constraints[swing_indices[i]];
-    //         landing_constraint.setConstraintType(LinkConstraint::FIX);
-    //         landing_constraint.targetCoord() = targets[i];
-    //     }
-    //     constraints_list.push_back(std::move(landing_phase_constraints));
-    // }
-
     addConstraintsList(calcFootStepConstraints(constraints_list[cur_idx], swing_indices, targets, swing_start_count, one_step_count));
 }
 
 // TODO: 名前をFootStepではなくする
 // Constraintsの存在チェックバージョン．
-void GaitGenerator::addFootStep(const std::vector<int>& link_ids, const std::vector<Eigen::Isometry3d>& targets,
+void GaitGenerator::addFootStep(const std::vector<int>& swing_link_ids, const std::vector<Eigen::Isometry3d>& targets,
                                 const size_t swing_start_count, const size_t one_step_count)
 {
     const size_t cur_idx = getConstraintIndexFromCount(constraints_list, swing_start_count - 1);
 
     std::vector<size_t> swing_indices;
     std::vector<Eigen::Isometry3d> swing_targets;
-    swing_indices.reserve(link_ids.size());
-    swing_targets.reserve(link_ids.size());
-    for (size_t i = 0; i < link_ids.size(); ++i) {
-        const int link_id = constraints_list[cur_idx].getConstraintIndexFromLinkId(link_ids[i]);
+    swing_indices.reserve(swing_link_ids.size());
+    swing_targets.reserve(swing_link_ids.size());
+    for (size_t i = 0; i < swing_link_ids.size(); ++i) {
+        const int link_id = constraints_list[cur_idx].getConstraintIndexFromLinkId(swing_link_ids[i]);
         if (link_id == -1) continue;
-        swing_indices.push_back(link_ids[i]);
+        swing_indices.push_back(swing_link_ids[i]);
         swing_targets.push_back(targets[i]);
     }
 
@@ -463,7 +424,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     for (auto& constraints : new_constraints) {
         constraints.start_count += diff_count;
     }
-    setConstraintsList(new_constraints);
+    setConstraintsList(std::move(new_constraints));
     setRefZMPList(loop);
 
     return true;

@@ -10,16 +10,12 @@
 #define LIMBTRAJECTORYGENERATOR_H
 
 #include <vector>
-#include "LinkConstraint.h"
+#include <hrpUtil/EigenTypes.h>
+// #include "LinkConstraint.h"
 
 namespace hrp {
 
-struct ViaPoint
-{
-    hrp::Vector3 point;
-    double diff_rot_angle;
-    size_t count;
-};
+// TODO: 結局、ステップごとにパラメータを変えたいときや事前に計画したいときがあるから、LinkConstraintに持たせるか、LimbTrajクラスを複製するのが正解かもしれない
 
 // TODO: limbごとの管理の仕方
 //       LinkConstraintにふくめる？
@@ -28,6 +24,12 @@ class LimbTrajectoryGenerator
 {
   public:
     enum TrajectoryType : size_t {DELAY_HOFFARBIB = 0, CYCLOIDDELAY, RECTANGLE};
+    struct ViaPoint
+    {
+        hrp::Vector3 point;
+        double diff_rot_angle;
+        size_t count;
+    };
 
   private:
     TrajectoryType traj_type = CYCLOIDDELAY;
@@ -38,8 +40,8 @@ class LimbTrajectoryGenerator
     hrp::Vector3 acc = hrp::Vector3::Zero();
 
     hrp::Matrix33 start_rot = hrp::Matrix33::Identity();
+    Eigen::AngleAxisd diff_rot = Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
     hrp::Matrix33 rot = hrp::Matrix33::Identity();
-    Eigen::AngleAxisd diff_rot;
     double rot_vel = 0;
     double rot_acc = 0;
 
@@ -49,11 +51,6 @@ class LimbTrajectoryGenerator
     // std::tuple<hrp::Vector3, hrp::Vector3, hrp::Vector3> calcDelayHoffArbibTrajectory(const size_t count);
     void calcDelayHoffArbibTrajectory(const size_t count, const double dt);
 
-    void calcViaPoints(const TrajectoryType traj_type,
-                       const Eigen::Isometry3d& start, const Eigen::Isometry3d& goal,
-                       const size_t start_count, const size_t goal_count,
-                       const double height);
-
     // Preset functions to generate via points for delay Hoff & Arbib trajectory
     void calcCycloidDelayViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
                                    const size_t start_count, const size_t goal_count,
@@ -61,16 +58,32 @@ class LimbTrajectoryGenerator
     void calcRectangleViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
                                 const size_t start_count, const size_t goal_count,
                                 const double height);
-
   public:
-    LimbTrajectoryGenerator() {}
+    void copyState(const LimbTrajectoryGenerator& ltg)
+    {
+        // Copy only state variables.
+        // For instance, this function is used when switching FLOAT constraint to FIX constraint.
+        pos     = ltg.pos;
+        vel     = ltg.vel;
+        acc     = ltg.acc;
+        rot     = ltg.rot;
+        rot_vel = ltg.rot_vel;
+        rot_acc = ltg.rot_acc;
+    }
 
+    bool isViaPointsEmpty() const { return via_points.empty(); }
     const std::vector<ViaPoint>& getViaPoints() const { return via_points; }
     void clearViaPoints() { via_points.clear(); }
-    // TODO: posだけでなくrotも対応したい
+
     void calcViaPoints(const TrajectoryType traj_type,
-                       const std::vector<ConstraintsWithCount>& constraints_list,
-                       const int link_id, const size_t count, const double height);
+                       const Eigen::Isometry3d& start, const Eigen::Isometry3d& goal,
+                       const size_t start_count, const size_t goal_count,
+                       const double height);
+
+    // // deprecated ?
+    // void calcViaPoints(const TrajectoryType traj_type,
+    //                    const std::vector<ConstraintsWithCount>& constraints_list,
+    //                    const int link_id, const size_t count, const double height);
 
     /**
      * @fn

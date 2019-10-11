@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 set(comp_sources AutoBalanceStabilizer.cpp AutoBalanceStabilizerService_impl.cpp ../SequencePlayer/interpolator.cpp ../TorqueFilter/IIRFilter.cpp)
 set(libs hrpModel-3.1 hrpCollision-3.1 hrpUtil-3.1 hrpsysBaseStub)
-set(abst_libs EigenUtil GaitGenerator Stabilizer)
+set(abst_libs EigenUtil LinkConstraint GaitGenerator Stabilizer)
 
 include_directories(${PROJECT_SOURCE_DIR}/rtc/SequencePlayer)
 
@@ -17,8 +17,10 @@ set_target_properties(AutoBalanceStabilizer PROPERTIES PREFIX "")
 
 add_library(EigenUtil SHARED EigenUtil.cpp)
 
+add_library(LinkConstraint SHARED LinkConstraint.cpp LimbTrajectoryGenerator.cpp)
+
 add_library(GaitGenerator SHARED GaitGenerator.cpp RefZMPGenerator.cpp LimbTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
-target_link_libraries(GaitGenerator PRIVATE ${libs})
+target_link_libraries(GaitGenerator PRIVATE ${libs} LinkConstraint)
 
 add_library(Stabilizer SHARED Integrator.cpp TwoDofController.cpp Stabilizer.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp)
 target_link_libraries(Stabilizer PRIVATE ${libs})
@@ -27,10 +29,10 @@ add_executable(AutoBalanceStabilizerComp AutoBalanceStabilizerComp.cpp ${comp_so
 target_link_libraries(AutoBalanceStabilizerComp PRIVATE ${abst_libs} ${libs})
 
 add_executable(testRefZMPGenerator test/testRefZMPGenerator.cpp RefZMPGenerator.cpp ../SequencePlayer/interpolator.cpp)
-target_link_libraries(testRefZMPGenerator PRIVATE ${libs})
+target_link_libraries(testRefZMPGenerator PRIVATE ${libs} LinkConstraint)
 
-add_executable(testLimbTrajectoryGenerator test/testLimbTrajectoryGenerator.cpp LimbTrajectoryGenerator.cpp)
-target_link_libraries(testLimbTrajectoryGenerator PRIVATE ${libs})
+add_executable(testLimbTrajectoryGenerator test/testLimbTrajectoryGenerator.cpp)
+target_link_libraries(testLimbTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
 
 add_executable(testCOGTrajectoryGenerator test/testCOGTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
 target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs})
@@ -54,7 +56,7 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test1 testZMPDistributorABS --jaxon_red --test1 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
-set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
+set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin

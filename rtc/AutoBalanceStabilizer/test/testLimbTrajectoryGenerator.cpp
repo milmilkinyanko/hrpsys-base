@@ -7,18 +7,17 @@
  */
 
 #include <cstdio>
+#include <iostream>
 #include <fstream>
-#include "../LimbTrajectoryGenerator.h"
+#include "../LinkConstraint.h"
 
 namespace
 {
 
-// std::vector<hrp::Vector3> rleg_contact_points;
-// std::vector<hrp::Vector3> lleg_contact_points;
-
 void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
                      const double stride, const size_t step_limb,
-                     const size_t start_count, const size_t step_count)
+                     const size_t start_count, const size_t step_count,
+                     const double step_height)
 {
     constraints_list.reserve(constraints_list.size() + 2);
 
@@ -26,22 +25,29 @@ void forwardFootstep(std::vector<hrp::ConstraintsWithCount>& constraints_list,
 
     {
         // Swinging phase
-        hrp::ConstraintsWithCount constraint_count;
-        constraint_count.start_count = start_count;
-        constraint_count.constraints = cur_constraints;
-        constraint_count.constraints[step_limb].setConstraintType(hrp::LinkConstraint::FLOAT);
+        hrp::ConstraintsWithCount swing_constraints;
+        swing_constraints.start_count = start_count;
+        swing_constraints.constraints = cur_constraints;
+        swing_constraints.clearLimbViaPoints();
+        swing_constraints.constraints[step_limb].setConstraintType(hrp::LinkConstraint::FLOAT);
 
-        constraints_list.push_back(constraint_count);
+        constraints_list.push_back(swing_constraints);
     }
 
     {
         // Double support phase
-        hrp::ConstraintsWithCount constraint_count;
-        constraint_count.start_count = start_count + step_count;
-        constraint_count.constraints = cur_constraints;
-        constraint_count.constraints[step_limb].targetPos() += hrp::Vector3(stride, 0, 0);
+        hrp::ConstraintsWithCount landing_constraint;
+        landing_constraint.start_count = start_count + step_count;
+        landing_constraint.constraints = cur_constraints;
+        landing_constraint.clearLimbViaPoints();
+        landing_constraint.constraints[step_limb].targetPos() += hrp::Vector3(stride, 0, 0);
 
-        constraints_list.push_back(constraint_count);
+        constraints_list.back().constraints[step_limb].calcLimbViaPoints(hrp::LimbTrajectoryGenerator::CYCLOIDDELAY,
+                                                                         landing_constraint.constraints[step_limb].targetCoord(),
+                                                                         start_count, landing_constraint.start_count,
+                                                                         step_height);
+
+        constraints_list.push_back(landing_constraint);
     }
 }
 
@@ -52,16 +58,12 @@ void initConstraints(std::vector<hrp::ConstraintsWithCount>& constraints_list, c
 
     {
         hrp::LinkConstraint rleg_constraint(0);
-        // for (const auto& point : rleg_contact_points) rleg_constraint.addLinkContactPoint(point);
-        // rleg_constraint.calcLinkLocalPos();
         rleg_constraint.targetPos() = hrp::Vector3(0, -0.1, 0);
         const_with_count.constraints.push_back(rleg_constraint);
     }
 
     {
         hrp::LinkConstraint lleg_constraint(1);
-        // for (const auto& point : lleg_contact_points) lleg_constraint.addLinkContactPoint(point);
-        // lleg_constraint.calcLinkLocalPos();
         lleg_constraint.targetPos() = hrp::Vector3(0, 0.1, 0);
         const_with_count.constraints.push_back(lleg_constraint);
     }
@@ -83,16 +85,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // rleg_contact_points.emplace_back(0.15, 0.05, 0);
-    // rleg_contact_points.emplace_back(0.15, -0.05, 0);
-    // rleg_contact_points.emplace_back(-0.15, -0.05, 0);
-    // rleg_contact_points.emplace_back(-0.15, 0.05, 0);
-
-    // lleg_contact_points.emplace_back(0.15, 0.05, 0);
-    // lleg_contact_points.emplace_back(0.15, -0.05, 0);
-    // lleg_contact_points.emplace_back(-0.15, -0.05, 0);
-    // lleg_contact_points.emplace_back(-0.15, 0.05, 0);
-
     std::vector<hrp::ConstraintsWithCount> constraints_list;
 
     size_t start_count = 0;
@@ -100,25 +92,22 @@ int main(int argc, char **argv)
     constexpr size_t STEP_COUNT = static_cast<size_t>(1.0 / dt);
 
     initConstraints(constraints_list, start_count);
+    constexpr double FOOTSTEP_HEIGHT = 0.15;
 
     start_count += SUPPORT_COUNT;
-    forwardFootstep(constraints_list, 0.4, 0, start_count, STEP_COUNT);
+    forwardFootstep(constraints_list, 0.4, 0, start_count, STEP_COUNT, FOOTSTEP_HEIGHT);
 
     start_count += STEP_COUNT + SUPPORT_COUNT;
-    forwardFootstep(constraints_list, 0.8, 1, start_count, STEP_COUNT);
+    forwardFootstep(constraints_list, 0.8, 1, start_count, STEP_COUNT, FOOTSTEP_HEIGHT);
 
     start_count += STEP_COUNT + SUPPORT_COUNT;
-    forwardFootstep(constraints_list, 0.8, 0, start_count, STEP_COUNT);
+    forwardFootstep(constraints_list, 0.8, 0, start_count, STEP_COUNT, FOOTSTEP_HEIGHT);
 
     start_count += STEP_COUNT + SUPPORT_COUNT;
-    forwardFootstep(constraints_list, 0.4, 1, start_count, STEP_COUNT);
+    forwardFootstep(constraints_list, 0.4, 1, start_count, STEP_COUNT, FOOTSTEP_HEIGHT);
 
     size_t next_turning_count = 0;
     int index = -1;
-    std::vector<hrp::LimbTrajectoryGenerator> ltg(2); // TODO: 使い方変わるかも
-    ltg[0].setPos(constraints_list[0].constraints[0].localPos());
-    ltg[0].setPos(constraints_list[0].constraints[1].localPos());
-    constexpr double FOOTSTEP_HEIGHT = 0.15;
     const size_t FINISH = start_count + STEP_COUNT + SUPPORT_COUNT;
 
     const std::string fname("/tmp/testLimbTrajectory.dat");
@@ -128,27 +117,12 @@ int main(int argc, char **argv)
         if (count == next_turning_count) {
             ++index;
             if (index + 1 < constraints_list.size()) next_turning_count = constraints_list[index + 1].start_count;
-
-            for (size_t i = 0; i < constraints_list[index].constraints.size(); ++i) {
-                if (constraints_list[index].constraints[i].getConstraintType() == hrp::LinkConstraint::FLOAT) {
-                    ltg[i].calcViaPoints(hrp::LimbTrajectoryGenerator::CYCLOIDDELAY, constraints_list,
-                                         constraints_list[index].constraints[i].getLinkId(),
-                                         constraints_list[index].start_count,
-                                         FOOTSTEP_HEIGHT);
-
-                    // TODO: debug
-                    const std::vector<hrp::ViaPoint>& via_points = ltg[i].getViaPoints();
-                    std::cerr << "size: " << via_points.size() << ", via point: \n";
-                    for (size_t j = 0; j < via_points.size(); ++j) {
-                        std::cerr << via_points[j].point.transpose() << std::endl;
-                    }
-                }
-            }
+            if (index > 0) constraints_list[index].copyLimbState(constraints_list[index - 1]);
         }
 
-        for (size_t i = 0; i < ltg.size(); ++i) {
-            ltg[i].calcTrajectory(count, dt);
-            const hrp::Vector3& pos = ltg[i].getPos();
+        constraints_list[index].calcLimbTrajectory(count, dt);
+        for (const auto& constraint : constraints_list[index].constraints) {
+            const hrp::Vector3& pos = constraint.targetPos();
             ofs << pos[0] << " " << pos[1] << " " << pos[2] << " ";
         }
         ofs << std::endl;

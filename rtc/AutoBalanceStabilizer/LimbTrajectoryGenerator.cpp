@@ -69,9 +69,9 @@ hoffArbibInterpolation(const double remain_time, const double dt,
                        const hrp::Vector3& goal_acc = hrp::Vector3::Zero())
 {
     const hrp::Vector3 jerk =
-        (-9.0 / remain_time) * (_acc - goal_acc / 3.0) +
+        (-9.0  / remain_time) * (_acc - goal_acc / 3.0) +
         (-36.0 / (remain_time * remain_time)) * (goal_vel * 2.0 / 3.0 + _vel) +
-        (60.0 / (remain_time * remain_time * remain_time)) * (goal_pos - _pos);
+        (60.0  / (remain_time * remain_time * remain_time)) * (goal_pos - _pos);
 
     const hrp::Vector3 acc = _acc + dt * jerk;
     const hrp::Vector3 vel = _vel + dt * acc;
@@ -129,6 +129,9 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
                                             const double height)
 {
     clearViaPoints();
+    traj_type = _traj_type;
+    pos = start.translation();
+    rot = start.linear();
 
     switch (_traj_type) {
       case CYCLOIDDELAY:
@@ -149,6 +152,7 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
         diff_rot.angle() = 0;
     }
 
+    // Debug
     std::cerr << "via points:" << std::endl;
     for (auto&& point : via_points) {
         std::cerr << point.point.transpose() << std::endl;
@@ -156,47 +160,47 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
     std::cerr << "start_count: " << start_count << ", goal_count: " << goal_count << std::endl;
 }
 
-// TODO: この辺はcountを渡すのではなくindexを渡すのでも良い
-void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
-                                            const std::vector<ConstraintsWithCount>& constraints_list,
-                                            const int link_id, const size_t count, const double height)
-{
-    // TODO: use next_turning_count
-    const size_t cur_idx = getConstraintIndexFromCount(constraints_list, count);
-    size_t goal_idx = cur_idx;
+// // TODO: この辺はcountを渡すのではなくindexを渡すのでも良い
+// void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
+//                                             const std::vector<ConstraintsWithCount>& constraints_list,
+//                                             const int link_id, const size_t count, const double height)
+// {
+//     // TODO: use next_turning_count
+//     const size_t cur_idx = getConstraintIndexFromCount(constraints_list, count);
+//     size_t goal_idx = cur_idx;
 
-    int goal_constraint_idx;
-    while (goal_idx < constraints_list.size()) {
-        // TODO: constraintのindexを渡してしまうのも手．その場合前後でconstraints_listの数が変わるとまずい
-        goal_constraint_idx = constraints_list[goal_idx].getConstraintIndexFromLinkId(link_id);
-        if (goal_constraint_idx == -1) break;
-        if (constraints_list[goal_idx].constraints[goal_constraint_idx].getConstraintType() == LinkConstraint::FLOAT) ++goal_idx;
-        else break;
-    }
+//     int goal_constraint_idx;
+//     while (goal_idx < constraints_list.size()) {
+//         // TODO: constraintのindexを渡してしまうのも手．その場合前後でconstraints_listの数が変わるとまずい
+//         goal_constraint_idx = constraints_list[goal_idx].getConstraintIndexFromLinkId(link_id);
+//         if (goal_constraint_idx == -1) break;
+//         if (constraints_list[goal_idx].constraints[goal_constraint_idx].getConstraintType() == LinkConstraint::FLOAT) ++goal_idx;
+//         else break;
+//     }
 
-    if (goal_idx == cur_idx) {
-        std::cerr << "[LimbTrajectoryGenerator] The constraint " << link_id << " is not FLOAT" << std::endl;
-        return;
-    }
+//     if (goal_idx == cur_idx) {
+//         std::cerr << "[LimbTrajectoryGenerator] The constraint " << link_id << " is not FLOAT" << std::endl;
+//         return;
+//     }
 
-    if (goal_constraint_idx == -1 || goal_idx == constraints_list.size()) {
-        std::cerr << "[LimbTrajectoryGenerator] Can't find landing position" << std::endl;
-        return;
-    }
+//     if (goal_constraint_idx == -1 || goal_idx == constraints_list.size()) {
+//         std::cerr << "[LimbTrajectoryGenerator] Can't find landing position" << std::endl;
+//         return;
+//     }
 
-    traj_type = _traj_type;
-    int start_constraint_idx = constraints_list[cur_idx].getConstraintIndexFromLinkId(link_id);
-    if (start_constraint_idx == -1) {
-        std::cerr << "[LimbTrajectoryGenerator] Can't find start constraint" << std::endl;
-        return;
-    }
+//     traj_type = _traj_type;
+//     int start_constraint_idx = constraints_list[cur_idx].getConstraintIndexFromLinkId(link_id);
+//     if (start_constraint_idx == -1) {
+//         std::cerr << "[LimbTrajectoryGenerator] Can't find start constraint" << std::endl;
+//         return;
+//     }
 
-    calcViaPoints(traj_type,
-                  constraints_list[cur_idx].constraints[start_constraint_idx].targetCoord(),
-                  constraints_list[goal_idx].constraints[goal_constraint_idx].targetCoord(),
-                  constraints_list[cur_idx].start_count, constraints_list[goal_idx].start_count,
-                  height);
-}
+//     calcViaPoints(traj_type,
+//                   constraints_list[cur_idx].constraints[start_constraint_idx].targetCoord(),
+//                   constraints_list[goal_idx].constraints[goal_constraint_idx].targetCoord(),
+//                   constraints_list[cur_idx].start_count, constraints_list[goal_idx].start_count,
+//                   height);
+// }
 
 void LimbTrajectoryGenerator::calcCycloidDelayViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
                                                         const size_t start_count, const size_t goal_count,

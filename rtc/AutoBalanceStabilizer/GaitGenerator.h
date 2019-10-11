@@ -98,6 +98,7 @@ class GaitGenerator
     void addLinkConstraint(); // TODO
 
     void setConstraintsList(const decltype(constraints_list)& _constraints) { constraints_list = _constraints; }
+    void setConstraintsList(decltype(constraints_list)&& _constraints) { constraints_list = _constraints; }
     void addConstraintsList(const decltype(constraints_list)& _constraints)
     {
         constraints_list.reserve(constraints_list.size() + _constraints.size());
