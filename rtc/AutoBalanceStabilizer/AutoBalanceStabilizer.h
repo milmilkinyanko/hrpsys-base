@@ -74,6 +74,35 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // former rtc_active_do()
     RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id) override;
 
+    bool startAutoBalancer(const ::OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);
+    bool stopAutoBalancer();
+
+    std::vector<int> getConstraintLinkIds() { return gg->getConstraintLinkIds(); }
+    /* Service for GaitGenerator */
+    void printConstraintLinkIds()
+    {
+        for (const int id : gg->getConstraintLinkIds()) std::cerr << id << " ";
+        std::cerr << std::endl;
+    }
+    void setDefaultSingleSupportTime(const double time, const double dt);
+    void setDefaultDoubleSupportTime(const double time, const double dt);
+    void setDefaultToeSupportTime(const double time, const double dt);
+    void setDefaultHeelSupportTime(const double time, const double dt);
+    void setDefaultStepHeight(const double height)   { gg->setDefaultStepHeight(height); }
+    void setMaxStride(const double stride)           { gg->setMaxStride(stride); }
+    void setMaxRotAngle(const double angle_rad)      { gg->setMaxRotAngle(angle_rad); }
+    void setUseToeHeel(const bool use_toe_heel)      { gg->setUseToeHeel(use_toe_heel); }
+    void setToeKickAngle(const double angle_rad)     { gg->setToeKickAngle(angle_rad); }
+    void setHeelContactAngle(const double angle_rad) { gg->setHeelContactAngle(angle_rad); }
+    bool setToeContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points)
+    {
+        return gg->setToeContactPoints(link_id, contact_points);
+    }
+    bool setHeelContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points)
+    {
+        return gg->setHeelContactPoints(link_id, contact_points);
+    }
+
     bool goPos(const double x, const double y, const double th);
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
@@ -84,20 +113,19 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
     void waitFootSteps();
     void waitFootStepsEarly(const double tm);
-    bool startAutoBalancer(const ::OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);
-    bool stopAutoBalancer();
     bool setGaitGeneratorParam(const OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param);
     bool getGaitGeneratorParam(OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param);
     bool setAutoBalancerParam(const OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param);
     bool getAutoBalancerParam(OpenHRP::AutoBalanceStabilizerService::AutoBalancerParam& i_param);
     bool getFootstepParam(OpenHRP::AutoBalanceStabilizerService::FootstepParam& i_param);
+
     bool adjustFootSteps(const OpenHRP::AutoBalanceStabilizerService::Footstep& rfootstep, const OpenHRP::AutoBalanceStabilizerService::Footstep& lfootstep);
     bool getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep, CORBA::Long& o_current_fs_idx);
     bool getGoPosFootstepsSequence(const double& x, const double& y, const double& th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep);
     bool releaseEmergencyStop();
     void distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp);
 
-    // Stabilizer
+    /* Service for Stabilizer */
     void getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param);
     void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param);
     void startStabilizer(void);
@@ -143,8 +171,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPose3D> m_basePoseOut;
     TimedAcceleration3D m_accRef;
     OutPort<TimedAcceleration3D> m_accRefOut;
-    TimedBooleanSeq m_refContactStates;
-    OutPort<TimedBooleanSeq> m_refContactStatesOut;
+    TimedLongSeq m_refContactStates;
+    OutPort<TimedLongSeq> m_refContactStatesOut;
     TimedDoubleSeq m_controlSwingSupportTime;
     OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
     TimedPoint3D m_sbpCogOffset;

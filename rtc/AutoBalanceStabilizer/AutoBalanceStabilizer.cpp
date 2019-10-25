@@ -673,7 +673,8 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         m_refContactStates.tm = m_qRef.tm;
         const auto& cs = gg->getCurrentConstraints(loop);
         for (size_t i = 0; i < m_refContactStates.data.length(); ++i) {
-            m_refContactStates.data[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
+            m_refContactStates.data[i] = cs.constraints[i].getConstraintType();
+            // m_refContactStates.data[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
         }
         m_refContactStatesOut.write();
     }
@@ -769,17 +770,19 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     // Read property
     // link_id, num_contact, contact_point (3 dim) * num_contact, local_rot (axis + angle)
     const coil::vstring contact_str = coil::split(prop["contact_points"], ",");
+    init_constraints.reserve(contact_str.size());
     for (size_t i = 0; i < contact_str.size();) {
         hrp::LinkConstraint constraint(std::stoi(contact_str[i++])); // Id
 
         const size_t num_contact_points = std::stoi(contact_str[i++]);
+        std::vector<hrp::Vector3> contact_points(num_contact_points);
         for (size_t j = 0; j < num_contact_points; ++j) {
-            hrp::Vector3 contact_point;
             for (size_t k = 0; k < 3; ++k) {
-                contact_point[k] = std::stod(contact_str[i++]);
+                contact_points[j][k] = std::stod(contact_str[i++]);
             }
-            constraint.addLinkContactPoint(contact_point);
         }
+        constraint.setLinkContactPoints(contact_points);
+        constraint.setDefaultContactPoints(contact_points);
         constraint.calcLinkLocalPos();
 
         std::array<double, 4> local_rot;
@@ -920,7 +923,7 @@ void AutoBalanceStabilizer::adjustCOPCoordToTarget()
     m_robot->calcForwardKinematics();
 }
 
-// TODO: delete limbs
+// TODO: delete limbs, この関数もいらなさそう
 void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
 {
     std::cerr << "[" << m_profile.instance_name << "] start auto balancer mode" << std::endl;
@@ -935,8 +938,8 @@ void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerSe
     // TODO: mutexのためSTが終わった段階で呼ばれるので，m_robotが想定外のところにあるのでその修正．いずれ無くしたい
     restoreRobotStatesForIK();
     adjustCOPCoordToTarget();
-
-    gg->resetCOGTrajectoryGenerator(m_robot->calcCM(), m_dt);
+    gg->resetGaitGenerator(m_robot, loop, m_dt);
+    // gg->resetCOGTrajectoryGenerator(m_robot->calcCM(), m_dt);
     control_mode = MODE_SYNC_TO_ABC;
 }
 
@@ -1021,10 +1024,16 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
         return false;
     }
 
+    if (control_mode != MODE_ABC) {
+        std::cerr << "[" << m_profile.instance_name << "] Cannot goPos if not MODE_ABC." << std::endl;
+        return false;
+    }
+
     const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
     Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
     target.translation() += target.linear() * hrp::Vector3(x, y, 0);
-    target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d(0, 0, 1)).toRotationMatrix();
+    target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
 
     // TODO: confファイルからcycleをよむ
     std::vector<int> support_link_cycle{13, 7};

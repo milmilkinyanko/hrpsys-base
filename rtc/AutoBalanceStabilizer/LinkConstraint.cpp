@@ -57,9 +57,30 @@ std::vector<Eigen::Vector2d> LinkConstraint::calcContactConvexHull() const
     std::vector<Eigen::Vector2d> vertices;
     vertices.reserve(link_contact_points.size());
     for (const hrp::Vector3& point : link_contact_points) {
-        vertices.push_back((targetPos() - targetRot() * (link_local_coord.translation() + point)).head<2>()); // TODO: rot確認
+        vertices.push_back((targetPos() - targetRot() * localRot() * (localPos() + point)).head<2>()); // TODO: rot確認
     }
     return calcConvexHull(vertices); // TODO: 1点のときと2点のときの確認
+}
+
+// TODO: 要確認
+Eigen::Isometry3d LinkConstraint::calcRotatedTargetAroundToe(const Eigen::Isometry3d& target,
+                                                             const Eigen::AngleAxisd& local_rot)
+{
+    Eigen::Isometry3d rotated_target = target;
+    const hrp::Vector3 toe_to_default = localPos() - calcCop(toe_contact_points);
+    rotated_target.translation() += target.linear() * localRot() * (local_rot.toRotationMatrix() * toe_to_default - toe_to_default);
+    rotated_target.linear() = local_rot.toRotationMatrix() * target.linear();
+    return rotated_target;
+}
+
+Eigen::Isometry3d LinkConstraint::calcRotatedTargetAroundHeel(const Eigen::Isometry3d& target,
+                                                              const Eigen::AngleAxisd& local_rot)
+{
+    Eigen::Isometry3d rotated_target = target;
+    const hrp::Vector3 heel_to_default = localPos() - calcCop(heel_contact_points);
+    rotated_target.translation() += target.linear() * localRot() * (local_rot.toRotationMatrix() * heel_to_default - heel_to_default);
+    rotated_target.linear() = local_rot.toRotationMatrix() * target.linear(); // TODO: localRotを使わないと
+    return rotated_target;
 }
 
 // -- LImbTrajectoryGenerator --
@@ -128,7 +149,7 @@ int ConstraintsWithCount::getConstraintIndexFromLinkId(const int id) const
         if (constraints[idx].getLinkId() == id) return idx;
     }
 
-    std::cerr << "[LinkConstraint] Can't find constraint for " << id << " th link" << std::endl;
+    std::cerr << "[LinkConstraint] Can't find constraints for link " << id << std::endl;
     return -1;
 }
 
@@ -150,9 +171,11 @@ std::vector<Eigen::Vector2d> ConstraintsWithCount::calcContactConvexHullForAllCo
 
         Eigen::Isometry3d::ConstTranslationPart target_pos = constraint.targetPos();
         Eigen::Isometry3d::ConstLinearPart target_rot = constraint.targetRot();
-        const hrp::Vector3& link_local_pos = constraint.localPos();
+        Eigen::Isometry3d::ConstTranslationPart link_local_pos = constraint.localPos();
+        Eigen::Isometry3d::ConstLinearPart link_local_rot = constraint.localRot();
         for (const hrp::Vector3& point : constraint.getLinkContactPoints()) {
-            vertices.push_back((target_pos - target_rot * (link_local_pos + point)).head<2>()); // TODO: rot
+            // vertices.push_back((target_pos - target_rot * link_local_rot * (link_local_pos + point)).head<2>()); // TODO: rot
+            vertices.push_back((target_pos + target_rot * link_local_rot * (point - link_local_pos)).head<2>()); // TODO: rot
         }
     }
     return calcConvexHull(vertices);

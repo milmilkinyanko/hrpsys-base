@@ -42,12 +42,32 @@ hrp::Vector3 calcCycloidMidPoint(const double ratio, const hrp::Vector3& start,
 }
 
 std::tuple<double, double, double>
+linearInterpolation(const double remain_time, const double dt,
+                    const double _pos, const double goal_pos)
+{
+    const double acc = 0;
+    const double vel = (goal_pos - _pos) / remain_time;
+    const double pos = _pos + dt * vel;
+    return std::forward_as_tuple(pos, vel, acc);
+}
+
+std::tuple<hrp::Vector3, hrp::Vector3, hrp::Vector3>
+linearInterpolation(const double remain_time, const double dt,
+                    const hrp::Vector3& _pos, const hrp::Vector3& goal_pos)
+{
+    const hrp::Vector3 acc = hrp::Vector3::Zero();
+    const hrp::Vector3 vel = (goal_pos - _pos) / remain_time;
+    const hrp::Vector3 pos = _pos + dt * vel;
+    return std::forward_as_tuple(pos, vel, acc);
+}
+
+std::tuple<double, double, double>
 hoffArbibInterpolation(const double remain_time, const double dt,
-                       const double& _pos, const double& _vel,
-                       const double& _acc,
-                       const double& goal_pos,
-                       const double& goal_vel = 0,
-                       const double& goal_acc = 0)
+                       const double _pos, const double _vel,
+                       const double _acc,
+                       const double goal_pos,
+                       const double goal_vel = 0,
+                       const double goal_acc = 0)
 {
     const double jerk =
         (-9.0 / remain_time) * (_acc - goal_acc / 3.0) +
@@ -88,10 +108,10 @@ void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt
     if (via_points.empty() || via_points.back().count <= count) return;
 
     if (traj_type >= DELAY_HOFFARBIB) calcDelayHoffArbibTrajectory(count, dt);
+    else if (traj_type == LINEAR) calcLinearTrajectory(count, dt);
 }
 
-// Calculate Hoff & Arbib trajectory following preceding point by delay_time_offset [s]
-void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, const double dt)
+std::tuple<double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(const size_t count, const double dt)
 {
     size_t idx = 0;
     const double preceding_count = count + static_cast<size_t>(delay_time_offset / dt);
@@ -116,9 +136,35 @@ void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, c
         rot_angle = calcInteriorPoint(0.0, via_points.back().diff_rot_angle, rot_ratio);
     }
 
+    return std::forward_as_tuple(remain_time, target, rot_angle);
+}
+
+void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const double dt)
+{
+    double remain_time;
+    hrp::Vector3 target;
+    double rot_angle;
+    std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
+
+    std::tie(pos, vel, acc) = linearInterpolation(remain_time, dt, pos, target);
+    std::tie(diff_rot.angle(), rot_vel, rot_acc) = linearInterpolation(remain_time, dt, diff_rot.angle(), rot_angle);
+    rot = start_rot * diff_rot.toRotationMatrix();
+}
+
+// Calculate Hoff & Arbib trajectory following preceding point by delay_time_offset [s]
+void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, const double dt)
+{
+    double remain_time;
+    hrp::Vector3 target;
+    double rot_angle;
+    std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
+
+    std::cerr << "delay prev pos: " << pos.transpose() << std::endl;
     std::tie(pos, vel, acc) = hoffArbibInterpolation(remain_time, dt, pos, vel, acc, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = hoffArbibInterpolation(remain_time, dt, diff_rot.angle(), rot_vel, rot_acc, rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
+
+    std::cerr << "delay afte pos: " << pos.transpose() << std::endl;
 
     // std::cerr << "rot_angle: " << rot_angle << ", target_rot: " << diff_rot.angle() << ", goal_rot: " << via_points.back().diff_rot_angle << std::endl;
 }
@@ -131,6 +177,7 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
     clearViaPoints();
     traj_type = _traj_type;
     pos = start.translation();
+    std::cerr << "pos: " << pos.transpose() << std::endl;
     rot = start.linear();
 
     switch (_traj_type) {
@@ -160,47 +207,47 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
     std::cerr << "start_count: " << start_count << ", goal_count: " << goal_count << std::endl;
 }
 
-// // TODO: この辺はcountを渡すのではなくindexを渡すのでも良い
-// void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
-//                                             const std::vector<ConstraintsWithCount>& constraints_list,
-//                                             const int link_id, const size_t count, const double height)
-// {
-//     // TODO: use next_turning_count
-//     const size_t cur_idx = getConstraintIndexFromCount(constraints_list, count);
-//     size_t goal_idx = cur_idx;
+void LimbTrajectoryGenerator::setViaPoints(const TrajectoryType _traj_type,
+                                           const Eigen::Isometry3d& start,
+                                           const Eigen::Isometry3d& goal,
+                                           const std::vector<ViaPoint>& _via_points)
+{
+    via_points = _via_points;
+    traj_type = _traj_type;
+    pos = start.translation();
+    rot = start.linear();
+    start_rot = start.linear();
+    diff_rot = Eigen::AngleAxisd(start.linear().transpose() * goal.linear());
+    via_points.back().diff_rot_angle = diff_rot.angle();
+    diff_rot.angle() = 0;
+}
 
-//     int goal_constraint_idx;
-//     while (goal_idx < constraints_list.size()) {
-//         // TODO: constraintのindexを渡してしまうのも手．その場合前後でconstraints_listの数が変わるとまずい
-//         goal_constraint_idx = constraints_list[goal_idx].getConstraintIndexFromLinkId(link_id);
-//         if (goal_constraint_idx == -1) break;
-//         if (constraints_list[goal_idx].constraints[goal_constraint_idx].getConstraintType() == LinkConstraint::FLOAT) ++goal_idx;
-//         else break;
-//     }
+void LimbTrajectoryGenerator::calcRotationViaPoints(const TrajectoryType _traj_type,
+                                                    const Eigen::Isometry3d& start,
+                                                    const Eigen::Vector3d& rot_axis,
+                                                    const double rot_angle,
+                                                    const size_t start_count,
+                                                    const size_t goal_count)
+{
+    std::cerr << "calc limb rot" << std::endl;
+    traj_type = _traj_type;
+    pos = start.translation();
+    rot = start.linear();
+    start_rot = start.linear();
+    diff_rot = Eigen::AngleAxisd(0, rot_axis);
 
-//     if (goal_idx == cur_idx) {
-//         std::cerr << "[LimbTrajectoryGenerator] The constraint " << link_id << " is not FLOAT" << std::endl;
-//         return;
-//     }
+    via_points.clear();
+    via_points.resize(2);
 
-//     if (goal_constraint_idx == -1 || goal_idx == constraints_list.size()) {
-//         std::cerr << "[LimbTrajectoryGenerator] Can't find landing position" << std::endl;
-//         return;
-//     }
+    via_points[0].point = start.translation();
+    via_points[0].count = start_count;
 
-//     traj_type = _traj_type;
-//     int start_constraint_idx = constraints_list[cur_idx].getConstraintIndexFromLinkId(link_id);
-//     if (start_constraint_idx == -1) {
-//         std::cerr << "[LimbTrajectoryGenerator] Can't find start constraint" << std::endl;
-//         return;
-//     }
-
-//     calcViaPoints(traj_type,
-//                   constraints_list[cur_idx].constraints[start_constraint_idx].targetCoord(),
-//                   constraints_list[goal_idx].constraints[goal_constraint_idx].targetCoord(),
-//                   constraints_list[cur_idx].start_count, constraints_list[goal_idx].start_count,
-//                   height);
-// }
+    via_points[1].point = start.translation();
+    via_points[1].count = goal_count;
+    via_points[1].diff_rot_angle = rot_angle;
+    std::cerr << "goal point: " << via_points[1].point.transpose() << std::endl;
+    std::cerr << "goal rot angle: " << via_points[1].diff_rot_angle << std::endl;
+}
 
 void LimbTrajectoryGenerator::calcCycloidDelayViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
                                                         const size_t start_count, const size_t goal_count,

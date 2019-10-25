@@ -44,15 +44,20 @@ class LinkConstraint
     // double pos_precision = 1e-4;
     // double rot_precision = deg2rad(0.1);
 
-    // TODO: この辺はGaitGeneratorが持つべきか
+    // bool use_toe_heel = false; TODO: ?
     std::vector<hrp::Vector3> default_contact_points; // Link local
     std::vector<hrp::Vector3> toe_contact_points; // Link local
     std::vector<hrp::Vector3> heel_contact_points; // Link local
 
-    // TODO: つま先離陸，かかと着陸の時の補間
-
     LimbTrajectoryGenerator limb_traj;
     // std::unique_ptr<LimbTrajectoryGenerator> limb_traj_impl;
+
+    hrp::Vector3 calcCop(const std::vector<hrp::Vector3>& points,
+                         const hrp::Vector3& _cop_offset = hrp::Vector3::Zero())
+    {
+        return std::accumulate(points.begin(), points.end(), hrp::Vector3::Zero().eval()) /
+            link_contact_points.size() + cop_offset;
+    }
 
   public:
     LinkConstraint(const int _link_id, const ConstraintType _constraint_type = FIX);
@@ -63,17 +68,19 @@ class LinkConstraint
     // LinkConstraint& operator=(LinkConstraint&& lc);
 
     int getLinkId() const { return link_id; }
+    void setLinkContactPoints(const std::vector<hrp::Vector3>& contact_points) { link_contact_points = contact_points; }
     const std::vector<hrp::Vector3>& getLinkContactPoints() const { return link_contact_points; }
 
     void addLinkContactPoint(const hrp::Vector3& pos) { link_contact_points.push_back(pos); }
     void clearLinkContactPoints() { link_contact_points.clear(); }
 
+    void setDefaultContactPoints(const std::vector<hrp::Vector3>& contact_points) { default_contact_points = contact_points; }
+    void setToeContactPoints(const std::vector<hrp::Vector3>& contact_points) { toe_contact_points = contact_points; }
+    void setHeelContactPoints(const std::vector<hrp::Vector3>& contact_points) { heel_contact_points = contact_points; }
+
     void calcLinkLocalPos()
     {
-        link_local_coord.translation() =
-            std::accumulate(link_contact_points.begin(),
-                            link_contact_points.end(),
-                            hrp::Vector3::Zero().eval()) / link_contact_points.size() + cop_offset;
+        link_local_coord.translation() = calcCop(link_contact_points, cop_offset);
     }
     Eigen::Isometry3d::ConstTranslationPart localPos() const { return link_local_coord.translation(); }
 
@@ -107,7 +114,38 @@ class LinkConstraint
         return link_rot * localRot();
     }
 
+    // TODO: toeとheelの時のcop_offsetの切り替え
+    void changeContactPoints(const std::vector<hrp::Vector3>& points)
+    {
+        if (points.empty()) {
+            std::cerr << "The given vector is empty" << std::endl;
+            return;
+        }
+        const Eigen::Vector3d prev_local_pos = localPos();
+        link_contact_points = points;
+        calcLinkLocalPos();
+        // std::cerr << "changed points:\n";
+        // for (const auto& point : link_contact_points) std::cerr << point.transpose() << std::endl;
+        std::cerr << "prev: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
+        std::cerr << "prev target: " << targetPos().transpose();
+        targetPos() += targetRot() * localRot() * (localPos() - prev_local_pos);
+        std::cerr << ", new target: " << targetPos().transpose() << std::endl;
+        // TODO: toeの回転した時のtargetRot
+    }
+
+    // Toe-Heel methods
+    bool hasToeHeelContacts() const { return !(toe_contact_points.empty() || heel_contact_points.empty()); }
+    void changeDefaultContacts() { changeContactPoints(default_contact_points); }
+    void changeToeContacts()     { changeContactPoints(toe_contact_points); }
+    void changeHeelContacts()    { changeContactPoints(heel_contact_points); }
+    Eigen::Isometry3d calcRotatedTargetAroundToe(const Eigen::Isometry3d& target,
+                                                 const Eigen::AngleAxisd& local_rot);
+    Eigen::Isometry3d calcRotatedTargetAroundHeel(const Eigen::Isometry3d& target,
+                                                  const Eigen::AngleAxisd& local_rot);
+
     // LimbTrajectoryGenerator
+    void setLimbPos(const hrp::Vector3& _pos)  { limb_traj.setPos(_pos); }
+    void setLimbRot(const hrp::Matrix33& _rot) { limb_traj.setRot(_rot); }
     void copyLimbTrajectoryGenerator(const LinkConstraint& lc) { limb_traj = lc.limb_traj; }
     void copyLimbState(const LinkConstraint& lc)
     {
@@ -120,7 +158,24 @@ class LinkConstraint
                            const size_t start_count, const size_t goal_count,
                            const double step_height)
     {
+        std::cerr << "limbvia target: " << target_coord.translation().transpose() << std::endl;
         limb_traj.calcViaPoints(traj_type, target_coord, goal, start_count, goal_count, step_height);
+    }
+    void setLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType _traj_type,
+                          const Eigen::Isometry3d& start,
+                          const Eigen::Isometry3d& goal,
+                          const std::vector<LimbTrajectoryGenerator::ViaPoint>& _via_points)
+    {
+        limb_traj.setViaPoints(_traj_type, start, goal, _via_points);
+    }
+    void calcLimbRotationViaPoints(const LimbTrajectoryGenerator::TrajectoryType _traj_type,
+                                   const Eigen::Vector3d& local_rot_axis,
+                                   const double rot_angle,
+                                   const size_t start_count,
+                                   const size_t goal_count)
+    {
+        std::cerr << "link id: " << link_id << std::endl;
+        limb_traj.calcRotationViaPoints(_traj_type, targetCoord(), targetRot() * local_rot_axis, rot_angle, start_count, goal_count);
     }
     void calcLimbTrajectory(const size_t cur_count, const double dt)
     {

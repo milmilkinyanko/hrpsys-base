@@ -1,6 +1,6 @@
 // -*- C++ -*-
 /*!
-n * @file  Stabilizer.cpp
+ * @file  Stabilizer.cpp
  * @brief stabilizer filter
  * @date  $Date$
  *
@@ -26,7 +26,7 @@ constexpr unsigned int DEBUG_LEVEL = 0;
 inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 == 0) || DEBUG_LEVEL > 1; }
 }
 
-Stabilizer::Stabilizer(hrp::BodyPtr _robot, const std::string& _comp_name, const double _dt)
+Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt)
     : //m_robot(boost::make_shared<hrp::Body>(*_robot)), // TODO: copy constructor
       m_robot(_robot),
       comp_name(_comp_name),
@@ -92,9 +92,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
     whether_send_emergency_signal = false;
 
     // m_tau.data.length(m_robot->numJoints());
-    transition_joint_q.resize(m_robot->numJoints());
-    qorg.resize(m_robot->numJoints());
-    qrefv.resize(m_robot->numJoints());
+    transition_joint_q = hrp::dvector::Zero(m_robot->numJoints());
+    qorg = hrp::dvector::Zero(m_robot->numJoints());
+    qrefv = hrp::dvector::Zero(m_robot->numJoints());
     transition_count = 0;
     m_is_falling_counter = 0;
     total_mass = m_robot->totalMass();
@@ -372,7 +372,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
         // tempolary
         m_robot->rootLink()->p = hrp::Vector3::Zero();
-        m_robot->calcForwardKinematics();
+        m_robot->calcForwardKinematics(); // TODO: いらなさそう
 
         const hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
         const hrp::Matrix33 senR = sen->link->R * sen->localR;
@@ -539,13 +539,13 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
             if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM) {
                 // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
                 szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
-                                                 ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
+                                                 ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                                  new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                  gravitational_acceleration * total_mass, dt,
                                                  DEBUGP(loop), comp_name);
             } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQP) {
                 szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
-                                                   ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
+                                                   ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                                    new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                    gravitational_acceleration * total_mass, dt,
                                                    DEBUGP(loop), comp_name,
@@ -559,7 +559,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                                                               (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP), is_contact_list);
             } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2) {
                 szd->distributeZMPToForceMomentsPseudoInverse2(tmp_ref_force, tmp_ref_moment,
-                                                               ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
+                                                               ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                                                new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                                foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
                                                                ee_forcemoment_distribution_weight,
@@ -670,7 +670,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                         } else { // lleg swing
                             remain_swing_time = control_swing_support_time[contact_states_index_map["lleg"]];
                         }
-                        const double swing_ratio = std::max(0.0, std::min(1.0, 1.0 - (remain_swing_time - eefm_pos_margin_time) / eefm_pos_transition_time)); // 0=>1
+                        const double swing_ratio = hrp::clamp(1.0 - (remain_swing_time - eefm_pos_margin_time) / eefm_pos_transition_time, 0.0, 1.0); // 0=>1
                         // Temporarily use first pos damping gain (stikp[0])
                         const hrp::Vector3 damping_gain = (1 - transition_smooth_gain) * stikp[0].eefm_pos_damping_gain * 10 + transition_smooth_gain * stikp[0].eefm_pos_damping_gain;
                         const hrp::Vector3 tmp_time_const = (1 - swing_ratio) * eefm_pos_time_const_swing*hrp::Vector3::Ones() + swing_ratio*stikp[0].eefm_pos_time_const_support;

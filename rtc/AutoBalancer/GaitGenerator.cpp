@@ -348,6 +348,7 @@ namespace rats
             current_swing_time.at(*it) = (lcg_count + default_double_support_ratio_before * next_one_step_count) * dt;
         }
     }
+    std::cerr << current_swing_time[0] << " " << current_swing_time[1] << std::endl;
     //std::cerr << "sl " << support_leg << " " << current_swing_time[support_leg==RLEG?0:1] << " " << current_swing_time[support_leg==RLEG?1:0] << " " << tmp_current_swing_time << " " << lcg_count << std::endl;
   };
 

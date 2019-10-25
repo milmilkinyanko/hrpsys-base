@@ -8,13 +8,16 @@ module OpenHRP
 
   interface AutoBalanceStabilizerService
   {
+    typedef sequence<boolean> BoolSequence;
+    typedef sequence<long> LongSequence;
     typedef sequence<double, 3> DblSequence3;
-    //typedef sequence<double, 4> DblSequence4;
+    typedef sequence<double, 4> DblSequence4;
+    typedef sequence<DblSequence3> DblSeq3Seq;
     typedef double DblArray2[2];
     typedef double DblArray3[3];
     typedef double DblArray4[4];
     typedef double DblArray5[5];
-    typedef sequence<boolean> BoolSequence;
+
 
     /**
      * @struct Footstep
@@ -472,7 +475,7 @@ module OpenHRP
       /// Cutoff frequency of LPF in calculation of force moment distribution alpha ratio parameter [Hz]
       double eefm_alpha_cutoff_freq;
       /// Gravitational acceleration [m/s^2] used in ST calculation
-      double eefm_gravitational_acceleration;
+      double gravitational_acceleration;
       /// Pos error gain
       double eefm_ee_pos_error_p_gain;
       /// Rot error gain
@@ -546,6 +549,22 @@ module OpenHRP
       /// Whether truncate zmp according to foot support polygon or not
       boolean use_zmp_truncation;
     };
+
+
+    /* Service for GaitGenerator */
+    void printConstraintLinkIds();
+    void setDefaultSingleSupportTime(in double time);
+    void setDefaultDoubleSupportTime(in double time);
+    void setDefaultToeSupportTime(in double time);
+    void setDefaultHeelSupportTime(in double time);
+    void setDefaultStepHeight(in double height);
+    void setMaxStride(in double stride);
+    void setMaxRotAngle(in double angle_rad);
+    void setUseToeHeel(in boolean use_toe_heel);
+    void setToeKickAngle(in double angle_rad);
+    void setHeelContactAngle(in double angle_rad);
+    boolean setToeContactPoints(in long link_id, in DblSeq3Seq contact_points);
+    boolean setHeelContactPoints(in long link_id, in DblSeq3Seq contact_points);
 
     /**
      * @brief Walk to the goal position and orientation. Returns without waiting for whole steps to be executed.

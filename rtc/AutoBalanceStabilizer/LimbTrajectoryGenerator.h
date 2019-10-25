@@ -15,19 +15,14 @@
 
 namespace hrp {
 
-// TODO: 結局、ステップごとにパラメータを変えたいときや事前に計画したいときがあるから、LinkConstraintに持たせるか、LimbTrajクラスを複製するのが正解かもしれない
-
-// TODO: limbごとの管理の仕方
-//       LinkConstraintにふくめる？
-//       Link IDで紐付けられたmap (unordered_map) ?
 class LimbTrajectoryGenerator
 {
   public:
-    enum TrajectoryType : size_t {DELAY_HOFFARBIB = 0, CYCLOIDDELAY, RECTANGLE};
+    enum TrajectoryType : size_t {LINEAR, DELAY_HOFFARBIB, CYCLOIDDELAY, RECTANGLE};
     struct ViaPoint
     {
         hrp::Vector3 point;
-        double diff_rot_angle;
+        double diff_rot_angle; // TODO: Rotation Matrixではなくて問題ないかb
         size_t count;
     };
 
@@ -49,6 +44,8 @@ class LimbTrajectoryGenerator
     double delay_time_offset = 0.2; // [s]
 
     // std::tuple<hrp::Vector3, hrp::Vector3, hrp::Vector3> calcDelayHoffArbibTrajectory(const size_t count);
+    std::tuple<double, hrp::Vector3, double> calcTarget(const size_t count, const double dt);
+    void calcLinearTrajectory(const size_t count, const double dt);
     void calcDelayHoffArbibTrajectory(const size_t count, const double dt);
 
     // Preset functions to generate via points for delay Hoff & Arbib trajectory
@@ -62,7 +59,7 @@ class LimbTrajectoryGenerator
     void copyState(const LimbTrajectoryGenerator& ltg)
     {
         // Copy only state variables.
-        // For instance, this function is used when switching FLOAT constraint to FIX constraint.
+        // For instance, this function is used when switching FIX constraint from FLOAT constraint.
         pos     = ltg.pos;
         vel     = ltg.vel;
         acc     = ltg.acc;
@@ -80,10 +77,17 @@ class LimbTrajectoryGenerator
                        const size_t start_count, const size_t goal_count,
                        const double height);
 
-    // // deprecated ?
-    // void calcViaPoints(const TrajectoryType traj_type,
-    //                    const std::vector<ConstraintsWithCount>& constraints_list,
-    //                    const int link_id, const size_t count, const double height);
+    void setViaPoints(const TrajectoryType _traj_type,
+                      const Eigen::Isometry3d& start,
+                      const Eigen::Isometry3d& goal,
+                      const std::vector<ViaPoint>& _via_points);
+
+    void calcRotationViaPoints(const TrajectoryType _traj_type,
+                               const Eigen::Isometry3d& start,
+                               const Eigen::Vector3d& rot_axis,
+                               const double rot_angle,
+                               const size_t start_count,
+                               const size_t goal_count);
 
     /**
      * @fn

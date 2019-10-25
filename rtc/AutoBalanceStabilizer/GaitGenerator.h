@@ -35,15 +35,13 @@ class GaitGenerator
     size_t cur_const_idx = 0; // To reduce calculation time
 
     /// Gait parameter
-    // double default_single_support_time = 1.0;
-    // double default_double_support_time = 0.25;
     size_t default_single_support_count;
     size_t default_double_support_count;
-    size_t default_toe_support_count; // memo: toeはsingle supportに含まれる
-    // size_t default_heel_support_count;
-    double default_step_height = 0.10;
-    double max_stride = 0.1;
-    double max_rot_angle = deg2rad(10);
+    size_t default_toe_support_count;  // memo: toeは single supportに含まれる
+    size_t default_heel_support_count; // memo: heelはdouble supportに含まれる
+    double default_step_height = 0.10; // [m]
+    double max_stride = 0.1; // [m]
+    double max_rot_angle = deg2rad(10); // [rad]
 
     // Walking cycle
     std::vector<int> support_limb_cycle; // TODO: std::vector<std::vector<int>>
@@ -54,8 +52,8 @@ class GaitGenerator
 
     // Toe-heel parameter
     bool default_use_toe_heel = false;
-    double heel_contact_angle = deg2rad(15);
-    double toe_kick_angle = deg2rad(15);
+    double toe_kick_angle = deg2rad(15); // [rad]
+    double heel_contact_angle = deg2rad(15); // [rad]
 
     // Velocity mode parameter
     bool is_velocity_mode = false; // TODO: enum?
@@ -89,9 +87,11 @@ class GaitGenerator
                   std::vector<LinkConstraint>&& init_constraints,
                   const double preview_time = 1.6);
 
-    void setCurrentLoop(const size_t _loop) { loop = _loop; }
+    void resetGaitGenerator(const hrp::BodyPtr& _robot,
+                            const size_t cur_count,
+                            const double _dt);
 
-    void setDefaultStepHeight(const double _height) { default_step_height = _height; }
+    void setCurrentLoop(const size_t _loop) { loop = _loop; }
 
     void forwardTimeStep(const size_t cur_count);
     void calcCogAndLimbTrajectory(const size_t cur_count, const double dt);
@@ -177,24 +177,48 @@ class GaitGenerator
     calcFootStepConstraints(const ConstraintsWithCount& last_constraints,
                             const std::vector<size_t>& swing_indices,
                             const std::vector<Eigen::Isometry3d>& targets,
-                            const size_t swing_start_count, const size_t one_step_count);
-    void addFootStep(const size_t cur_idx, const std::vector<size_t>& swing_indices,
+                            const size_t swing_start_count,
+                            const size_t one_step_count,
+                            const bool use_toe_heel = false,
+                            const std::vector<size_t>& toe_support_indices = std::vector<size_t>(),
+                            const size_t toe_support_count = 0,
+                            const size_t heel_support_count = 0);
+
+    void addFootStep(const ConstraintsWithCount& last_constraints,
+                     const std::vector<size_t>& swing_indices,
                      const std::vector<Eigen::Isometry3d>& targets,
-                     const size_t swing_start_count, const size_t one_step_count);
+                     const size_t swing_start_count,
+                     const size_t one_step_count,
+                     const bool use_toe_heel = false,
+                     const std::vector<size_t>& toe_support_indices = std::vector<size_t>(),
+                     const size_t toe_support_count = 0,
+                     const size_t heel_support_count = 0);
 
     void addFootStep(const std::vector<int>& link_ids, const std::vector<Eigen::Isometry3d>& targets,
                      const size_t swing_start_count, const size_t one_step_count);
-
-    void addFootStepToeHeel(const size_t cur_idx, const std::vector<size_t>& swing_indices,
-                            const std::vector<Eigen::Isometry3d>& targets,
-                            const size_t swing_start_count, const double step_time, const double dt,
-                            const bool use_toe_heel = false,
-                            const bool is_beginning = false, const bool is_last = false);
 
     void addFootStepFromVelocity(const double vel_x, const double vel_y, const double vel_yaw,
                                  const size_t swing_start_count, const double step_time, const double dt,
                                  const double max_step_length, const double max_rotate_angle /*[rad]*/,
                                  const int support_id, const int swing_id);
+
+
+    /* Service below */
+    std::vector<int> getConstraintLinkIds();
+    void setDefaultSingleSupportTime(const double time, const double dt);
+    void setDefaultDoubleSupportTime(const double time, const double dt);
+    void setDefaultToeSupportTime(const double time, const double dt);
+    void setDefaultHeelSupportTime(const double time, const double dt);
+    void setDefaultStepHeight(const double height)   { default_step_height = height; }
+    void setMaxStride(const double stride)           { max_stride = stride; }
+    void setMaxRotAngle(const double angle_rad)      { max_rot_angle = angle_rad; }
+
+    void setUseToeHeel(const bool use_toe_heel)      { default_use_toe_heel = use_toe_heel; }
+    void setToeKickAngle(const double angle_rad)     { toe_kick_angle = angle_rad; }
+    void setHeelContactAngle(const double angle_rad) { heel_contact_angle = angle_rad; }
+    bool setToeContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points);
+    bool setHeelContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points);
+    // void setGaitGeneratorParam(); // TODO: 作るかも
 
     bool goPos(const Eigen::Isometry3d& target,
                const std::vector<int>& support_link_cycle,

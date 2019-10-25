@@ -1,7 +1,7 @@
 #include "AutoBalanceStabilizerService_impl.h"
 #include "AutoBalanceStabilizer.h"
 
-AutoBalanceStabilizerService_impl::AutoBalanceStabilizerService_impl() : m_autobalancestabilizer(NULL)
+AutoBalanceStabilizerService_impl::AutoBalanceStabilizerService_impl() : m_autobalancestabilizer(nullptr)
 {
 }
 
@@ -9,9 +9,76 @@ AutoBalanceStabilizerService_impl::~AutoBalanceStabilizerService_impl()
 {
 }
 
+void AutoBalanceStabilizerService_impl::autobalancestabilizer(AutoBalanceStabilizer *i_autobalancestabilizer)
+{
+    m_autobalancestabilizer = i_autobalancestabilizer;
+}
+
+/* Service for GaitGenerator */
+void AutoBalanceStabilizerService_impl::printConstraintLinkIds()
+{
+    m_autobalancestabilizer->printConstraintLinkIds();
+}
+
+void AutoBalanceStabilizerService_impl::setDefaultSingleSupportTime(const CORBA::Double time) {}
+
+void AutoBalanceStabilizerService_impl::setDefaultDoubleSupportTime(const CORBA::Double time) {}
+
+void AutoBalanceStabilizerService_impl::setDefaultToeSupportTime(const CORBA::Double time) {}
+
+void AutoBalanceStabilizerService_impl::setDefaultHeelSupportTime(const CORBA::Double time) {}
+
+void AutoBalanceStabilizerService_impl::setDefaultStepHeight(const CORBA::Double height)
+{
+    m_autobalancestabilizer->setDefaultStepHeight(height);
+}
+
+void AutoBalanceStabilizerService_impl::setMaxStride(const CORBA::Double stride)
+{
+    m_autobalancestabilizer->setMaxStride(stride);
+}
+
+void AutoBalanceStabilizerService_impl::setMaxRotAngle(const CORBA::Double angle_rad)
+{
+    m_autobalancestabilizer->setMaxRotAngle(angle_rad);
+}
+
+void AutoBalanceStabilizerService_impl::setUseToeHeel(const CORBA::Boolean use_toe_heel)
+{
+    m_autobalancestabilizer->setUseToeHeel(use_toe_heel);
+}
+
+void AutoBalanceStabilizerService_impl::setToeKickAngle(const CORBA::Double angle_rad)
+{
+    m_autobalancestabilizer->setToeKickAngle(angle_rad);
+}
+
+void AutoBalanceStabilizerService_impl::setHeelContactAngle(const CORBA::Double angle_rad)
+{
+    m_autobalancestabilizer->setHeelContactAngle(angle_rad);
+}
+
+CORBA::Boolean AutoBalanceStabilizerService_impl::setToeContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points)
+{
+    std::vector<hrp::Vector3> points(contact_points.length());
+    for (size_t i = 0; i < contact_points.length(); ++i) {
+        for (size_t j = 0; j < 3; ++j) points[i][j] = contact_points[i][j];
+    }
+    return m_autobalancestabilizer->setToeContactPoints(link_id, points);
+}
+
+CORBA::Boolean AutoBalanceStabilizerService_impl::setHeelContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points)
+{
+    std::vector<hrp::Vector3> points(contact_points.length());
+    for (size_t i = 0; i < contact_points.length(); ++i) {
+        for (size_t j = 0; j < 3; ++j) points[i][j] = contact_points[i][j];
+    }
+    return m_autobalancestabilizer->setHeelContactPoints(link_id, points);
+}
+
 CORBA::Boolean AutoBalanceStabilizerService_impl::goPos( CORBA::Double x,  CORBA::Double y,  CORBA::Double th)
 {
-  return m_autobalancestabilizer->goPos(x, y, th);
+    return m_autobalancestabilizer->goPos(x, y, th);
 };
 
 // CORBA::Boolean AutoBalanceStabilizerService_impl::goVelocity( CORBA::Double vx,  CORBA::Double vy,  CORBA::Double vth)
@@ -21,7 +88,7 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::goPos( CORBA::Double x,  CORBA
 
 CORBA::Boolean AutoBalanceStabilizerService_impl::goStop()
 {
-  return m_autobalancestabilizer->goStop();
+    return m_autobalancestabilizer->goStop();
 };
 
 // CORBA::Boolean AutoBalanceStabilizerService_impl::emergencyStop()
@@ -130,8 +197,3 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::releaseEmergencyStop()
 {
     return m_autobalancestabilizer->releaseEmergencyStop();
 };
-
-void AutoBalanceStabilizerService_impl::autobalancestabilizer(AutoBalanceStabilizer *i_autobalancestabilizer)
-{
-  m_autobalancestabilizer = i_autobalancestabilizer;
-}

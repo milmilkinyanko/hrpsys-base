@@ -413,7 +413,6 @@ public:
                                       const std::vector<hrp::Matrix33>& ee_rot,
                                       const std::vector<std::string>& ee_name,
                                       const std::vector<double>& limb_gains,
-                                      const std::vector<double>& toeheel_ratio,
                                       const hrp::Vector3& new_refzmp, const hrp::Vector3& ref_zmp,
                                       const double total_fz, const double dt, const bool printp = true, const std::string& print_str = "")
     {
@@ -627,7 +626,6 @@ public:
                                         const std::vector<hrp::Matrix33>& ee_rot,
                                         const std::vector<std::string>& ee_name,
                                         const std::vector<double>& limb_gains,
-                                        const std::vector<double>& toeheel_ratio,
                                         const hrp::Vector3& new_refzmp, const hrp::Vector3& ref_zmp,
                                         const double total_fz, const double dt, const bool printp = true, const std::string& print_str = "",
                                         const bool use_cop_distribution = false)
@@ -746,13 +744,12 @@ public:
                                         const std::vector<hrp::Matrix33>& ee_rot,
                                         const std::vector<std::string>& ee_name,
                                         const std::vector<double>& limb_gains,
-                                        const std::vector<double>& toeheel_ratio,
                                         const hrp::Vector3& new_refzmp, const hrp::Vector3& ref_zmp,
                                         const double total_fz, const double dt, const bool printp = true, const std::string& print_str = "",
                                         const bool use_cop_distribution = false)
     {
         distributeZMPToForceMoments(ref_foot_force, ref_foot_moment,
-                                    ee_pos, cop_pos, ee_rot, ee_name, limb_gains, toeheel_ratio,
+                                    ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                     new_refzmp, ref_zmp,
                                     total_fz, dt, printp, print_str);
     };
@@ -978,7 +975,6 @@ public:
                                                    const std::vector<hrp::Matrix33>& ee_rot,
                                                    const std::vector<std::string>& ee_name,
                                                    const std::vector<double>& limb_gains,
-                                                   const std::vector<double>& toeheel_ratio,
                                                    const hrp::Vector3& new_refzmp, const hrp::Vector3& ref_zmp,
                                                    const hrp::Vector3& total_force, const hrp::Vector3& total_moment,
                                                    const std::vector<hrp::dvector6>& ee_forcemoment_distribution_weight,

@@ -89,12 +89,12 @@ private:
             double alpha = szd->calcAlpha(refzmp_vec[i], ee_pos, ee_rot, names);
             if (distribution_algorithm == EEFMQP) {
                 szd->distributeZMPToForceMoments(ref_foot_force, ref_foot_moment,
-                                                 ee_pos, cop_pos, ee_rot, names, limb_gains, toeheel_ratio,
+                                                 ee_pos, cop_pos, ee_rot, names, limb_gains,
                                                  refzmp_vec[i], refzmp_vec[i],
                                                  total_fz, dt);
             } else if (distribution_algorithm == EEFMQP || distribution_algorithm == EEFMQP2) {
                 szd->distributeZMPToForceMomentsQP(ref_foot_force, ref_foot_moment,
-                                                   ee_pos, cop_pos, ee_rot, names, limb_gains, toeheel_ratio,
+                                                   ee_pos, cop_pos, ee_rot, names, limb_gains,
                                                    refzmp_vec[i], refzmp_vec[i],
                                                    total_fz, dt, true, "", (distribution_algorithm == EEFMQP2));
             } else if (distribution_algorithm == EEFMQPCOP) {
@@ -105,7 +105,7 @@ private:
             } else if (distribution_algorithm == EEFMQPCOP2) {
                 // std::vector<double> ee_forcemoment_distribution_weight(names.size(), 1.0);
                 // szd->distributeZMPToForceMomentsPseudoInverse2(ref_foot_force, ref_foot_moment,
-                //                                                ee_pos, cop_pos, ee_rot, names, limb_gains, toeheel_ratio,
+                //                                                ee_pos, cop_pos, ee_rot, names, limb_gains,
                 //                                                refzmp_vec[i], refzmp_vec[i],
                 //                                                total_fz, dt, true, "");
             }
@@ -346,4 +346,3 @@ int main(int argc, char* argv[])
     }
     return ret;
 }
-

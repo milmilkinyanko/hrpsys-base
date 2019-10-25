@@ -54,7 +54,7 @@ struct stabilizerLogData
 class Stabilizer
 {
   public: // TODO: public関数をprivateにする
-    Stabilizer(hrp::BodyPtr _robot, const std::string& _comp_name, const double _dt);
+    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
