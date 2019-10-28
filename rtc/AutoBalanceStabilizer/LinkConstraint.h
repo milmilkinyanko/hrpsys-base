@@ -154,10 +154,8 @@ class LinkConstraint
     void copyLimbState(const LinkConstraint& lc)
     {
         if (limb_traj.isViaPointsEmpty()) limb_traj = lc.limb_traj;
-        else {
-            const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
-            limb_traj.copyState(lc.limb_traj, move_pos);
-        }
+        const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
+        limb_traj.copyState(lc.limb_traj, move_pos);
     }
     void clearLimbViaPoints() { limb_traj.clearViaPoints(); }
     void calcLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType traj_type,
