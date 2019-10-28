@@ -9,13 +9,13 @@
 #ifndef LINKCONSTRAINT_H
 #define LINKCONSTRAINT_H
 
+#include <iostream> // Debug: this file should not include iostream
 #include <vector>
 #include <numeric>
 #include <algorithm>
 #include <memory>
 #include <Eigen/Geometry>
 #include <hrpUtil/EigenTypes.h>
-#include "../ImpedanceController/RatsMatrix.h"
 #include "LimbTrajectoryGenerator.h"
 
 namespace hrp {
@@ -117,19 +117,23 @@ class LinkConstraint
     // TODO: toeとheelの時のcop_offsetの切り替え
     void changeContactPoints(const std::vector<hrp::Vector3>& points)
     {
+        // TODO: limb trajのposも変更
+
         if (points.empty()) {
             std::cerr << "The given vector is empty" << std::endl;
             return;
         }
-        const Eigen::Vector3d prev_local_pos = localPos();
+
+        const hrp::Vector3 prev_local_pos = localPos();
         link_contact_points = points;
         calcLinkLocalPos();
         // std::cerr << "changed points:\n";
         // for (const auto& point : link_contact_points) std::cerr << point.transpose() << std::endl;
         std::cerr << "prev: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
         std::cerr << "prev target: " << targetPos().transpose();
-        targetPos() += targetRot() * localRot() * (localPos() - prev_local_pos);
-        std::cerr << ", new target: " << targetPos().transpose() << std::endl;
+        const hrp::Vector3 move_pos = targetRot() * localRot() * (localPos() - prev_local_pos);
+        targetPos() += move_pos;
+        std::cerr << ", move_pos: " << move_pos.transpose() << ", new target: " << targetPos().transpose() << std::endl;
         // TODO: toeの回転した時のtargetRot
     }
 
@@ -150,7 +154,10 @@ class LinkConstraint
     void copyLimbState(const LinkConstraint& lc)
     {
         if (limb_traj.isViaPointsEmpty()) limb_traj = lc.limb_traj;
-        else limb_traj.copyState(lc.limb_traj);
+        else {
+            const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
+            limb_traj.copyState(lc.limb_traj, move_pos);
+        }
     }
     void clearLimbViaPoints() { limb_traj.clearViaPoints(); }
     void calcLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType traj_type,
@@ -169,12 +176,11 @@ class LinkConstraint
         limb_traj.setViaPoints(_traj_type, start, goal, _via_points);
     }
     void calcLimbRotationViaPoints(const LimbTrajectoryGenerator::TrajectoryType _traj_type,
-                                   const Eigen::Vector3d& local_rot_axis,
+                                   const hrp::Vector3& local_rot_axis,
                                    const double rot_angle,
                                    const size_t start_count,
                                    const size_t goal_count)
     {
-        std::cerr << "link id: " << link_id << std::endl;
         limb_traj.calcRotationViaPoints(_traj_type, targetCoord(), targetRot() * local_rot_axis, rot_angle, start_count, goal_count);
     }
     void calcLimbTrajectory(const size_t cur_count, const double dt)

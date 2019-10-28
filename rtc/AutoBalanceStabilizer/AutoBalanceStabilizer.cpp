@@ -834,6 +834,8 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     size_t i;
     for (i = 0; i < cur_constraints.size(); ++i) {
         ik_constraints[i].targetPos = cur_constraints[i].targetPos();
+        ik_constraints[i].localPos = cur_constraints[i].localPos();
+        ik_constraints[i].localR = cur_constraints[i].localRot();
         ik_constraints[i].targetOmega = hrp::omegaFromRot(cur_constraints[i].targetRot());
     }
 

@@ -83,7 +83,7 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
     zmp_gen->popAndPushRefZMP(constraints_list, cur_count);
     cur_const_idx = getConstraintIndexFromCount(constraints_list, cur_count);
     if (constraints_list[cur_const_idx].start_count == cur_count && cur_const_idx > 0) {
-        // TODO: 最初のStateを変更しておかないと
+        // TODO: 最初のStateを変更しておかないと, ToeHeelの切り替え
         constraints_list[cur_const_idx].copyLimbState(constraints_list[cur_const_idx - 1]);
     }
 }
@@ -182,7 +182,6 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         footstep_constraints.push_back(last_constraints);
     }
 
-    size_t phase_idx = 0;
     const size_t landing_count = swing_start_count + one_step_count;
 
     ConstraintsWithCount& swing_phase_constraints = footstep_constraints.back();
@@ -212,7 +211,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
                                                          Eigen::Vector3d::UnitY(),
                                                          toe_kick_angle,
                                                          toe_phase_constraints.start_count,
-                                                         heel_start_count);
+                                                         heel_start_count); // TODO: landing_countでも良いかも
             }
         }
 
@@ -231,17 +230,28 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
                 LinkConstraint& heel_constraint = heel_phase_constraints.constraints[swing_indices[i]];
                 if (!heel_constraint.hasToeHeelContacts()) continue;
 
-                const Eigen::Isometry3d heel_rotated_target =
-                    heel_constraint.calcRotatedTargetAroundHeel(targets[i], Eigen::AngleAxisd(-heel_contact_angle, Eigen::Vector3d::UnitY()));
-                std::cerr << "rotated target:\n" << heel_rotated_target.matrix() << std::endl;
+                // TODO: heel contactの座標で計算して，changeDefaultContactsで良さそう？ <- どのconstraintでやるのか
+                // const Eigen::Isometry3d heel_rotated_target =
+                //     heel_constraint.calcRotatedTargetAroundHeel(targets[i], Eigen::AngleAxisd(-heel_contact_angle, Eigen::Vector3d::UnitY()));
+
+                heel_constraint.changeDefaultContacts();
+                heel_constraint.targetCoord() = targets[i];
+                heel_constraint.changeHeelContacts();
+                heel_constraint.targetRot() = heel_constraint.targetRot() * Eigen::AngleAxisd(-heel_contact_angle, Eigen::Vector3d::UnitY()).toRotationMatrix();
+                std::cerr << "heel    target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
+                std::cerr << "        target:\n" << targets[i].matrix() << std::endl;
+                heel_constraint.changeDefaultContacts();
+                std::cerr << "rotated target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
+
                 swing_phase_constraints.constraints[swing_indices[i]]
-                    .calcLimbViaPoints(default_traj_type, heel_rotated_target,
+                    .calcLimbViaPoints(default_traj_type, heel_constraint.targetCoord(),
                                        swing_start_count, heel_start_count,
                                        default_step_height);
 
                 heel_constraint.setConstraintType(LinkConstraint::FIX);
-                heel_constraint.targetCoord() = heel_rotated_target;
+                // heel_constraint.targetCoord() = heel_rotated_target;
                 heel_constraint.changeHeelContacts();
+                std::cerr << "heel    target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
                 heel_constraint.calcLimbRotationViaPoints(LimbTrajectoryGenerator::LINEAR,
                                                           Eigen::Vector3d::UnitY(),
                                                           heel_contact_angle,
@@ -261,10 +271,13 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         for (size_t i = 0; i < swing_indices_size; ++i) {
             LinkConstraint& landing_constraint = landing_phase_constraints.constraints[swing_indices[i]];
             landing_constraint.setConstraintType(LinkConstraint::FIX);
-            // landing_constraint.changeDefaultContacts();
+            landing_constraint.changeDefaultContacts();
+            // TODO: targetCoord と limb同時に変更する
             landing_constraint.targetCoord() = targets[i];
+            landing_constraint.setLimbPos(targets[i].translation());
+            landing_constraint.setLimbRot(targets[i].linear());
 
-            if (use_toe_heel & landing_constraint.hasToeHeelContacts()) continue;
+            if (use_toe_heel && landing_constraint.hasToeHeelContacts()) continue;
             // TODO: trajectory type, step heightを引数で与える．
             //       将来的にvia pointsまで含めて与えられるようにする．
             swing_phase_constraints.constraints[swing_indices[i]]
@@ -478,11 +491,12 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
          (default_single_support_count + default_double_support_count) : default_double_support_count);
         const std::vector<size_t> swing_indices{swing_idx};
         const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
+        const std::vector<size_t> toe_support_indices{support_idx};
 
         const std::vector<ConstraintsWithCount> footstep_constraints =
         calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
                                 swing_start_count, default_single_support_count,
-                                use_toe_heel, std::vector<size_t>(support_idx, 1),
+                                use_toe_heel, toe_support_indices,
                                 default_toe_support_count, default_heel_support_count);
 
         for (const auto& footstep : footstep_constraints) {

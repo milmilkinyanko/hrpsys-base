@@ -56,18 +56,7 @@ class LimbTrajectoryGenerator
                                 const size_t start_count, const size_t goal_count,
                                 const double height);
   public:
-    void copyState(const LimbTrajectoryGenerator& ltg)
-    {
-        // Copy only state variables.
-        // For instance, this function is used when switching FIX constraint from FLOAT constraint.
-        pos     = ltg.pos;
-        vel     = ltg.vel;
-        acc     = ltg.acc;
-        rot     = ltg.rot;
-        rot_vel = ltg.rot_vel;
-        rot_acc = ltg.rot_acc;
-    }
-
+    void copyState(const LimbTrajectoryGenerator& ltg, const hrp::Vector3& move_pos = hrp::Vector3::Zero());
     bool isViaPointsEmpty() const { return via_points.empty(); }
     const std::vector<ViaPoint>& getViaPoints() const { return via_points; }
     void clearViaPoints() { via_points.clear(); }

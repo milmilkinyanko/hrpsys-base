@@ -149,6 +149,8 @@ void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const dou
     std::tie(pos, vel, acc) = linearInterpolation(remain_time, dt, pos, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = linearInterpolation(remain_time, dt, diff_rot.angle(), rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
+
+    std::cerr << "linear pos: " << pos.transpose() << ", target: " << target.transpose() << ", rot angle: " << diff_rot.angle() << std::endl;
 }
 
 // Calculate Hoff & Arbib trajectory following preceding point by delay_time_offset [s]
@@ -159,14 +161,25 @@ void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, c
     double rot_angle;
     std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
 
-    std::cerr << "delay prev pos: " << pos.transpose() << std::endl;
+    // std::cerr << "delay prev pos: " << pos.transpose() << std::endl;
     std::tie(pos, vel, acc) = hoffArbibInterpolation(remain_time, dt, pos, vel, acc, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = hoffArbibInterpolation(remain_time, dt, diff_rot.angle(), rot_vel, rot_acc, rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
 
-    std::cerr << "delay afte pos: " << pos.transpose() << std::endl;
-
+    // std::cerr << "delay afte pos: " << pos.transpose() << std::endl;
     // std::cerr << "rot_angle: " << rot_angle << ", target_rot: " << diff_rot.angle() << ", goal_rot: " << via_points.back().diff_rot_angle << std::endl;
+}
+
+void LimbTrajectoryGenerator::copyState(const LimbTrajectoryGenerator& ltg, const hrp::Vector3& move_pos)
+{
+    // Copy only state variables.
+    // For instance, this function is used when switching FIX constraint from FLOAT constraint.
+    pos     = ltg.pos + move_pos;
+    vel     = ltg.vel; // TODO: rot_velを足す
+    acc     = ltg.acc; // TODO: rot_accを足す
+    rot     = ltg.rot;
+    rot_vel = ltg.rot_vel;
+    rot_acc = ltg.rot_acc;
 }
 
 void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
