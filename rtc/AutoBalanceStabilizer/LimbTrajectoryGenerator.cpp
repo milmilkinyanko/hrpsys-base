@@ -103,12 +103,16 @@ hoffArbibInterpolation(const double remain_time, const double dt,
 
 namespace hrp {
 
-void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt)
+void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt,
+                                             Eigen::Ref<Eigen::Vector3d> pos, Eigen::Ref<Eigen::Vector3d> vel,
+                                             Eigen::Ref<Eigen::Vector3d> acc,
+                                             Eigen::Ref<Eigen::Matrix3d> rot, double& rot_vel,
+                                             double& rot_acc)
 {
     if (via_points.empty() || via_points.back().count <= count) return;
 
-    if (traj_type >= DELAY_HOFFARBIB) calcDelayHoffArbibTrajectory(count, dt);
-    else if (traj_type == LINEAR) calcLinearTrajectory(count, dt);
+    if (traj_type >= DELAY_HOFFARBIB) calcDelayHoffArbibTrajectory(count, dt, pos, vel, acc, rot, rot_vel, rot_acc);
+    else if (traj_type == LINEAR) calcLinearTrajectory(count, dt, pos, vel, acc, rot, rot_vel, rot_acc);
 }
 
 std::tuple<double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(const size_t count, const double dt)
@@ -139,7 +143,11 @@ std::tuple<double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(con
     return std::forward_as_tuple(remain_time, target, rot_angle);
 }
 
-void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const double dt)
+void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const double dt,
+                                                   Eigen::Ref<Eigen::Vector3d> pos, Eigen::Ref<Eigen::Vector3d> vel,
+                                                   Eigen::Ref<Eigen::Vector3d> acc,
+                                                   Eigen::Ref<Eigen::Matrix3d> rot, double& rot_vel,
+                                                   double& rot_acc)
 {
     double remain_time;
     hrp::Vector3 target;
@@ -150,36 +158,24 @@ void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const dou
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = linearInterpolation(remain_time, dt, diff_rot.angle(), rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
 
-    std::cerr << "linear pos: " << pos.transpose() << ", target: " << target.transpose() << ", rot angle: " << diff_rot.angle() << std::endl;
+    // std::cerr << "linear pos: " << pos.transpose() << ", target: " << target.transpose() << ", rot angle: " << diff_rot.angle() << std::endl;
 }
 
 // Calculate Hoff & Arbib trajectory following preceding point by delay_time_offset [s]
-void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, const double dt)
+void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, const double dt,
+                                                           Eigen::Ref<Eigen::Vector3d> pos, Eigen::Ref<Eigen::Vector3d> vel,
+                                                           Eigen::Ref<Eigen::Vector3d> acc,
+                                                           Eigen::Ref<Eigen::Matrix3d> rot, double& rot_vel,
+                                                           double& rot_acc)
 {
     double remain_time;
     hrp::Vector3 target;
     double rot_angle;
     std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
 
-    // std::cerr << "delay prev pos: " << pos.transpose() << std::endl;
     std::tie(pos, vel, acc) = hoffArbibInterpolation(remain_time, dt, pos, vel, acc, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = hoffArbibInterpolation(remain_time, dt, diff_rot.angle(), rot_vel, rot_acc, rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
-
-    // std::cerr << "delay afte pos: " << pos.transpose() << std::endl;
-    // std::cerr << "rot_angle: " << rot_angle << ", target_rot: " << diff_rot.angle() << ", goal_rot: " << via_points.back().diff_rot_angle << std::endl;
-}
-
-void LimbTrajectoryGenerator::copyState(const LimbTrajectoryGenerator& ltg, const hrp::Vector3& move_pos)
-{
-    // Copy only state variables.
-    // For instance, this function is used when switching FIX constraint from FLOAT constraint.
-    pos     = ltg.pos + move_pos;
-    vel     = ltg.vel; // TODO: rot_velを足す
-    acc     = ltg.acc; // TODO: rot_accを足す
-    rot     = ltg.rot;
-    rot_vel = ltg.rot_vel;
-    rot_acc = ltg.rot_acc;
 }
 
 void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
@@ -189,9 +185,6 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
 {
     clearViaPoints();
     traj_type = _traj_type;
-    pos = start.translation();
-    std::cerr << "pos: " << pos.transpose() << std::endl;
-    rot = start.linear();
 
     switch (_traj_type) {
       case CYCLOIDDELAY:
@@ -227,8 +220,6 @@ void LimbTrajectoryGenerator::setViaPoints(const TrajectoryType _traj_type,
 {
     via_points = _via_points;
     traj_type = _traj_type;
-    pos = start.translation();
-    rot = start.linear();
     start_rot = start.linear();
     diff_rot = Eigen::AngleAxisd(start.linear().transpose() * goal.linear());
     via_points.back().diff_rot_angle = diff_rot.angle();
@@ -244,8 +235,6 @@ void LimbTrajectoryGenerator::calcRotationViaPoints(const TrajectoryType _traj_t
 {
     std::cerr << "calc limb rot" << std::endl;
     traj_type = _traj_type;
-    pos = start.translation();
-    rot = start.linear();
     start_rot = start.linear();
     diff_rot = Eigen::AngleAxisd(0, rot_axis);
 

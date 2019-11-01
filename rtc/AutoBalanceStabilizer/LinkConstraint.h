@@ -34,6 +34,11 @@ class LinkConstraint
     Eigen::Isometry3d link_local_coord = Eigen::Isometry3d::Identity(); // Link local
     Eigen::Isometry3d target_coord = Eigen::Isometry3d::Identity(); // Global
 
+    hrp::Vector3 pos_vel = hrp::Vector3::Zero();
+    hrp::Vector3 pos_acc = hrp::Vector3::Zero();
+    double rot_vel = 0; // TODO: 3d vec or axis-angle?
+    double rot_acc = 0;
+
     // TODO: sensorやref forceなど入れる？
     hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // Link local
     double cop_weight = 1.0; // TODO: FLOATではweightを0に?
@@ -148,14 +153,19 @@ class LinkConstraint
                                                   const Eigen::AngleAxisd& local_rot);
 
     // LimbTrajectoryGenerator
-    void setLimbPos(const hrp::Vector3& _pos)  { limb_traj.setPos(_pos); }
-    void setLimbRot(const hrp::Matrix33& _rot) { limb_traj.setRot(_rot); }
     void copyLimbTrajectoryGenerator(const LinkConstraint& lc) { limb_traj = lc.limb_traj; }
-    void copyLimbState(const LinkConstraint& lc)
+    void copyLimbState(const LinkConstraint& lc) // TODO: 名前もはやこれじゃない
     {
         if (limb_traj.isViaPointsEmpty()) limb_traj = lc.limb_traj;
         const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
-        limb_traj.copyState(lc.limb_traj, move_pos);
+        // limb_traj.copyState(lc.limb_traj, move_pos);
+        targetPos() = lc.targetPos() + move_pos;
+        // TODO: rot_vel, rot_accを足す
+        pos_vel = lc.pos_vel;
+        pos_acc = lc.pos_acc;
+        targetRot() = lc.targetRot();
+        rot_vel = lc.rot_vel;
+        rot_acc = lc.rot_acc;
     }
     void clearLimbViaPoints() { limb_traj.clearViaPoints(); }
     void calcLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType traj_type,
@@ -184,9 +194,7 @@ class LinkConstraint
     void calcLimbTrajectory(const size_t cur_count, const double dt)
     {
         if (!limb_traj.isViaPointsEmpty()) {
-            limb_traj.calcTrajectory(cur_count, dt);
-            targetPos() = limb_traj.getPos();
-            targetRot() = limb_traj.getRot();
+            limb_traj.calcTrajectory(cur_count, dt, targetPos(), pos_vel, pos_acc, targetRot(), rot_vel, rot_acc);
         }
     }
 };
@@ -226,6 +234,7 @@ struct ConstraintsWithCount
 
 
 // Utility functions
+// TODO: LinkConstraintなのかConstraintsWithCountなのかわかりづらい
 inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount>& constraints_list,
                                           const size_t count, const size_t start_idx = 0)
 {

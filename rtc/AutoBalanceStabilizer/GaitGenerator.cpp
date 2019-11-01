@@ -38,8 +38,6 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
         // std::cerr << "target " << link->name << " pos: " << constraint.targetPos().transpose() << std::endl;
         // std::cerr << "local  " << link->name << " pos: " << constraint.localPos().transpose() << std::endl;
         constraint.targetRot() = constraint.calcActualTargetRotFromLinkState(link->R);
-        constraint.setLimbPos(constraint.targetPos());
-        constraint.setLimbRot(constraint.targetRot());
     }
 
     constraints_list.resize(1);
@@ -274,8 +272,6 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
             landing_constraint.changeDefaultContacts();
             // TODO: targetCoord と limb同時に変更する
             landing_constraint.targetCoord() = targets[i];
-            landing_constraint.setLimbPos(targets[i].translation());
-            landing_constraint.setLimbRot(targets[i].linear());
 
             if (use_toe_heel && landing_constraint.hasToeHeelContacts()) continue;
             // TODO: trajectory type, step heightを引数で与える．
