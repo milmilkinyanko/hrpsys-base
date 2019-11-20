@@ -18,6 +18,8 @@
 #include <hrpUtil/EigenTypes.h>
 #include "LimbTrajectoryGenerator.h"
 
+// Memo: 着地時間が例えば遅くなった時，足は待っているのかどうか．どうやって修正するか
+
 namespace hrp {
 
 // class LimbTrajectoryGenerator;
@@ -25,8 +27,7 @@ namespace hrp {
 class LinkConstraint
 {
   public:
-    // enum ConstraintType : size_t {FIX, TOE_FORWARD, TOE_BACKWARD, HEEL_FORWARD, HEEL_BACKWARD, FLOAT, FREE};
-    enum ConstraintType : size_t {FIX, FLOAT, FREE};
+    enum ConstraintType : size_t {FIX, ROTATE, SLIDE, FLOAT, FREE};
 
   private:
     int link_id;
@@ -87,6 +88,8 @@ class LinkConstraint
     {
         link_local_coord.translation() = calcCop(link_contact_points, cop_offset);
     }
+
+    const Eigen::Isometry3d& localCoord() const { return link_local_coord; }
     Eigen::Isometry3d::ConstTranslationPart localPos() const { return link_local_coord.translation(); }
 
     Eigen::Isometry3d::LinearPart localRot() { return link_local_coord.linear(); }
@@ -122,8 +125,6 @@ class LinkConstraint
     // TODO: toeとheelの時のcop_offsetの切り替え
     void changeContactPoints(const std::vector<hrp::Vector3>& points)
     {
-        // TODO: limb trajのposも変更
-
         if (points.empty()) {
             std::cerr << "The given vector is empty" << std::endl;
             return;
@@ -191,6 +192,13 @@ class LinkConstraint
     {
         limb_traj.calcRotationViaPoints(_traj_type, targetCoord(), targetRot() * local_rot_axis, rot_angle, start_count, goal_count);
     }
+    void modifyLimbViaPoints(const Eigen::Isometry3d& new_goal,
+                             const size_t current_count,
+                             const size_t new_goal_count,
+                             const double dt)
+    {
+        limb_traj.modifyViaPoints(target_coord, new_goal, current_count, new_goal_count, dt);
+    }
     void calcLimbTrajectory(const size_t cur_count, const double dt)
     {
         if (!limb_traj.isViaPointsEmpty()) {
@@ -226,6 +234,9 @@ struct ConstraintsWithCount
     {
         for (auto& constraint : constraints) constraint.clearLimbViaPoints();
     }
+    // void modifyLimbViaPoints(const size_t constraint_idx,
+    //                          const Eigen::Isometry3d& new_goal,
+    //                          const size_t new_goal_count);
     void calcLimbTrajectory(const size_t cur_count, const double dt)
     {
         for (auto& constraint : constraints) constraint.calcLimbTrajectory(cur_count, dt);
@@ -236,10 +247,10 @@ struct ConstraintsWithCount
 // Utility functions
 // TODO: LinkConstraintなのかConstraintsWithCountなのかわかりづらい
 inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount>& constraints_list,
-                                          const size_t count, const size_t start_idx = 0)
+                                          const size_t count, const size_t search_start_idx = 0)
 {
-    size_t constraint_index = start_idx;
-    for (size_t i = start_idx; i < constraints_list.size() && constraints_list[i].start_count <= count; ++i) {
+    size_t constraint_index = search_start_idx;
+    for (size_t i = search_start_idx; i < constraints_list.size() && constraints_list[i].start_count <= count; ++i) {
         constraint_index = i;
     }
     return constraint_index;

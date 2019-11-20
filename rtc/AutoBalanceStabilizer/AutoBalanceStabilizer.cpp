@@ -1050,6 +1050,11 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
 
 bool AutoBalanceStabilizer::goStop ()
 {
+    std::cerr << "[" << m_profile.instance_name << "] goStop" << std::endl;
+    Eigen::Isometry3d modif = Eigen::Isometry3d::Identity();
+    modif.translation() = hrp::Vector3(0.05, 0.01, 0);
+    Guard guard(m_mutex);
+    gg->modifyConstraintsTarget(loop, 0, 0, modif, m_dt);
     return true;
 }
 

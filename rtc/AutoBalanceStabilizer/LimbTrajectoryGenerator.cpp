@@ -115,7 +115,7 @@ void LimbTrajectoryGenerator::calcTrajectory(const size_t count, const double dt
     else if (traj_type == LINEAR) calcLinearTrajectory(count, dt, pos, vel, acc, rot, rot_vel, rot_acc);
 }
 
-std::tuple<double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(const size_t count, const double dt)
+std::tuple<size_t, double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(const size_t count, const double dt)
 {
     size_t idx = 0;
     const double preceding_count = count + static_cast<size_t>(delay_time_offset / dt);
@@ -140,7 +140,7 @@ std::tuple<double, hrp::Vector3, double> LimbTrajectoryGenerator::calcTarget(con
         rot_angle = calcInteriorPoint(0.0, via_points.back().diff_rot_angle, rot_ratio);
     }
 
-    return std::forward_as_tuple(remain_time, target, rot_angle);
+    return std::forward_as_tuple(idx, remain_time, target, rot_angle);
 }
 
 void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const double dt,
@@ -152,7 +152,7 @@ void LimbTrajectoryGenerator::calcLinearTrajectory(const size_t count, const dou
     double remain_time;
     hrp::Vector3 target;
     double rot_angle;
-    std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
+    std::tie(std::ignore, remain_time, target, rot_angle) = calcTarget(count, dt);
 
     std::tie(pos, vel, acc) = linearInterpolation(remain_time, dt, pos, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = linearInterpolation(remain_time, dt, diff_rot.angle(), rot_angle);
@@ -171,7 +171,7 @@ void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, c
     double remain_time;
     hrp::Vector3 target;
     double rot_angle;
-    std::tie(remain_time, target, rot_angle) = calcTarget(count, dt);
+    std::tie(std::ignore, remain_time, target, rot_angle) = calcTarget(count, dt);
 
     std::tie(pos, vel, acc) = hoffArbibInterpolation(remain_time, dt, pos, vel, acc, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = hoffArbibInterpolation(remain_time, dt, diff_rot.angle(), rot_vel, rot_acc, rot_angle);
@@ -187,6 +187,7 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
     traj_type = _traj_type;
 
     switch (_traj_type) {
+        // TODO: calcRotationViaPointsを消してLinearを足す？
       case CYCLOIDDELAY:
           calcCycloidDelayViaPoints(start.translation(), goal.translation(), start_count, goal_count, height);
           break;
@@ -316,6 +317,87 @@ void LimbTrajectoryGenerator::calcRectangleViaPoints(const hrp::Vector3& start, 
 
     via_points[3].point = goal;
     via_points[3].count = goal_count;
+}
+
+void LimbTrajectoryGenerator::modifyViaPoints(const Eigen::Isometry3d& current_coord,
+                                              const Eigen::Isometry3d& new_goal,
+                                              const size_t current_count,
+                                              const size_t new_goal_count,
+                                              const double dt)
+{
+    size_t next_via_idx = 0;
+    const size_t via_size = via_points.size();
+
+    if (via_size == 0) return;
+
+    while (current_count <= via_points[next_via_idx].count && next_via_idx < via_size) ++next_via_idx;
+    if (next_via_idx == via_size) {
+        std::cerr << "[LimbTrajectoryGenerator] Current count is greater than goal count. Something wrong!!" << std::endl;
+        return;
+    }
+
+    // TODO: via pointsに変更可能かどうかのフラグを立てる？ 変更すると干渉が生じそうなpointとかあるので
+    // const hrp::Vector3 diff_pos = new_goal.translation() - via_points.back().point;
+    // const size_t diff_count = (new_goal_count - via_points.back().count) / (via_size - next_via_idx);
+
+    // // TODO: その足の初めの一歩はstartを変えないが，その次以降はstartも変わる
+    // //       スレッド分けて最初の一歩以外はそこで計算するようにする？
+    // //       そうすれば1からやっても良い気がする
+    // for (size_t i = next_via_idx; i < via_size; ++i) {
+    //     via_points[i].point += diff_pos;
+    //     via_points[i].count += diff_count;
+    // }
+    // via_points.back().count = new_goal_count;
+
+    if (traj_type == RECTANGLE) modifyRectangleViaPoints(new_goal.translation(), current_count, new_goal_count, dt);
+
+    // TODO: 回転の補間がなめらかじゃ無さそう
+    start_rot = current_coord.linear();
+    diff_rot = Eigen::AngleAxisd(current_coord.linear().transpose() * new_goal.linear());
+    via_points.back().diff_rot_angle = diff_rot.angle();
+    diff_rot.angle() = 0;
+
+    std::cerr << "modif via points:" << std::endl;
+    for (auto&& point : via_points) {
+        std::cerr << point.point.transpose() << ", count: " << point.count << std::endl;
+    }
+    std::cerr << "current_count: " << current_count << ", new_goal_count: " << new_goal_count << std::endl;
+}
+
+void LimbTrajectoryGenerator::modifyRectangleViaPoints(const hrp::Vector3& goal,
+                                                       const size_t current_count,
+                                                       const size_t new_goal_count,
+                                                       const double dt)
+{
+    size_t via_idx;
+    double remain_time;
+    hrp::Vector3 target;
+    double rot_angle;
+    std::tie(via_idx, remain_time, target, rot_angle) = calcTarget(current_count, dt);
+
+    const size_t via_size = via_points.size();
+    const double height = via_idx == 2 ? target[2] : std::max(via_points[via_size - 2].point[2] - goal[2], via_points[via_size - 2].point[2] - via_points.back().point[2]);
+
+    via_points[0].point = target;
+    via_points[0].count = current_count;
+
+    via_points[1].point = target;
+    via_points[1].point[2] = goal[2] + height;
+
+    via_points[2].point = goal;
+    via_points[2].point[2] = goal[2] + height;
+
+    via_points[3].point = goal;
+    via_points[3].count = new_goal_count;
+
+    double sum_distance = 0;
+    for (size_t i = 0; i < 3; ++i) {
+        sum_distance += (via_points[i + 1].point - via_points[i].point).squaredNorm();
+    }
+    const size_t diff_count = new_goal_count - current_count;
+
+    via_points[1].count = via_points[0].count + static_cast<size_t>((via_points[1].point - via_points[0].point).squaredNorm() / sum_distance * diff_count);
+    via_points[2].count = via_points[1].count + static_cast<size_t>((via_points[2].point - via_points[1].point).squaredNorm() / sum_distance * diff_count);
 }
 
 }

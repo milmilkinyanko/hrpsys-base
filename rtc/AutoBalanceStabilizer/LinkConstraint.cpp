@@ -175,7 +175,7 @@ std::vector<Eigen::Vector2d> ConstraintsWithCount::calcContactConvexHullForAllCo
         Eigen::Isometry3d::ConstLinearPart link_local_rot = constraint.localRot();
         for (const hrp::Vector3& point : constraint.getLinkContactPoints()) {
             // vertices.push_back((target_pos - target_rot * link_local_rot * (link_local_pos + point)).head<2>()); // TODO: rot
-            vertices.push_back((target_pos + target_rot * link_local_rot * (point - link_local_pos)).head<2>()); // TODO: rot
+            vertices.push_back((target_pos + target_rot * link_local_rot * (point - link_local_pos)).head<2>()); // TODO: check rot
         }
     }
     return calcConvexHull(vertices);
@@ -205,5 +205,11 @@ void ConstraintsWithCount::copyLimbState(const ConstraintsWithCount& cwc)
         constraints[i].copyLimbState(cwc.constraints[i]);
     }
 }
+
+// void ConstraintsWithCount::modifyLimbViaPoints(const size_t constraint_idx,
+//                                                const Eigen::Isometry3d& new_goal,
+//                                                const size_t new_goal_count)
+// {
+// }
 
 }

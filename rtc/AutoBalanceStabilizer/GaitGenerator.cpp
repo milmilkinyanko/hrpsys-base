@@ -54,6 +54,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     cog_gen->initPreviewController(_dt, zmp_gen->getCurrentRefZMP());
 }
 
+// TODO: cur_count か メンバ変数のloopかどちらかにする
 void GaitGenerator::resetGaitGenerator(const hrp::BodyPtr& _robot,
                                        const size_t cur_count,
                                        const double _dt)
@@ -80,10 +81,46 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 {
     zmp_gen->popAndPushRefZMP(constraints_list, cur_count);
     cur_const_idx = getConstraintIndexFromCount(constraints_list, cur_count);
-    if (constraints_list[cur_const_idx].start_count == cur_count && cur_const_idx > 0) {
-        // TODO: 最初のStateを変更しておかないと, ToeHeelの切り替え
-        constraints_list[cur_const_idx].copyLimbState(constraints_list[cur_const_idx - 1]);
+    ConstraintsWithCount& cur_cwc = constraints_list[cur_const_idx];
+    if (cur_cwc.start_count != cur_count || cur_const_idx == 0) return;
+
+    // if (cur_cwc.start_count == cur_count && cur_const_idx > 0) {
+    // TODO: 最初のStateを変更しておかないと, ToeHeelの切り替え
+    cur_cwc.copyLimbState(constraints_list[cur_const_idx - 1]);
+
+    for (size_t idx = 0; idx < cur_cwc.constraints.size(); ++idx) {
+        LinkConstraint& cur_const = cur_cwc.constraints[idx];
+        if (cur_const.getConstraintType() == LinkConstraint::FIX || cur_const.getConstraintType() == LinkConstraint::FREE) continue;
+
+        size_t goal_idx = cur_const_idx + 1;
+        while (goal_idx < constraints_list.size()) {
+            if (constraints_list[goal_idx].constraints[idx].getConstraintType() != LinkConstraint::FLOAT) break;
+            ++goal_idx;
+        }
+        if (goal_idx == constraints_list.size()) continue;
+
+        const ConstraintsWithCount goal_cwc = constraints_list[goal_idx];
+        Eigen::Isometry3d target_coord = goal_cwc.constraints[idx].targetCoord();
+        target_coord = target_coord * goal_cwc.constraints[idx].localCoord().inverse() * cur_const.localCoord(); // TODO: 確認
+
+        if (cur_const.getConstraintType() == LinkConstraint::FLOAT) {
+            cur_const.calcLimbViaPoints(default_traj_type,
+                                        target_coord,
+                                        cur_cwc.start_count,
+                                        goal_cwc.start_count,
+                                        default_step_height);
+        } else if (cur_const.getConstraintType() == LinkConstraint::SLIDE) {
+            std::cerr << "[GaitGenerator] SLIDE is not implemented yet." << std::endl;
+        } else if (cur_const.getConstraintType() == LinkConstraint::ROTATE) {
+            // TODO: calcLimbViaPointsに統合?
+            cur_const.calcLimbRotationViaPoints(LimbTrajectoryGenerator::LINEAR,
+                                                Eigen::Vector3d::UnitY(),
+                                                toe_kick_angle,
+                                                cur_cwc.start_count,
+                                                goal_cwc.start_count);
+        }
     }
+    // }
 }
 
 void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const double dt)
@@ -97,6 +134,69 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     prev_ref_cog = cog_gen->getCog();
 
     return;
+}
+
+void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
+                                            const size_t cwc_idx_from_current,
+                                            const size_t modif_const_idx,
+                                            const Eigen::Isometry3d& modif_mat,
+                                            const double dt)
+{
+    size_t modif_cwc_idx = cur_const_idx + cwc_idx_from_current;
+
+    // TODO: 例えば４足歩行だと，
+    //       1. 今の遊脚のターゲットをかえる
+    //       2. 次の遊脚のターゲットをかえ，他はそのまま...というふうになり，全てを変更したらそれ以降は変更してても良い
+    // [0] float fix float fix
+    //           変更
+    // [1] fix float fix float
+    //               変更
+
+    const size_t cwc_size = constraints_list.size();
+    while (modif_cwc_idx < cwc_size &&
+           constraints_list[modif_cwc_idx].constraints[modif_const_idx].getConstraintType() > LinkConstraint::ROTATE) {
+        ++modif_cwc_idx;
+    }
+    if (modif_cwc_idx == cwc_size) return;
+
+    for (size_t cwc_idx = modif_cwc_idx; cwc_idx < cwc_size; ++cwc_idx) {
+        constraints_list[cwc_idx].constraints[modif_const_idx].targetCoord() = modif_mat * constraints_list[cwc_idx].constraints[modif_const_idx].targetCoord();
+    }
+
+    // TODO: cur_const_idxがFLOATなら良いが，直接着地のidxを指定しているとこれではだめ
+    if (constraints_list[cur_const_idx].constraints[modif_const_idx].getConstraintType() > LinkConstraint::ROTATE) {
+        // TODO: regenerate
+        const LinkConstraint& landing_constraint = constraints_list[modif_cwc_idx].constraints[modif_const_idx];
+        Eigen::Isometry3d target_coord = landing_constraint.targetCoord() * landing_constraint.localCoord().inverse() * constraints_list[cur_const_idx].constraints[modif_const_idx].localCoord(); // TODO: forwardTimeStepにも同じのがある．関数化
+
+        constraints_list[cur_const_idx].constraints[modif_const_idx]
+            .modifyLimbViaPoints(target_coord,
+                                 cur_count,
+                                 constraints_list[modif_cwc_idx].start_count, // TODO: goal count及びその後のずらし,
+                                 dt);
+    }
+
+    const size_t const_size = constraints_list[modif_cwc_idx].constraints.size();
+    for (size_t i = 0; i < const_size; ++i) {
+        if (i == modif_const_idx) continue;
+
+        size_t cur_modif_cwc_idx = modif_cwc_idx;
+        while (cur_modif_cwc_idx < cwc_size &&
+               constraints_list[cur_modif_cwc_idx].constraints[i].getConstraintType() <= LinkConstraint::ROTATE) {
+            ++cur_modif_cwc_idx;
+        }
+        while (cur_modif_cwc_idx < cwc_size &&
+               constraints_list[cur_modif_cwc_idx].constraints[i].getConstraintType() > LinkConstraint::ROTATE) {
+            ++cur_modif_cwc_idx;
+        }
+
+        for (size_t j = cur_modif_cwc_idx; j < cwc_size; ++j) {
+            constraints_list[j].constraints[i].targetCoord() = modif_mat * constraints_list[j].constraints[i].targetCoord();
+        }
+    }
+
+    setRefZMPList(cur_count);
+    // setRefZMPList(cur_count, constraints_list[cur_const_idx + cwc_idx_from_current].start_count - cur_count); // TODO
 }
 
 // This function is almost the same as ConstraintsWithCount.calcCOPFromConstraints()
@@ -196,6 +296,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         const size_t toe_start_count  = swing_start_count + (one_step_count - heel_support_count - toe_support_count);
         const size_t heel_start_count = toe_start_count + toe_support_count;
 
+        // TODO BUG: Toe-Heel両方追加するとZMPが1制御周期で跳ぶ
         if (!toe_support_indices.empty()) {
             footstep_constraints.push_back(footstep_constraints.back());
             ConstraintsWithCount& toe_phase_constraints = footstep_constraints.back();
@@ -205,11 +306,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
                 LinkConstraint& toe_constraint = toe_phase_constraints.constraints[support_idx];
                 if (!toe_constraint.hasToeHeelContacts()) continue;
                 toe_constraint.changeToeContacts();
-                toe_constraint.calcLimbRotationViaPoints(LimbTrajectoryGenerator::LINEAR,
-                                                         Eigen::Vector3d::UnitY(),
-                                                         toe_kick_angle,
-                                                         toe_phase_constraints.start_count,
-                                                         heel_start_count); // TODO: landing_countでも良いかも
+                toe_constraint.setConstraintType(LinkConstraint::ROTATE);
             }
         }
 
@@ -219,8 +316,10 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
             heel_phase_constraints.start_count = heel_start_count;
             heel_phase_constraints.clearLimbViaPoints();
 
+            // TODO: これはtoeに依存しているので，heelがなくても動くように ?
             for (const size_t support_idx : toe_support_indices) {
-                heel_phase_constraints.constraints[support_idx].targetRot() = Eigen::AngleAxisd(toe_kick_angle, Eigen::Vector3d::UnitY()).toRotationMatrix() *  heel_phase_constraints.constraints[support_idx].targetRot();
+                heel_phase_constraints.constraints[support_idx].targetRot() = Eigen::AngleAxisd(toe_kick_angle, Eigen::Vector3d::UnitY()).toRotationMatrix() * heel_phase_constraints.constraints[support_idx].targetRot();
+                heel_phase_constraints.constraints[support_idx].setConstraintType(LinkConstraint::FIX);
             }
 
             const size_t swing_indices_size = swing_indices.size();
@@ -236,25 +335,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
                 heel_constraint.targetCoord() = targets[i];
                 heel_constraint.changeHeelContacts();
                 heel_constraint.targetRot() = heel_constraint.targetRot() * Eigen::AngleAxisd(-heel_contact_angle, Eigen::Vector3d::UnitY()).toRotationMatrix();
-                std::cerr << "heel    target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
-                std::cerr << "        target:\n" << targets[i].matrix() << std::endl;
-                heel_constraint.changeDefaultContacts();
-                std::cerr << "rotated target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
-
-                swing_phase_constraints.constraints[swing_indices[i]]
-                    .calcLimbViaPoints(default_traj_type, heel_constraint.targetCoord(),
-                                       swing_start_count, heel_start_count,
-                                       default_step_height);
-
-                heel_constraint.setConstraintType(LinkConstraint::FIX);
-                // heel_constraint.targetCoord() = heel_rotated_target;
-                heel_constraint.changeHeelContacts();
-                std::cerr << "heel    target:\n" << heel_constraint.targetCoord().matrix() << std::endl;
-                heel_constraint.calcLimbRotationViaPoints(LimbTrajectoryGenerator::LINEAR,
-                                                          Eigen::Vector3d::UnitY(),
-                                                          heel_contact_angle,
-                                                          heel_start_count,
-                                                          landing_count);
+                heel_constraint.setConstraintType(LinkConstraint::ROTATE);
             }
         }
     }
@@ -268,20 +349,9 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         const size_t swing_indices_size = swing_indices.size();
         for (size_t i = 0; i < swing_indices_size; ++i) {
             LinkConstraint& landing_constraint = landing_phase_constraints.constraints[swing_indices[i]];
-            landing_constraint.setConstraintType(LinkConstraint::FIX);
             landing_constraint.changeDefaultContacts();
-            // TODO: targetCoord と limb同時に変更する
             landing_constraint.targetCoord() = targets[i];
-
-            if (use_toe_heel && landing_constraint.hasToeHeelContacts()) continue;
-            // TODO: trajectory type, step heightを引数で与える．
-            //       将来的にvia pointsまで含めて与えられるようにする．
-            swing_phase_constraints.constraints[swing_indices[i]]
-                .calcLimbViaPoints(default_traj_type,
-                                   targets[i],
-                                   swing_start_count,
-                                   landing_count,
-                                   default_step_height);
+            landing_constraint.setConstraintType(LinkConstraint::FIX);
         }
     }
 
@@ -397,10 +467,7 @@ bool GaitGenerator::setToeContactPoints(const int link_id, const std::vector<hrp
     const int index = last_constraints.getConstraintIndexFromLinkId(link_id);
     if (index == -1) return false;
 
-    std::cerr << "points:\n";
-    for (const auto& points : contact_points) std::cerr << points.transpose() << std::endl;
     last_constraints.constraints[index].setToeContactPoints(contact_points);
-    std::cerr << "[GaitGenerator] Set toe contact points" << std::endl;
     return true;
 }
 
@@ -411,7 +478,6 @@ bool GaitGenerator::setHeelContactPoints(const int link_id, const std::vector<hr
     if (index == -1) return false;
 
     last_constraints.constraints[index].setHeelContactPoints(contact_points);
-    std::cerr << "[GaitGenerator] Set heel contact points" << std::endl;
     return true;
 }
 

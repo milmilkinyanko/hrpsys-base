@@ -75,7 +75,7 @@ class GaitGenerator
     // -- COGTrajectoryGenerator --
 
     // -- LimbTrajectoryGenerator --
-    LimbTrajectoryGenerator::TrajectoryType default_traj_type = LimbTrajectoryGenerator::CYCLOIDDELAY;
+    LimbTrajectoryGenerator::TrajectoryType default_traj_type = LimbTrajectoryGenerator::RECTANGLE;
     // -- LimbTrajectoryGenerator --
 
     void addFootStepVelocityMode(const size_t cur_count);
@@ -112,6 +112,11 @@ class GaitGenerator
         return constraints_list[index];
     }
     const std::vector<ConstraintsWithCount>& getConstraintsList() const { return constraints_list; }
+    void modifyConstraintsTarget(const size_t cur_count,
+                                 const size_t cwc_idx_from_current,
+                                 const size_t modif_const_idx,
+                                 const Eigen::Isometry3d& modif_mat,
+                                 const double dt);
 
     Eigen::Isometry3d& rootCoord() { return root_coord; }
     const Eigen::Isometry3d& rootCoord() const { return root_coord; }
@@ -147,6 +152,13 @@ class GaitGenerator
         cog_gen->setCogCalculationType(type);
     }
     // -- COGTrajectoryGenerator --
+
+    // -- LimbTrajectoryGenerator --
+    void modifyLimbViaPoints(const size_t constraint_idx,
+                             const Eigen::Isometry3d& new_goal,
+                             const size_t cur_count,
+                             const size_t new_goal_count);
+    // -- LimbTrajectoryGenerator --
 
     void startVelocityMode(const double _vel_x, const double _vel_y, const double _vel_yaw)
     {
