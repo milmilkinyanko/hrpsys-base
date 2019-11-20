@@ -27,9 +27,10 @@ class RefZMPGenerator
 
     hrp::Vector3 calcRefZMP(const ConstraintsWithCount& constraints) const;
     void calcZMPInterpolationGoal(const std::vector<ConstraintsWithCount>& constraints_list,
-                                  const size_t cur_constraint_idx,
+                                  const size_t start_constraint_idx,
                                   const size_t cur_count,
-                                  const double last_interpolation_time = 2.0);
+                                  const size_t start_count,
+                                  const double final_interpolation_time = 2.0);
   public:
     RefZMPGenerator(const double dt, const size_t list_size,
                     const ConstraintsWithCount& init_constraints);
@@ -42,7 +43,7 @@ class RefZMPGenerator
         zmp_interpolator->setInterpolationMode(i_mode);
     }
     void setRefZMPList(const std::vector<ConstraintsWithCount>& constraints_list,
-                       const size_t cur_count, const size_t start_index = 0);
+                       const size_t cur_count, const size_t zmp_start_index = 0);
     void popAndPushRefZMP(const std::vector<ConstraintsWithCount>& constraints_list,
                           const size_t cur_count);
 };
