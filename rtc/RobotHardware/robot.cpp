@@ -471,7 +471,10 @@ bool robot::power(int jid, bool turnon)
             }
         } else       
             for (unsigned int i=0; i<numJoints(); i++)
+            {
                 write_power_command(i, com);
+                usleep(10000); // tmp for reducing communication traffic when servo on
+            }
     } else {
         if (com == OFF) {
             write_pgain(jid, 0);
