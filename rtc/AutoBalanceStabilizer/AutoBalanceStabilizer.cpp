@@ -1054,7 +1054,7 @@ bool AutoBalanceStabilizer::goStop ()
     Eigen::Isometry3d modif = Eigen::Isometry3d::Identity();
     modif.translation() = hrp::Vector3(0.05, 0.01, 0);
     Guard guard(m_mutex);
-    gg->modifyConstraintsTarget(loop, 0, 0, modif, m_dt);
+    gg->modifyConstraintsTarget(loop, 0, 0, modif, 250, m_dt);
     return true;
 }
 

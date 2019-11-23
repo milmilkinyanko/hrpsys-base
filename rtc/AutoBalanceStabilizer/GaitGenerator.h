@@ -116,6 +116,7 @@ class GaitGenerator
                                  const size_t cwc_idx_from_current,
                                  const size_t modif_const_idx,
                                  const Eigen::Isometry3d& modif_mat,
+                                 const int modif_count, // TODO: count or time
                                  const double dt);
 
     Eigen::Isometry3d& rootCoord() { return root_coord; }

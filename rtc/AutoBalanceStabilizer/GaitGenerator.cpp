@@ -140,6 +140,7 @@ void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
                                             const size_t cwc_idx_from_current,
                                             const size_t modif_const_idx,
                                             const Eigen::Isometry3d& modif_mat,
+                                            const int modif_count,
                                             const double dt)
 {
     size_t modif_cwc_idx = cur_const_idx + cwc_idx_from_current;
@@ -161,6 +162,7 @@ void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
 
     for (size_t cwc_idx = modif_cwc_idx; cwc_idx < cwc_size; ++cwc_idx) {
         constraints_list[cwc_idx].constraints[modif_const_idx].targetCoord() = modif_mat * constraints_list[cwc_idx].constraints[modif_const_idx].targetCoord();
+        constraints_list[cwc_idx].start_count += modif_count;
     }
 
     // TODO: cur_const_idxがFLOATなら良いが，直接着地のidxを指定しているとこれではだめ
