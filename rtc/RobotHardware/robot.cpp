@@ -745,6 +745,7 @@ bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, int
     }
     int max_count = GAIN_COUNT;
     if ( !(transition_time < m_dt) ) max_count = transition_time/m_dt;
+    // if ( !(transition_time < m_dt) ) max_count = transition_time/m_dt/1000.0;
     Link *l = NULL;
     if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0){
         for (unsigned int i=0; i<numJoints(); i++){
