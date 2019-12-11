@@ -332,6 +332,8 @@ module OpenHRP
       double overwritable_max_time;
       double fg_zmp_cutoff_freq;
       double fg_cp_cutoff_freq;
+      DblArray3 sum_d_footstep_thre;
+      DblArray3 footstep_check_delta;
     };
 
     /**

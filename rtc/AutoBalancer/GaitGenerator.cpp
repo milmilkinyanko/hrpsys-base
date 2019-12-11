@@ -658,6 +658,7 @@ namespace rats
     cp_filter->reset(cur_cog); // assume that robot is stopping when starting walking
     lr_region[0] = lr_region[1] = false;
     is_emergency_touch_wall = false;
+    is_stuck = false;
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
@@ -844,6 +845,27 @@ namespace rats
         end_cogvel = (tmp_cog - tmp_zmp) * cur_omega * std::sinh(cur_omega * remain_time) + tmp_vel * std::cosh(cur_omega * remain_time);
         end_cog(2) = (cur_cog - refzmp)(2);
         end_cogvel(2) = 0.0;
+      }
+      // judge whehter regenerate motion
+      if (lcg.get_footstep_index() > 0 &&
+          lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) &&
+          lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
+          ) {
+        for (size_t i = 0; i < 2; i++) {
+          // minus
+          if (footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i) > footstep_hist_max(i) + footstep_check_delta(i)) {
+            footstep_hist_max(i) = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i);
+            sum_d_footstep_minus(i) = 0.0;
+            is_stuck = false;
+          } else if (footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i) > footstep_hist_max(i)) {
+            footstep_hist_max(i) = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i);
+          }
+          if (sum_d_footstep_minus(i) < - sum_d_footstep_thre(i)
+              // || sum_d_footstep_plus(i) > sum_d_footstep_thre(i)
+              ) {
+            is_stuck = true;
+          }
+        }
       }
 
       if (fg_double_remain_count == 1) is_prev_double_remain_one = true;
@@ -1489,6 +1511,8 @@ namespace rats
         overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
         overwrite_footstep_nodes_list.clear();
         modified_d_footstep += d_footstep;
+        sum_d_footstep_plus += d_footstep;
+        sum_d_footstep_minus += d_footstep;
       }
     }
     // calculate angular momentum

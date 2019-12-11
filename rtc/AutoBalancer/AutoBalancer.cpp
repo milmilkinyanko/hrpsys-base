@@ -63,6 +63,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_optionalDataIn("optionalData", m_optionalData),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
       m_emergencyFallMotionOut("emergencyFallMotion", m_emergencyFallMotion),
+      m_isStuckOut("isStuck", m_isStuck),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
@@ -146,6 +147,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
     addOutPort("emergencyFallMotion", m_emergencyFallMotionOut);
+    addOutPort("isStuck", m_isStuckOut);
     addOutPort("landingTarget", m_landingTargetOut);
     addOutPort("endCogState", m_endCogStateOut);
 
@@ -880,6 +882,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_sbpCogOffset.data.y = sbp_cog_offset(1);
       m_sbpCogOffset.data.z = sbp_cog_offset(2);
       m_sbpCogOffset.tm = m_qRef.tm;
+      // is stuck
+      m_isStuck.data = gg->is_stuck;
+      m_isStuck.tm = m_qRef.tm;
       // write
       m_basePosOut.write();
       m_baseRpyOut.write();
@@ -888,6 +893,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_zmpOut.write();
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
+      m_isStuckOut.write();
       for (size_t i = 0; i < 21; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
       }
@@ -2276,6 +2282,8 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->overwritable_max_time = i_param.overwritable_max_time;
   gg->fg_zmp_cutoff_freq = i_param.fg_zmp_cutoff_freq;
   gg->cp_filter->setCutOffFreq(i_param.fg_cp_cutoff_freq);
+  gg->set_sum_d_footstep_thre(hrp::Vector3(i_param.sum_d_footstep_thre[0], i_param.sum_d_footstep_thre[1], i_param.sum_d_footstep_thre[2]));
+  gg->set_footstep_check_delta(hrp::Vector3(i_param.footstep_check_delta[0], i_param.footstep_check_delta[1], i_param.footstep_check_delta[2]));
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2387,6 +2395,15 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.overwritable_max_time = gg->overwritable_max_time;
   i_param.fg_zmp_cutoff_freq = gg->fg_zmp_cutoff_freq;
   i_param.fg_cp_cutoff_freq = gg->cp_filter->getCutOffFreq();
+  {
+    hrp::Vector3 thre, delta;
+    gg->get_sum_d_footstep_thre(thre);
+    gg->get_footstep_check_delta(delta);
+    for (size_t i = 0; i < 3; i++) {
+      i_param.sum_d_footstep_thre[i] = thre(i);
+      i_param.footstep_check_delta[i] = delta(i);
+    }
+  }
   return true;
 };
 

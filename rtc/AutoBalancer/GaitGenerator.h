@@ -1059,7 +1059,7 @@ namespace rats
   {
 
   public:
-    bool use_act_states, is_inverse_double_phase, is_emergency_touch_wall;
+    bool use_act_states, is_inverse_double_phase, is_emergency_touch_wall, is_stuck;
     double zmp_delay_time_const, overwritable_max_time, fg_zmp_cutoff_freq;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
 #ifndef HAVE_MAIN
@@ -1106,7 +1106,7 @@ namespace rats
     size_t remain_count;
     double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
-    hrp::Vector3 diff_cp, modified_d_footstep;
+    hrp::Vector3 diff_cp, modified_d_footstep, sum_d_footstep_plus, sum_d_footstep_minus, sum_d_footstep_thre, footstep_hist_max, footstep_hist_min, footstep_check_delta;
     double modified_d_step_time, min_time_mgn, min_time, orig_min_time, emergency_step_time[3];
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
@@ -1179,7 +1179,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), sum_fy(hrp::Vector3::Zero()), des_fxy(hrp::Vector3::Zero()), fx_count(0), fy_count(0) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
@@ -1193,6 +1193,8 @@ namespace rats
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
         for (size_t i = 0; i < 3; i++) emergency_step_time[i] = 0.8;
+        sum_d_footstep_thre = hrp::Vector3(0.5, 0.5, 0.0);
+        footstep_check_delta = hrp::Vector3(0.03, 0.03, 0.0);
         cp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(1e6, _dt, hrp::Vector3::Zero()));
         fx_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, _dt, hrp::Vector3::Zero()));
         zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
@@ -1703,6 +1705,8 @@ namespace rats
         emergency_step_time[i] = _emergency_step_time[i];
       }
     }
+    void set_sum_d_footstep_thre (const hrp::Vector3& _thre) { sum_d_footstep_thre = _thre; };
+    void set_footstep_check_delta (const hrp::Vector3& _delta) { footstep_check_delta = _delta; };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {
@@ -1949,6 +1953,8 @@ namespace rats
     double get_dcm_offset () { return dcm_offset; };
     double get_tmp (const size_t idx) {return tmp[idx];}
     double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
+    void get_sum_d_footstep_thre (hrp::Vector3& thre) { thre = sum_d_footstep_thre; };
+    void get_footstep_check_delta (hrp::Vector3& delta) { delta = footstep_check_delta; };
     void get_rel_landing_pos (hrp::Vector3& pos, int& l_r) {
       pos = rel_landing_pos;
       l_r = cur_supporting_foot;

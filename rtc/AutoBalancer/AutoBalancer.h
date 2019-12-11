@@ -205,6 +205,8 @@ class AutoBalancer
   OutPort<TimedLong> m_emergencySignalOut;
   TimedBoolean m_emergencyFallMotion;
   OutPort<TimedBoolean> m_emergencyFallMotionOut;
+  TimedBoolean m_isStuck;
+  OutPort<TimedBoolean> m_isStuckOut;
   OpenHRP::TimedLandingPosition m_landingTarget;
   OutPort<OpenHRP::TimedLandingPosition> m_landingTargetOut;
   OpenHRP::TimedCogState m_endCogState;
