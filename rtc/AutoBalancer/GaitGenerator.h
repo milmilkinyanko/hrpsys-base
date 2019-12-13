@@ -1061,6 +1061,7 @@ namespace rats
   public:
     bool use_act_states, is_inverse_double_phase, is_emergency_touch_wall, is_stuck;
     double zmp_delay_time_const, overwritable_max_time, fg_zmp_cutoff_freq;
+    hrp::Vector3 fxy;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
 #ifndef HAVE_MAIN
   private:
@@ -1111,7 +1112,7 @@ namespace rats
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio, double_remain_count_offset, fg_double_remain_count;
-    hrp::Vector3 fg_ref_zmp, prev_fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau, prev_short_of_zmp, ref_cp, act_cp, prev_act_cp, fxy, sum_fx, sum_fy, des_fxy, ref_footstep_offset;
+    hrp::Vector3 fg_ref_zmp, prev_fg_ref_zmp, fg_start_ref_zmp, prev_start_ref_zmp, fg_goal_ref_zmp, prev_ref_dcm, flywheel_tau, prev_short_of_zmp, ref_cp, act_cp, prev_act_cp, sum_fx, sum_fy, des_fxy, ref_footstep_offset;
     bool updated_vel_footsteps, use_roll_flywheel, use_pitch_flywheel, use_disturbance_compensation, prev_use_roll_flywheel, prev_use_pitch_flywheel;
     std::vector<std::vector<Eigen::Vector2d> > foot_vertices;
     std::vector<Eigen::Vector2d> convex_hull;
