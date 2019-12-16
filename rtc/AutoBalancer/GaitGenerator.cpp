@@ -776,7 +776,20 @@ namespace rats
             stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
           }
           for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
-            steppable_region[cur_leg == RLEG ? LLEG : RLEG][i] = calc_intersect_convex(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i], stride_limitation_polygon);
+            bool is_nan = false;
+            hrp::Vector2 prev_p = hrp::Vector2::Zero();
+            hrp::Vector2 pos_off = hrp::Vector2(0.0, 0.0);
+            for (size_t j = 0; j < steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].size(); j++) {
+              if (std::isnan(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j](0))) is_nan = true;
+              if ((prev_p - steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j]).norm() < 1e-4) is_nan = true;
+              prev_p = steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j];
+              steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j] += pos_off;
+            }
+            if (is_nan) {
+              steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].resize(1);
+            } else {
+              steppable_region[cur_leg == RLEG ? LLEG : RLEG][i] = calc_intersect_convex(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i], stride_limitation_polygon);
+            }
           }
         }
       }
