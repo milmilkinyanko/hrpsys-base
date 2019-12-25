@@ -1108,7 +1108,7 @@ namespace rats
     double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
     hrp::Vector3 diff_cp, modified_d_footstep, sum_d_footstep_plus, sum_d_footstep_minus, sum_d_footstep_thre, footstep_hist_max, footstep_hist_min, footstep_check_delta;
-    double modified_d_step_time, min_time_mgn, min_time, orig_min_time, emergency_step_time[3];
+    double modified_d_step_time, min_time_mgn, min_time, orig_min_time, emergency_step_time[3], orig_landing_height;
     std::vector<bool> act_contact_states;
     stride_limitation_type default_stride_limitation_type;
     double act_vel_ratio, double_remain_count_offset, fg_double_remain_count;

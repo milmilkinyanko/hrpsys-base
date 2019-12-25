@@ -775,9 +775,17 @@ namespace rats
             stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
           }
+          // std::cerr << "preregion : " << lcg.get_footstep_index() << std::endl;
+          // for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
+          //     for (size_t j = 0; j < steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].size(); j++) {
+          //         std::cerr << "i: " << i << " j: " << j << " : " << steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j].transpose() << std::endl;
+          //     }
+          // }
+          // std::cerr << "**********" << std::endl;
           for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
             bool is_nan = false;
             hrp::Vector2 prev_p = hrp::Vector2::Zero();
+            // hrp::Vector2 pos_off = hrp::Vector2(0.05, 0.0);
             hrp::Vector2 pos_off = hrp::Vector2(0.0, 0.0);
             for (size_t j = 0; j < steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].size(); j++) {
               if (std::isnan(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j](0))) is_nan = true;
@@ -791,6 +799,13 @@ namespace rats
               steppable_region[cur_leg == RLEG ? LLEG : RLEG][i] = calc_intersect_convex(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i], stride_limitation_polygon);
             }
           }
+          // std::cerr << "afterregion : " << lcg.get_footstep_index() << std::endl;
+          // for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
+          //     for (size_t j = 0; j < steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].size(); j++) {
+          //         std::cerr << "i: " << i << " j: " << j << " : " << steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j].transpose() << std::endl;
+          //     }
+          // }
+          // std::cerr << "**********" << std::endl;
         }
       }
       // dc fxy
@@ -833,6 +848,7 @@ namespace rats
       // fx = fx_filter->passFilter(fx);
       fxy = prev_fxy + dc_gain * (des_fxy - prev_fxy);
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+      if (lcg.get_footstep_index() == 0) orig_landing_height = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
         is_emergency_step = false;
@@ -1188,7 +1204,8 @@ namespace rats
     tmp[11] = remain_count*dt;
     tmp[12] = flywheel_tau(0);
     tmp[13] = flywheel_tau(1);
-    tmp[14] = falling_direction;
+    // tmp[14] = falling_direction;
+    tmp[14] = is_stuck;
   }
 
   void gait_generator::set_first_count_flag ()
@@ -1280,8 +1297,12 @@ namespace rats
     bool is_out = false;
     Eigen::Vector2d tmp_pos = Eigen::Vector2d::Zero(), new_pos;
     hrp::Vector3 tmp_short, new_short;
+    // std::cerr << lcg.get_footstep_index() << " : steppable size : " << steppable_region[cur_sup].size() << std::endl;
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       if (steppable_region[cur_sup][i].size() < 3) continue;
+      // for (size_t j = 0; j < steppable_region[cur_sup][i].size(); j++) {
+      //     std::cerr << j << " : region : " << steppable_region[cur_sup][i][j].transpose() << std::endl;
+      // }
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
       new_short = hrp::Vector3::Zero();
@@ -1513,6 +1534,24 @@ namespace rats
             tmp_rpy(2) = hrp::rpyFromRot(orig_footstep_rot)(2);
             footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(tmp_rpy);
           }
+          {
+            double tmp_height = orig_landing_height;
+            // std::cerr << orig_landing_height << " : " << footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) << std::endl;
+            if (footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) < -0.45
+                && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > -0.6
+                ) {
+              tmp_height -= 0.085;
+            } else if (footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) <= -0.6
+                       && footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) > -1.0
+                       ) {
+              tmp_height -= 0.235;
+            } else if (footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(0) <= -1.0
+                       ) {
+              tmp_height -= 0.385;
+            }
+            footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = tmp_height;
+          }
+          // std::cerr << orig_landing_height << " : " << footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos.transpose() << std::endl;
           d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
           if (!(lr_region[cur_sup])) short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
