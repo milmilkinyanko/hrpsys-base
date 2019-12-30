@@ -332,7 +332,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     updateBodyParams();
 
     if (control_mode != MODE_IDLE) {
-        adjustCOPCoordToTarget();
+        // adjustCOPCoordToTarget();
 
         // 脚軌道, COP, RootLink計算
         gg->forwardTimeStep(loop);

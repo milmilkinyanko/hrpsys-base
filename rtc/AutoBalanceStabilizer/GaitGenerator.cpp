@@ -359,6 +359,64 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
     return footstep_constraints;
 }
 
+std::vector<ConstraintsWithCount>
+GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_constraints,
+                                             const std::vector<size_t>& jump_indices,
+                                             const std::vector<size_t>& land_indices,
+                                             const std::vector<Eigen::Isometry3d>& targets,
+                                             const size_t jump_start_count,
+                                             const size_t jumping_count,
+                                             const bool is_start,
+                                             const size_t starting_count)
+{
+    std::vector<ConstraintsWithCount> footstep_constraints;
+    {
+        // TODO: is_endも必要か
+        const size_t num_constraints = is_start ? 3 : 2;
+        footstep_constraints.reserve(num_constraints);
+        footstep_constraints.push_back(last_constraints);
+    }
+
+    const size_t landing_count = jump_start_count + jumping_count;
+
+    if (is_start) {
+        ConstraintsWithCount& first_constraints = footstep_constraints.back();
+        first_constraints.start_count = starting_count;
+        first_constraints.clearLimbViaPoints();
+        for (const size_t up_idx : land_indices) {
+            first_constraints.constraints[up_idx].changeDefaultContacts();
+            first_constraints.constraints[up_idx].setConstraintType(LinkConstraint::FLOAT);
+        }
+    }
+
+    {
+        ConstraintsWithCount& jumping_phase_constraints = footstep_constraints.back();
+        jumping_phase_constraints.start_count = jump_start_count;
+        jumping_phase_constraints.clearLimbViaPoints();
+        for (const size_t jump_idx : jump_indices) {
+            jumping_phase_constraints.constraints[jump_idx].changeDefaultContacts();
+            jumping_phase_constraints.constraints[jump_idx].setConstraintType(LinkConstraint::FLOAT);
+        }
+    }
+
+    {
+        footstep_constraints.push_back(footstep_constraints.back());
+        ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
+        landing_phase_constraints.start_count = landing_count;
+        landing_phase_constraints.clearLimbViaPoints();
+
+        const size_t land_indices_size = land_indices.size();
+        for (size_t i = 0; i < land_indices_size; ++i) {
+            LinkConstraint& landing_constraint = landing_phase_constraints.constraints[land_indices[i]];
+            landing_constraint.changeDefaultContacts();
+            landing_constraint.targetCoord() = targets[i];
+            landing_constraint.setConstraintType(LinkConstraint::FIX);
+        }
+    }
+
+    return footstep_constraints;
+}
+
 void GaitGenerator::addFootStep(const ConstraintsWithCount& last_constraints,
                                 const std::vector<size_t>& swing_indices,
                                 const std::vector<Eigen::Isometry3d>& targets,

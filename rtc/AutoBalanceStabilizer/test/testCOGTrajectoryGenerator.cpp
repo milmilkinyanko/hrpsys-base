@@ -159,7 +159,8 @@ void testFootGuidedRunning()
                                               landing_counts[cur_idx] * dt,
                                               supporting_counts[cur_idx] * dt,
                                               landing_counts[cur_idx + 1] * dt,
-                                              i * dt);
+                                              i * dt,
+                                              cur_idx == 0);
 
         // cog_list[i] = cog_traj_gen.getCog() + cog_traj_gen.getCogVel() / omega; // CP
         cog_list[i]    = cog_traj_gen.getCog();
@@ -204,13 +205,15 @@ int main(int argc, char **argv)
         FILE* gp;
         gp = popen("gnuplot", "w");
 
-        fprintf(gp, "set multiplot layout 2, 1\n");
+        fprintf(gp, "set multiplot layout 3, 1\n");
         fprintf(gp, "set xlabel \"time [s]\"\n");
         fprintf(gp, "set ylabel \"COG [m]\"\n");
         fprintf(gp, "set title \"COG X\"\n");
         fprintf(gp, "plot \"%s\" using 1:2 with lines title \"Cog X\"\n", fname.c_str());
         fprintf(gp, "set title \"COG Y\"\n");
         fprintf(gp, "plot \"%s\" using 1:3 with lines title \"Cog Y\"\n", fname.c_str());
+        fprintf(gp, "set title \"COG Z\"\n");
+        fprintf(gp, "plot \"%s\" using 1:4 with lines title \"Cog Z\"\n", fname.c_str());
         fprintf(gp, "unset multiplot\n");
         fflush(gp);
 
