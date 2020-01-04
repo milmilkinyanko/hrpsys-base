@@ -374,17 +374,17 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     leg_names_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
     leg_names_interpolator->setName(std::string(m_profile.instance_name)+" leg_names_interpolator");
     leg_names_interpolator_ratio = 1.0;
-    angular_momentum_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    angular_momentum_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
     angular_momentum_interpolator->setName(std::string(m_profile.instance_name)+" angular_momentum_interpolator");
-    roll_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    roll_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
     roll_weight_interpolator->setName(std::string(m_profile.instance_name)+" roll_weight_interpolator");
-    pitch_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    pitch_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
     pitch_weight_interpolator->setName(std::string(m_profile.instance_name)+" pitch_weight_interpolator");
-    go_vel_interpolator = new interpolator(3, m_dt, interpolator::HOFFARBIB, 0);
+    go_vel_interpolator = new interpolator(3, m_dt, interpolator::HOFFARBIB);
     go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
-    cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 0);
+    cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
     cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
-    limit_cog_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE, 0);
+    limit_cog_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
     limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
 
     // setting stride limitations from conf file
