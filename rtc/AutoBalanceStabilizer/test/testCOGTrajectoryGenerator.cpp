@@ -74,9 +74,6 @@ void testPreviewController()
 
 void testFootGuidedRunning()
 {
-    // 0.5[s] for one step, including supporting time 0.2[s]
-    // constexpr double step_time = 1.0;
-    // constexpr double support_time = 0.7;
     const double jump_height = 0.05;
     // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
@@ -84,10 +81,8 @@ void testFootGuidedRunning()
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
     const double support_time = 0.235;
-    // constexpr double step_time = support_time + 0.080;
-    const double step_time = support_time + flight_time;
-    // constexpr double step_time = 1.5;
     // constexpr double support_time = 0.5;
+    const double step_time = support_time + flight_time;
     const size_t step_count = static_cast<size_t>(std::round(step_time / dt));
     const size_t support_count = static_cast<size_t>(std::round(support_time / dt));
 

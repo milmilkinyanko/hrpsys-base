@@ -31,9 +31,6 @@ class COGTrajectoryGenerator
     std::unique_ptr<ExtendedPreviewController> preview_controller;
 
     // Foot guided run variables
-    double z_a = 0;
-    double z_b = 0;
-    double z_vel_zero_time = 0;
   public:
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
                            const CogCalculationType type = PREVIEW_CONTROL) :
