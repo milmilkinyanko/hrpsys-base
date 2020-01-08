@@ -61,7 +61,7 @@ void testPreviewController()
             ref_zmp_list.push_back(zmp);
         }
 
-        cog_traj_gen.calcCogFromZMP(ref_zmp_list);
+        cog_traj_gen.calcCogFromZMP(ref_zmp_list, dt);
 
         cog_list[i]    = cog_traj_gen.getCog();
         cogvel_list[i] = cog_traj_gen.getCogVel();
@@ -77,6 +77,7 @@ void testFootGuidedRunning()
     const double jump_height = 0.05;
     // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
+    const double take_off_z = 0.85;
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
@@ -99,11 +100,17 @@ void testFootGuidedRunning()
     const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, 0.8); // Start from left kicking
     // hrp::Vector3 one_step(0.56, -0.2, 0.0);
     hrp::Vector3 one_step(0.525, -0.2, 0.0);
+    // hrp::Vector3 one_step(0.0, -0.2, 0.0);
 
     const double y_offset = _init_cog[1] > 0 ? -0.05 : 0.05;
-    hrp::Vector3 start_zmp_offset = hrp::Vector3(-0.1, y_offset, 0);
-    hrp::Vector3 end_zmp_offset = hrp::Vector3(0.1, y_offset, 0);
-    hrp::Vector3 target_cp_offset(0.008, 0, 0);
+    // hrp::Vector3 start_zmp_offset = hrp::Vector3(-0.1, y_offset, 0);
+    // hrp::Vector3 end_zmp_offset = hrp::Vector3(0.1, y_offset, 0);
+    // hrp::Vector3 start_zmp_offset = hrp::Vector3(0, y_offset, 0);
+    // hrp::Vector3 end_zmp_offset = hrp::Vector3(0, y_offset, 0);
+    hrp::Vector3 start_zmp_offset = hrp::Vector3(0, 0, 0);
+    hrp::Vector3 end_zmp_offset = hrp::Vector3(0, 0, 0);
+    // hrp::Vector3 target_cp_offset(0.008, 0, 0);
+    hrp::Vector3 target_cp_offset(0, 0, 0);
     // hrp::Vector3 target_cp_offset = hrp::Vector3::Zero();
 
     // const double omega = std::sqrt(g_acc / _init_cog[2]);
@@ -143,19 +150,18 @@ void testFootGuidedRunning()
             std::cerr << "next landing: " << landing_points[cur_idx].transpose() << std::endl;
         }
 
-        cog_traj_gen.calcCogFromLandingPoints(landing_points[cur_idx],
-                                              landing_points[cur_idx + 1],
-                                              start_zmp_offset,
-                                              end_zmp_offset,
-                                              target_cp_offset,
-                                              // _init_cog,
-                                              jump_height,
-                                              dt,
-                                              landing_counts[cur_idx] * dt,
-                                              supporting_counts[cur_idx] * dt,
-                                              landing_counts[cur_idx + 1] * dt,
-                                              i * dt,
-                                              cur_idx == 0);
+        cog_traj_gen.calcCogForRun(landing_points[cur_idx],
+                                   landing_points[cur_idx + 1],
+                                   start_zmp_offset,
+                                   end_zmp_offset,
+                                   target_cp_offset,
+                                   take_off_z,
+                                   jump_height,
+                                   landing_counts[cur_idx],
+                                   supporting_counts[cur_idx],
+                                   landing_counts[cur_idx + 1],
+                                   i,
+                                   dt);
 
         // cog_list[i] = cog_traj_gen.getCog() + cog_traj_gen.getCogVel() / omega; // CP
         cog_list[i]    = cog_traj_gen.getCog();

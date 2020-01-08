@@ -10,54 +10,110 @@
 
 namespace hrp {
 
-void COGTrajectoryGenerator::initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp)
+void COGTrajectoryGenerator::initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp) // TODO: dt後にする?
 {
     // std::cerr << "cog z: " << cog(2) << " ref cog z: " << cog(2) - cur_ref_zmp(2) << std::endl;
     preview_controller.reset(new ExtendedPreviewController(dt, cog(2) - cur_ref_zmp(2), cur_ref_zmp));
 }
 
-void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list)
+void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list, const double dt)
 {
     if (calculation_type == PREVIEW_CONTROL) {
         preview_controller->calc_x_k(refzmp_list);
         cog     = preview_controller->getRefCog();
         cog_vel = preview_controller->getRefCogVel();
         cog_acc = preview_controller->getRefCogAcc();
+    } else {
+        cog_acc.head<2>()  = (omega * omega * (cog - refzmp_list[0])).head<2>();
+        cog               += cog_vel * dt + cog_acc * dt * dt * 0.5;
+        cog_vel           += cog_acc * dt;
     }
 }
 
-void COGTrajectoryGenerator::calcCogFromLandingPoints(const hrp::Vector3& support_point,
-                                                      const hrp::Vector3& landing_point,
-                                                      const hrp::Vector3& start_zmp_offset,
-                                                      const hrp::Vector3& end_zmp_offset,
-                                                      const hrp::Vector3& target_cp_offset,
-                                                      const double jump_height,
-                                                      const double dt,
-                                                      const double start_time,
-                                                      const double supporting_time,
-                                                      const double landing_time,
-                                                      const double cur_time,
-                                                      const bool is_first)
+hrp::Vector3 COGTrajectoryGenerator::calcCogForRun(const hrp::Vector3& support_point,
+                                                   const hrp::Vector3& landing_point,
+                                                   const hrp::Vector3& start_zmp_offset,
+                                                   const hrp::Vector3& end_zmp_offset,
+                                                   const hrp::Vector3& target_cp_offset,
+                                                   const double take_off_z,
+                                                   const double jump_height,
+                                                   const size_t start_count,
+                                                   const size_t supporting_count,
+                                                   const size_t landing_count,
+                                                   const size_t cur_count,
+                                                   const double dt,
+                                                   const double g_acc)
 {
-    const double g_acc = 9.80665;
+    const double rel_cur_count = cur_count - start_count;
+
+    // Flight phase
+    if (supporting_count - rel_cur_count <= 0) {
+        cog_acc = hrp::Vector3(0, 0, -g_acc);
+        cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
+        cog_vel += cog_acc * dt;
+        return hrp::Vector3::Zero();
+    }
+
+    const hrp::Vector3 ref_zmp = calcCogForRunFromLandingPoints(support_point, landing_point, start_zmp_offset, end_zmp_offset,
+                                                                target_cp_offset, jump_height, start_count, supporting_count,
+                                                                landing_count, cur_count, dt, g_acc);
+    calcCogZForJump((supporting_count - rel_cur_count) * dt, jump_height, take_off_z, dt, g_acc);
+    return ref_zmp;
+}
+
+void COGTrajectoryGenerator::calcCogZForJump(const double time_to_jump,
+                                             const double jump_height,
+                                             const double take_off_z,
+                                             const double dt,
+                                             const double g_acc)
+{
+    // 6th order function: s.t. cog_acc(T) = -g_acc
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
-    double flight_time = 2 * take_off_z_vel / g_acc;
+    const double T2 = time_to_jump * time_to_jump;
+    const double T3 = T2 * time_to_jump;
+    const double T4 = T3 * time_to_jump;
+    const double T5 = T4 * time_to_jump;
+
+    const double a = (-T2 * (cog_acc[2] + g_acc) - 6 * time_to_jump * (cog_vel[2] + take_off_z_vel) + 12 * (-cog[2] + take_off_z)) / (2 * T5);
+    const double b = (T2 * (3 * cog_acc[2] + 2 * g_acc) + 2 * time_to_jump * (8 * cog_vel[2] + 7 * take_off_z_vel) + 30 * (cog[2] - take_off_z)) / (2 * T4);
+    const double c = (-T2 * (3 * cog_acc[2] + g_acc) - 4 * time_to_jump * (3 * cog_vel[2] + 2 * take_off_z_vel) + 20 * (-cog[2] + take_off_z)) / (2 * T3);
+    const double d = cog_acc[2] / 2;
+    const double e = cog_vel[2];
+    const double f = cog[2];
+
+    cog[2]     = a * dt*dt*dt*dt*dt  + b * dt*dt*dt*dt  + c * dt*dt*dt  + d * dt*dt  + e * dt + f;
+    cog_vel[2] = 5 * a * dt*dt*dt*dt + 4 * b * dt*dt*dt + 3 * c * dt*dt + 2 * d * dt + e;
+    cog_acc[2] = 20 * a * dt*dt*dt   + 12 * b * dt*dt   + 6 * c * dt    + 2 * d;
+}
+
+hrp::Vector3 COGTrajectoryGenerator::calcCogForRunFromLandingPoints(const hrp::Vector3& support_point,
+                                                                    const hrp::Vector3& landing_point,
+                                                                    const hrp::Vector3& start_zmp_offset,
+                                                                    const hrp::Vector3& end_zmp_offset,
+                                                                    const hrp::Vector3& target_cp_offset,
+                                                                    const double jump_height,
+                                                                    const size_t start_count,
+                                                                    const size_t supporting_count,
+                                                                    const size_t landing_count,
+                                                                    const size_t cur_count,
+                                                                    const double dt,
+                                                                    const double g_acc)
+{
+    const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+    const double flight_time = 2 * take_off_z_vel / g_acc;
 
     const hrp::Vector3 target_cp = landing_point + target_cp_offset;
-    const double cog_height = 0.8;
-    const double rel_cur_time = cur_time - start_time;
-    const double rel_land_time = landing_time - start_time;
-    const double omega = std::sqrt(g_acc / cog_height);
-    const double omega_tau = omega * supporting_time;
+    const double rel_cur_time = (cur_count - start_count) * dt;
+    const double rel_land_time = (landing_count - start_count) * dt;
 
     const hrp::Vector3 cp = cog + cog_vel / omega;
-    double omega_T = omega * flight_time;
+    const double omega_T = omega * flight_time;
     hrp::Vector3 c_1 = hrp::Vector3::Zero();
     hrp::Vector3 ref_zmp = hrp::Vector3::Zero();
 
     // 3次関数
     {
-        const double tau = supporting_time;
+        const double tau = supporting_count * dt;
         const double tau2 = tau * tau;
         const double tau3 = tau2 * tau;
         const double omega2 = omega * omega;
@@ -100,44 +156,13 @@ void COGTrajectoryGenerator::calcCogFromLandingPoints(const hrp::Vector3& suppor
     }
 
     const hrp::Vector3 lambda = -(std::exp(omega * rel_cur_time) + (omega_T + 2) / (omega_T) * std::exp(omega * (2 * rel_land_time - rel_cur_time))) * c_1;
-    hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
+    const hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
 
-    constexpr double EPS = 1e-6;
-    if (supporting_time - rel_cur_time > EPS) {
-        // Z: 6th order function
-        const double take_off_z = 0.85; // tmp
-        const double rel_takeoff_time = supporting_time - rel_cur_time;
-        const double T2 = rel_takeoff_time * rel_takeoff_time;
-        const double T3 = T2 * rel_takeoff_time;
-        const double T4 = T3 * rel_takeoff_time;
-        const double T5 = T4 * rel_takeoff_time;
+    cog_acc.head<2>() = (omega * omega * (cog - input_zmp)).head<2>();
+    cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
+    cog_vel.head<2>() += cog_acc.head<2>() * dt;
 
-        const double a = (-T2 * (cog_acc[2] + g_acc) - 6 * rel_takeoff_time * (cog_vel[2] + take_off_z_vel) + 12 * (-cog[2] + take_off_z)) / (2 * T5);
-        const double b = (T2 * (3 * cog_acc[2] + 2 * g_acc) + 2 * rel_takeoff_time * (8 * cog_vel[2] + 7 * take_off_z_vel) + 30 * (cog[2] - take_off_z)) / (2 * T4);
-        const double c = (-T2 * (3 * cog_acc[2] + g_acc) - 4 * rel_takeoff_time * (3 * cog_vel[2] + 2 * take_off_z_vel) + 20 * (-cog[2] + take_off_z)) / (2 * T3);
-        const double d = cog_acc[2] / 2;
-        const double e = cog_vel[2];
-        const double f = cog[2];
-
-        cog_acc.head<2>() = (omega * omega * (cog - input_zmp)).head<2>();
-        cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
-        cog_vel += cog_acc * dt;
-
-        cog[2]     = a * dt*dt*dt*dt*dt  + b * dt*dt*dt*dt  + c * dt*dt*dt  + d * dt*dt  + e * dt + f;
-        cog_vel[2] = 5 * a * dt*dt*dt*dt + 4 * b * dt*dt*dt + 3 * c * dt*dt + 2 * d * dt + e;
-        cog_acc[2] = 20 * a * dt*dt*dt   + 12 * b * dt*dt   + 6 * c * dt    + 2 * d;
-    } else { // Flight phase
-        cog_acc = hrp::Vector3(0, 0, -g_acc);
-        input_zmp.setZero();
-        ref_zmp.setZero(); // Debug
-        c_1.setZero();
-
-        cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
-        cog_vel += cog_acc * dt;
-    }
-
-    // cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
-    // cog_vel += cog_acc * dt;
+    return input_zmp;
 }
 
 }

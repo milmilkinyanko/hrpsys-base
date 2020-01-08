@@ -124,7 +124,7 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 
 void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const double dt)
 {
-    cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList());
+    cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
     constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt);
 
     root_coord.translation() += cog_gen->getCog() - prev_ref_cog;
