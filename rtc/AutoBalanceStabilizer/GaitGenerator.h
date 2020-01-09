@@ -26,11 +26,17 @@ namespace hrp {
 
 class GaitGenerator
 {
+  public:
+    enum LocomotionMode : size_t { WALK, RUN };
+
   private:
+    static constexpr double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
+
     std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
+    size_t loop = 0;
     const size_t root_id = 0;
     Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
-    size_t loop = 0;
+    LocomotionMode locomotion_mode = WALK;
 
     size_t cur_const_idx = 0; // To reduce calculation time
 
@@ -42,6 +48,11 @@ class GaitGenerator
     double default_step_height = 0.10; // [m]
     double max_stride = 0.1; // [m]
     double max_rot_angle = deg2rad(10); // [rad]
+
+    // Run parameter
+    double default_take_off_z = 0.85;
+    double default_jump_height = 0.05;
+    double default_support_count_run;
 
     // Walking cycle
     std::vector<int> support_limb_cycle; // TODO: std::vector<std::vector<int>>
@@ -68,6 +79,7 @@ class GaitGenerator
     std::unique_ptr<COGTrajectoryGenerator> cog_gen;
     // TODO: STも持っても良いかも (AutoBalancerを上ではなくする)
 
+    hrp::Vector3 ref_zmp = hrp::Vector3::Zero();
     hrp::Vector3 prev_ref_cog = hrp::Vector3::Zero();
 
     // -- COGTrajectoryGenerator --
@@ -126,6 +138,8 @@ class GaitGenerator
     Eigen::Isometry3d::LinearPart rootRot() { return root_coord.linear(); }
     Eigen::Isometry3d::ConstLinearPart rootRot() const { return root_coord.linear(); }
 
+    const hrp::Vector3& getRefZMP() const { return ref_zmp; }
+
     // Todo: Private ?
     hrp::Vector3 calcReferenceCOPFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
     hrp::Matrix33 calcReferenceCOPRotFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
@@ -136,7 +150,7 @@ class GaitGenerator
     {
         zmp_gen->setRefZMPList(constraints_list, cur_count, start_index);
     }
-    const hrp::Vector3& getCurrentRefZMP() const { return zmp_gen->getCurrentRefZMP(); }
+    // const hrp::Vector3& getCurrentRefZMP() const { return zmp_gen->getCurrentRefZMP(); }
     // -- RefZMPGenerator --
 
     // -- COGTrajectoryGenerator --
@@ -246,6 +260,7 @@ class GaitGenerator
     bool goPos(const Eigen::Isometry3d& target,
                const std::vector<int>& support_link_cycle,
                const std::vector<int>& swing_link_cycle);
+    bool startRunning(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     // gopos: 接触のCycleを記述したい
     // void goPos(const rats::coordinates& target, const size_t one_step_count,

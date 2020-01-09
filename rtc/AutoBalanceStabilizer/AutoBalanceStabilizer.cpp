@@ -337,7 +337,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // 脚軌道, COP, RootLink計算
         gg->forwardTimeStep(loop);
         gg->calcCogAndLimbTrajectory(loop, m_dt);
-        ref_zmp = gg->getCurrentRefZMP();
+        // ref_zmp = gg->getCurrentRefZMP();
+        ref_zmp = gg->getRefZMP();
 
         // TODO: rootlink計算
         // TODO: IKを後ろに回す
@@ -1056,16 +1057,18 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
         return false;
     }
 
-    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
-    Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
-    target.translation() += target.linear() * hrp::Vector3(x, y, 0);
-    target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
-    std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
+    gg->startRunning(m_dt);
 
-    // TODO: confファイルからcycleをよむ
-    std::vector<int> support_link_cycle{13, 7};
-    std::vector<int> swing_link_cycle{7, 13};
-    if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
+    // const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    // Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
+    // target.translation() += target.linear() * hrp::Vector3(x, y, 0);
+    // target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    // std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
+
+    // // TODO: confファイルからcycleをよむ
+    // std::vector<int> support_link_cycle{13, 7};
+    // std::vector<int> swing_link_cycle{7, 13};
+    // if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
 
     Guard guard(m_mutex);
     gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear

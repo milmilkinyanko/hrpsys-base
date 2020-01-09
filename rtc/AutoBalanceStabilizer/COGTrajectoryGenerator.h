@@ -19,7 +19,6 @@ namespace hrp {
 class COGTrajectoryGenerator
 {
   public:
-    enum LocomotionMode : size_t { WALK, RUN };
     enum CogCalculationType : size_t { PREVIEW_CONTROL, FOOT_GUIDED };
 
   private:
@@ -62,6 +61,12 @@ class COGTrajectoryGenerator
 
     /**
      * @fn
+     * @return reference zmp == (0, 0, 0)^T
+     */
+    hrp::Vector3 calcCogForFlightPhase(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
+    /**
+     * @fn
      * @return reference zmp
      */
     hrp::Vector3 calcCogForRun(const hrp::Vector3& support_point,
@@ -94,11 +99,11 @@ class COGTrajectoryGenerator
                                                 const double dt,
                                                 const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
-    void calcCogZForJump(const double time_to_jump,
+    void calcCogZForJump(const size_t count_to_jump,
                          const double jump_height,
                          const double take_off_z,
                          const double dt,
-                         const double g_acc);
+                         const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 };
 
 }
