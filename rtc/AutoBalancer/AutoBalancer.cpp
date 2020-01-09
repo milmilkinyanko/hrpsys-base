@@ -64,6 +64,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
       m_emergencyFallMotionOut("emergencyFallMotion", m_emergencyFallMotion),
       m_isStuckOut("isStuck", m_isStuck),
+      m_useFlywheelOut("useFlywheel", m_useFlywheel),
       m_estimatedFxyOut("estimatedFxy", m_estimatedFxy),
       m_diffCPIn("diffCapturePoint", m_diffCP),
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
@@ -149,6 +150,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("emergencySignal", m_emergencySignalOut);
     addOutPort("emergencyFallMotion", m_emergencyFallMotionOut);
     addOutPort("isStuck", m_isStuckOut);
+    addOutPort("useFlywheel", m_useFlywheelOut);
     addOutPort("estimatedFxy", m_estimatedFxyOut);
     addOutPort("landingTarget", m_landingTargetOut);
     addOutPort("endCogState", m_endCogStateOut);
@@ -887,6 +889,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       // is stuck
       m_isStuck.data = gg->is_stuck;
       m_isStuck.tm = m_qRef.tm;
+      // use flywheel
+      m_useFlywheel.data = gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel();
+      m_useFlywheel.tm = m_qRef.tm;
       // estimated Fxy
       m_estimatedFxy.data.x = gg->fxy(0);
       m_estimatedFxy.data.y = gg->fxy(1);
@@ -901,6 +906,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_cogOut.write();
       m_sbpCogOffsetOut.write();
       m_isStuckOut.write();
+      m_useFlywheelOut.write();
       m_estimatedFxyOut.write();
       for (size_t i = 0; i < 21; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
