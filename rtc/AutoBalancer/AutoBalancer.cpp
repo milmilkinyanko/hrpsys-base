@@ -729,11 +729,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       // For parameters
       setActData2ST();
       st->getActualParameters();
-      if (!go_vel_interpolator->isEmpty()) {
-        std::vector<double> tmp_v(3);
-        go_vel_interpolator->get(tmp_v.data(), true);
-        gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
-      }
+      // if (!go_vel_interpolator->isEmpty()) {
+      //   std::vector<double> tmp_v(3);
+      //   go_vel_interpolator->get(tmp_v.data(), true);
+      //   gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
+      // }
       getTargetParameters();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
@@ -1991,19 +1991,20 @@ bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& 
     gg->set_all_limbs(leg_names);
     bool ret = true;
     if (gg_is_walking && gg_solved) {
-      std::vector<double> tmp_v(3), trarget_v(3);
-      trarget_v[0]  = vx;
-      trarget_v[1]  = vy;
-      trarget_v[2]  = vth;
-      double transition_time = 5.0;
-      if (go_vel_interpolator->isEmpty()) {
-        go_vel_interpolator->clear();
-        go_vel_interpolator->setGoal(trarget_v.data(), transition_time, true);
-      } else {
-        go_vel_interpolator->setGoal(trarget_v.data(), transition_time, true);
-      }
-      go_vel_interpolator->get(tmp_v.data(), true);
-      gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
+      gg->set_velocity_param(vx, vy, vth);
+      // std::vector<double> tmp_v(3), target_v(3);
+      // target_v[0]  = vx;
+      // target_v[1]  = vy;
+      // target_v[2]  = vth;
+      // double transition_time = 5.0;
+      // if (go_vel_interpolator->isEmpty()) {
+      //   go_vel_interpolator->clear();
+      //   go_vel_interpolator->setGoal(target_v.data(), transition_time, true);
+      // } else {
+      //   go_vel_interpolator->setGoal(target_v.data(), transition_time, true);
+      // }
+      // go_vel_interpolator->get(tmp_v.data(), true);
+      // gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
     } else {
       coordinates ref_coords;
       ref_coords.pos = (ikp["rleg"].target_p0+ikp["lleg"].target_p0)*0.5;

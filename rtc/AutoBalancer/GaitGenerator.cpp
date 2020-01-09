@@ -709,21 +709,17 @@ namespace rats
                                        (overwritable_footstep_index_offset == 0 ? 4 : 3) // Why?
                                        );
         if (velocity_mode_flg == VEL_ENDING) velocity_mode_flg = VEL_IDLING;
-        std::vector<leg_type> first_overwrite_leg;
-        for (size_t i = 0; i < footstep_nodes_list[get_overwritable_index()].size(); i++) {
-            first_overwrite_leg.push_back(footstep_nodes_list[get_overwritable_index()].at(i).l_r);
-        }
         for (size_t i = 0; i < cv.size(); i++) {
             std::vector<step_node> tmp_fsn;
             for (size_t j = 0; j < cv.at(i).size(); j++) {
-                cv.at(i).at(j).worldcoords.pos += modified_d_footstep;
+                if (overwritable_footstep_index_offset == 0) cv.at(i).at(j).worldcoords.pos += modified_d_footstep;
                 tmp_fsn.push_back(step_node(cv.at(i).at(j).l_r, cv.at(i).at(j).worldcoords,
                                             lcg.get_default_step_height(), default_step_time, lcg.get_toe_angle(), lcg.get_heel_angle()));
-                if (i == 0) tmp_fsn.back().step_time += modified_d_step_time;
+                if (overwritable_footstep_index_offset == 0 && i == 0) tmp_fsn.back().step_time += modified_d_step_time;
             }
             overwrite_footstep_nodes_list.push_back(tmp_fsn);
         }
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp, true);
         overwrite_footstep_nodes_list.clear();
       } else if ( !overwrite_footstep_nodes_list.empty() && // If overwrite_footstep_node_list exists
                   (lcg.get_footstep_index() < footstep_nodes_list.size()-1) &&  // If overwrite_footstep_node_list is specified and current footstep is not last footstep.
@@ -759,10 +755,10 @@ namespace rats
         lr_region[cur_leg] = false;
         if (lr_region[cur_leg == RLEG ? LLEG : RLEG]) {
           hrp::Matrix33 prev_fs_rot, preprev_fs_rot;
-          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[get_overwritable_index()-2].front());
-          hrp::Vector3 prev_fs_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
+          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front());
+          hrp::Vector3 prev_fs_pos = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
           hrp::Vector3 ez = hrp::Vector3::UnitZ();
-          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot, ez);
+          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
           calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot, ez);
           if (cur_leg == RLEG) {
             stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
@@ -812,7 +808,7 @@ namespace rats
         if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) { // TODO: cannot completely support turn walking
           hrp::Matrix33 prev_fs_rot;
           hrp::Vector3 ez = hrp::Vector3::UnitZ();
-          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot, ez);
+          calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
           sum_fx = prev_fs_rot.transpose() * sum_fx;
           if (lcg.get_footstep_index() % 2 == 0) {
             sum_fy = prev_fs_rot.transpose() * sum_fy;
@@ -1376,15 +1372,15 @@ namespace rats
   {
     double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
     bool is_modify = false;
-    hrp::Vector3 orig_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
-    hrp::Matrix33 orig_footstep_rot = footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot;
+    hrp::Vector3 orig_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
+    hrp::Matrix33 orig_footstep_rot = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot;
     hrp::Vector3 d_footstep = hrp::Vector3::Zero(), short_of_footstep = hrp::Vector3::Zero();
-    hrp::Vector3 cur_footstep_pos = footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.pos;
+    hrp::Vector3 cur_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos;
     hrp::Matrix33 cur_footstep_rot;
-    calc_foot_origin_rot(cur_footstep_rot, footstep_nodes_list[get_overwritable_index()-1].front().worldcoords.rot);
+    calc_foot_origin_rot(cur_footstep_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot);
     hrp::Matrix33 next_footstep_rot;
-    calc_foot_origin_rot(next_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
-    leg_type cur_sup = footstep_nodes_list[get_overwritable_index()-1].front().l_r;
+    calc_foot_origin_rot(next_footstep_rot, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot);
+    leg_type cur_sup = footstep_nodes_list[lcg.get_footstep_index()-1].front().l_r;
     hrp::Vector3 cur_cp = cp_filter->passFilter(cur_cog + cur_cogvel / omega);
     cur_cp = cur_footstep_rot.transpose() * (cur_cp - cur_footstep_pos);
     hrp::Vector3 next_step_pos =  cur_footstep_rot.transpose() * (orig_footstep_pos - cur_footstep_pos);
@@ -1499,21 +1495,21 @@ namespace rats
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
         if (is_modify || is_vision_updated || lr_region[cur_sup]) {
-          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[get_overwritable_index()-2].front());
-          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos += d_footstep;
+          step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front());
+          footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
-          if (lr_region[cur_sup]) limit_stride_vision(footstep_nodes_list[get_overwritable_index()].front(), short_of_footstep, footstep_nodes_list[get_overwritable_index()-1].front(), preprev_fs, omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
-          else limit_stride_rectangle(footstep_nodes_list[get_overwritable_index()].front(), footstep_nodes_list[get_overwritable_index()-1].front(), overwritable_stride_limitation);
-          footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
+          if (lr_region[cur_sup]) limit_stride_vision(footstep_nodes_list[lcg.get_footstep_index()].front(), short_of_footstep, footstep_nodes_list[lcg.get_footstep_index()-1].front(), preprev_fs, omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
+          else limit_stride_rectangle(footstep_nodes_list[lcg.get_footstep_index()].front(), footstep_nodes_list[lcg.get_footstep_index()-1].front(), overwritable_stride_limitation);
+          footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           if (is_vision_updated) {
-            footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
-            calc_foot_origin_rot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
+            footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
+            calc_foot_origin_rot(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
             // TODO : why is yaw angle changed
-            hrp::Vector3 tmp_rpy = hrp::rpyFromRot(footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
+            hrp::Vector3 tmp_rpy = hrp::rpyFromRot(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot);
             tmp_rpy(2) = hrp::rpyFromRot(orig_footstep_rot)(2);
-            footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot = hrp::rotFromRpy(tmp_rpy);
+            footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot = hrp::rotFromRpy(tmp_rpy);
           }
-          d_footstep = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos - orig_footstep_pos;
+          d_footstep = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos - orig_footstep_pos;
           if (!(lr_region[cur_sup])) short_of_footstep = d_footstep - short_of_footstep;
           for (size_t i = lcg.get_footstep_index()+1; i < footstep_nodes_list.size(); i++) {
             footstep_nodes_list[i].front().worldcoords.pos += d_footstep;
@@ -1562,9 +1558,9 @@ namespace rats
       double end_cp_back = std::exp(omega * remain_time) * cur_cp(0) + (std::exp(omega * remain_time) - 1) * leg_margin[1];
       double end_cp_outside = std::exp(omega * remain_time) * cur_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * remain_time) - 1) * leg_margin[2];
       double end_cp_inside = std::exp(omega * remain_time) * cur_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * remain_time) - 1) * leg_margin[3];
-      hrp::Vector3 new_footstep_pos = footstep_nodes_list[get_overwritable_index()].front().worldcoords.pos;
+      hrp::Vector3 new_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
       hrp::Matrix33 new_footstep_rot;
-      calc_foot_origin_rot(new_footstep_rot, footstep_nodes_list[get_overwritable_index()].front().worldcoords.rot);
+      calc_foot_origin_rot(new_footstep_rot, footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot);
       hrp::Vector3 end_cp = new_footstep_pos;
       size_t tmp_falling_direction = 0;
       falling_direction = 0;
@@ -1950,9 +1946,9 @@ namespace rats
     }
   };
 
-  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
+  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp, const bool& update_vel)
   {
-    size_t idx = get_overwritable_index();
+    size_t idx = (update_vel ? get_overwritable_index() : lcg.get_footstep_index());
     footstep_nodes_list.erase(footstep_nodes_list.begin()+idx, footstep_nodes_list.end());
 
     /* add new next steps ;; the number of next steps is fnsl.size() */
@@ -1966,7 +1962,7 @@ namespace rats
     rg.remove_refzmp_cur_list_over_length(idx);
     /*   reset index and counter */
     rg.set_indices(idx);
-    if (overwritable_footstep_index_offset == 0) {
+    if (overwritable_footstep_index_offset == 0 || !update_vel) {
         rg.set_refzmp_count(lcg.get_lcg_count()); // Start refzmp_count from current remaining footstep count of swinging.
     } else {
         rg.set_refzmp_count(static_cast<size_t>(fnsl[0][0].step_time/dt)); // Start refzmp_count from step length of first overwrite step
@@ -1995,7 +1991,7 @@ namespace rats
     /* Overwrite refzmp index in preview contoroller queue */
     size_t queue_size = preview_controller_ptr->get_preview_queue_size();
     size_t overwrite_idx;
-    if (overwritable_footstep_index_offset == 0) {
+    if (overwritable_footstep_index_offset == 0 || !update_vel) {
       overwrite_idx = 0; // Overwrite all queue
     } else {
       overwrite_idx = lcg.get_lcg_count(); // Overwrite queue except current footstep
