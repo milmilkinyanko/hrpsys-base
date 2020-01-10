@@ -827,7 +827,12 @@ namespace rats
       tmp[15] = tmp_fxy(0);
       tmp[16] = tmp_fxy(1);
       // fx = fx_filter->passFilter(fx);
-      fxy = prev_fxy + dc_gain * (des_fxy - prev_fxy);
+      // fxy = prev_fxy + dc_gain * (des_fxy - prev_fxy);
+      for (size_t i = 0; i < 2; i++) {
+        double tmp_gain = dc_gain;
+        if (fabs(des_fxy(i)) < fabs(prev_fxy(i))) tmp_gain *= 10;
+        fxy(i) = prev_fxy(i) + tmp_gain * (des_fxy(i) - prev_fxy(i));
+      }
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
