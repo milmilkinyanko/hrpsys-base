@@ -50,8 +50,10 @@ class GaitGenerator
     double max_rot_angle = deg2rad(10); // [rad]
 
     // Run parameter
-    double default_take_off_z = 0.85;
-    double default_jump_height = 0.05;
+    // double default_take_off_z = 0.85;
+    double default_take_off_z = 0.96;
+    double default_jump_height = 0.03;
+    // double default_jump_height = 0.02;
     double default_support_count_run;
 
     // Walking cycle
@@ -156,6 +158,8 @@ class GaitGenerator
     // -- COGTrajectoryGenerator --
     void resetCOGTrajectoryGenerator(const hrp::Vector3& init_cog, const double dt)
     {
+        std::cerr << "init_cog: "<< init_cog.transpose() << std::endl;
+        std::cerr << "init_zmp: " << zmp_gen->getCurrentRefZMP().transpose() << std::endl;
         cog_gen.reset(new COGTrajectoryGenerator(init_cog));
         cog_gen->initPreviewController(dt, zmp_gen->getCurrentRefZMP());
     }

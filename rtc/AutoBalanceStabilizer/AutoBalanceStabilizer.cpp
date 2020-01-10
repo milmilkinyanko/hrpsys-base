@@ -798,7 +798,19 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     const coil::vstring contact_str = coil::split(prop["contact_points"], ",");
     init_constraints.reserve(contact_str.size());
     for (size_t i = 0; i < contact_str.size();) {
-        hrp::LinkConstraint constraint(std::stoi(contact_str[i++])); // Id
+        hrp::LinkConstraint constraint(m_robot->link(contact_str[i++])->index);
+
+        const std::string constraint_type_str = contact_str[i++];
+        hrp::LinkConstraint::ConstraintType constraint_type = hrp::LinkConstraint::ConstraintType::FIX;
+        if      (constraint_type_str == "FIX")    constraint_type = hrp::LinkConstraint::ConstraintType::FIX;
+        else if (constraint_type_str == "ROTATE") constraint_type = hrp::LinkConstraint::ConstraintType::ROTATE;
+        else if (constraint_type_str == "SLIDE")  constraint_type = hrp::LinkConstraint::ConstraintType::SLIDE;
+        else if (constraint_type_str == "FLOAT")  constraint_type = hrp::LinkConstraint::ConstraintType::FLOAT;
+        else if (constraint_type_str == "FREE")   constraint_type = hrp::LinkConstraint::ConstraintType::FREE;
+        else {
+            std::cerr << "[" << m_profile.instance_name << "] Constraint type " << constraint_type_str << " can't be selected. Set FIX." << std::endl;
+        }
+        constraint.setConstraintType(constraint_type);
 
         const size_t num_contact_points = std::stoi(contact_str[i++]);
         std::vector<hrp::Vector3> contact_points(num_contact_points);
@@ -828,6 +840,10 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     const size_t num_constraints = constraints.size();
     ik_constraints.resize(num_constraints + 2); // LinkConstraints + Body + COM constraint
 
+    // Joint
+    // fik->q_ref_constraint_weight.setConstant(1e-8);
+    fik->q_ref_constraint_weight.setConstant(1e-4);
+
     size_t i;
     for (i = 0; i < num_constraints; ++i) {
         ik_constraints[i].target_link_name = _robot->link(constraints[i].getLinkId())->name;
@@ -850,6 +866,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     hrp::dvector6 com_weight;
     // com_weight << 1, 1, 1e-1, 1e-7, 1e-7, 0;
     com_weight << 1, 1, 1e-1, 0, 0, 0;
+    // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
     ik_constraints[i].constraint_weight = com_weight;
 }
 
@@ -859,10 +876,16 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
 
     size_t i;
     for (i = 0; i < cur_constraints.size(); ++i) {
-        ik_constraints[i].targetPos = cur_constraints[i].targetPos();
-        ik_constraints[i].localPos = cur_constraints[i].localPos();
-        ik_constraints[i].localR = cur_constraints[i].localRot();
-        ik_constraints[i].targetOmega = hrp::omegaFromRot(cur_constraints[i].targetRot());
+        if (cur_constraints[i].getConstraintType() == hrp::LinkConstraint::ConstraintType::FREE) {
+            ik_constraints[i].constraint_weight.setZero();
+            // ik_constraints[i].constraint_weight = hrp::dvector6::Zero();
+            continue;
+        }
+        ik_constraints[i].targetPos         = cur_constraints[i].targetPos();
+        ik_constraints[i].localPos          = cur_constraints[i].localPos();
+        ik_constraints[i].localR            = cur_constraints[i].localRot();
+        ik_constraints[i].targetOmega       = hrp::omegaFromRot(cur_constraints[i].targetRot());
+        ik_constraints[i].constraint_weight = hrp::dvector6::Ones();
     }
 
     // Body
@@ -873,8 +896,12 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     // COM
     ik_constraints[i].targetPos = gg->getCog();
     ik_constraints[i].targetOmega = hrp::Vector3::Zero();
+    // std::cerr << "ref com:  " << ik_constraints[i].targetPos.transpose() << std::endl;
+    // std::cerr << "ref com_vel:  " << gg->getCogVel().transpose() << std::endl;
+    // std::cerr << "ref com_acc:  " << gg->getCogAcc().transpose() << std::endl;
 
     restoreRobotStatesForIK();
+    // qref
     fik->setReferenceRobotStatesFromBody(m_robot);
 }
 
@@ -967,7 +994,6 @@ void AutoBalanceStabilizer::startABCparam(const OpenHRP::AutoBalanceStabilizerSe
     restoreRobotStatesForIK();
     adjustCOPCoordToTarget();
     gg->resetGaitGenerator(m_robot, loop, m_dt);
-    // gg->resetCOGTrajectoryGenerator(m_robot->calcCM(), m_dt);
     control_mode = MODE_SYNC_TO_ABC;
 }
 

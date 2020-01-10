@@ -99,7 +99,8 @@ void testFootGuidedRunning()
     std::vector<size_t> supporting_counts;
     const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, 0.8); // Start from left kicking
     // hrp::Vector3 one_step(0.56, -0.2, 0.0);
-    hrp::Vector3 one_step(0.525, -0.2, 0.0);
+    // hrp::Vector3 one_step(0.525, -0.2, 0.0);
+    hrp::Vector3 one_step(0, -0.2, 0.0);
     // hrp::Vector3 one_step(0.0, -0.2, 0.0);
 
     const double y_offset = _init_cog[1] > 0 ? -0.05 : 0.05;

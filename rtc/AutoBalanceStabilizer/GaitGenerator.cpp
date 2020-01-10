@@ -27,6 +27,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     default_toe_support_count(static_cast<size_t>(0.5 / _dt)),
     default_heel_support_count(static_cast<size_t>(0.15 / _dt)),
     default_support_count_run(static_cast<size_t>(0.235 / _dt))
+    // default_support_count_run(static_cast<size_t>(0.335 / _dt))
 {
     const size_t num_limbs = init_constraints.size();
 
@@ -74,6 +75,7 @@ void GaitGenerator::resetGaitGenerator(const hrp::BodyPtr& _robot,
     root_coord.linear() = _robot->rootLink()->R;
 
     prev_ref_cog = _robot->calcCM();
+    std::cerr << "prev_ref_cog: " << prev_ref_cog.transpose() << std::endl;
 
     zmp_gen.reset(new RefZMPGenerator(_dt, preview_window, constraints_list[0]));
     resetCOGTrajectoryGenerator(prev_ref_cog, _dt);
@@ -275,9 +277,11 @@ void GaitGenerator::adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const siz
     const ConstraintsWithCount& cur_consts = getCurrentConstraints(count);
     const hrp::Vector3 cop_pos = calcReferenceCOPFromModel(_robot, cur_consts.constraints);
     const hrp::Matrix33 cop_rot = calcReferenceCOPRotFromModel(_robot, cur_consts.constraints);
+    std::cerr << "cop_pos: " << cop_pos.transpose() << std::endl;
 
     const hrp::Vector3 target_cop_pos = cur_consts.calcCOPFromConstraints();
     const hrp::Matrix33 target_cop_rot = cur_consts.calcCOPRotationFromConstraints();
+    std::cerr << "target_cop_pos: " << target_cop_pos.transpose() << std::endl;
 
     rootPos() = (target_cop_pos - cop_pos) + _robot->rootLink()->p;
     // rootRot() = target_cop_rot * cop_rot.transpose() * _robot->rootLink()->R;
@@ -733,7 +737,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
                                                                                                 jump_idx,
                                                                                                 land_idx,
                                                                                                 targets,
-                                                                                                starting_count + default_support_count_run,
+                                                                                                starting_count + default_support_count_run * 2.5, // tmp
                                                                                                 flight_phase_count,
                                                                                                 true,
                                                                                                 starting_count);
@@ -763,6 +767,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
 
     // Update constraints_list
     std::lock_guard<std::mutex> lock(m_mutex);
+    default_step_height = 0.15; // tmp
     locomotion_mode = RUN;
     const size_t diff_count = loop - new_constraints[0].start_count + 1;
     for (auto& constraints : new_constraints) {
