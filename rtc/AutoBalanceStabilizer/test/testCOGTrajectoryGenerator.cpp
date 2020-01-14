@@ -74,10 +74,11 @@ void testPreviewController()
 
 void testFootGuidedRunning()
 {
-    const double jump_height = 0.05;
+    const double jump_height = 0.03;
     // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
-    const double take_off_z = 0.85;
+    const double init_cog_z = 0.93;
+    const double take_off_z = 0.96;
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
@@ -97,7 +98,8 @@ void testFootGuidedRunning()
     std::vector<hrp::Vector3> landing_points;
     std::vector<size_t> landing_counts;
     std::vector<size_t> supporting_counts;
-    const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, 0.8); // Start from left kicking
+    const hrp::Vector3 _init_cog = hrp::Vector3(0, 0, init_cog_z); // Start from left kicking
+    // const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, init_cog_z); // Start from left kicking
     // hrp::Vector3 one_step(0.56, -0.2, 0.0);
     // hrp::Vector3 one_step(0.525, -0.2, 0.0);
     hrp::Vector3 one_step(0, -0.2, 0.0);
@@ -119,7 +121,8 @@ void testFootGuidedRunning()
     // std::cerr << "cp offset: "<< target_cp_offset[0] << std::endl;
 
     landing_points.emplace_back(_init_cog[0], _init_cog[1], 0);
-    landing_counts.push_back(0);
+    // landing_counts.push_back(0);
+    landing_counts.push_back(500);
     supporting_counts.push_back(support_count);
 
     hrp::COGTrajectoryGenerator cog_traj_gen(_init_cog);

@@ -33,6 +33,7 @@ void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refz
 
 hrp::Vector3 COGTrajectoryGenerator::calcCogForFlightPhase(const double dt, const double g_acc)
 {
+    std::cerr << "flight" << std::endl;
     cog_acc = hrp::Vector3(0, 0, -g_acc);
     cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
     cog_vel += cog_acc * dt;
@@ -54,8 +55,10 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForRun(const hrp::Vector3& support_p
                                                    const double dt,
                                                    const double g_acc)
 {
-    const double rel_cur_count = cur_count - start_count;
-    if (supporting_count - rel_cur_count <= 0) return calcCogForFlightPhase(dt, g_acc);
+    if (cur_count < start_count) return hrp::Vector3::Zero();
+
+    const size_t rel_cur_count = cur_count - start_count;
+    if (supporting_count <= rel_cur_count) return calcCogForFlightPhase(dt, g_acc);
 
     const hrp::Vector3 ref_zmp = calcCogForRunFromLandingPoints(support_point, landing_point, start_zmp_offset, end_zmp_offset,
                                                                 target_cp_offset, jump_height, start_count, supporting_count,
@@ -71,6 +74,8 @@ void COGTrajectoryGenerator::calcCogZForJump(const size_t count_to_jump,
                                              const double g_acc)
 {
     // 6th order function: s.t. cog_acc(T) = -g_acc
+    // std::cerr << "cogz: " << cog[2] << ", cog_velz: " << cog_vel[2] << ", cog_accz: " << cog_acc[2] << std::endl;
+    // std::cerr << "height: " << jump_height << ", take_off_z: " << take_off_z << ", dt: " << dt << ", g_acc: " << g_acc << std::endl;
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double T  = count_to_jump * dt;
     const double T2 = T * T;

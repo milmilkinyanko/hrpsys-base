@@ -224,6 +224,11 @@ class GaitGenerator
                                   const size_t jumping_count,
                                   const bool is_start = false,
                                   const size_t starting_count = 0);
+    std::vector<ConstraintsWithCount>
+    calcFootStepConstraintsForJump(const ConstraintsWithCount& last_constraints,
+                                   const std::vector<Eigen::Isometry3d>& targets,
+                                   const size_t jump_start_count,
+                                   const size_t jumping_count);
 
     void addFootStep(const ConstraintsWithCount& last_constraints,
                      const std::vector<size_t>& swing_indices,

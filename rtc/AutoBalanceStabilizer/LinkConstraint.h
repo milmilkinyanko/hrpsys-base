@@ -136,7 +136,7 @@ class LinkConstraint
         calcLinkLocalPos();
         // std::cerr << "changed points:\n";
         // for (const auto& point : link_contact_points) std::cerr << point.transpose() << std::endl;
-        std::cerr << "prev: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
+        std::cerr << "prev local: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
         std::cerr << "prev target: " << targetPos().transpose();
         const hrp::Vector3 move_pos = targetRot() * localRot() * (localPos() - prev_local_pos);
         targetPos() += move_pos;

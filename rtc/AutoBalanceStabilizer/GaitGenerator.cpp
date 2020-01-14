@@ -132,14 +132,18 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 
 void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const double dt)
 {
-    if (locomotion_mode == WALK) {
-        cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
-    } else {
-        const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
+    bool is_walk = false;
+    if (cur_const_idx < constraints_list.size() - 1) {
+        const size_t next_num_support = constraints_list[cur_const_idx + 1].getConstraintIndicesFromType(LinkConstraint::FIX).size();
+        if (next_num_support > 0) is_walk = true;
+    }
 
-        // Update ref zmp TODO: わかりづらい
-        if (sup_indices.size() == 0) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
-        else if (cur_const_idx < constraints_list.size() - 2) {
+    const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
+    // Update ref zmp TODO: わかりづらい
+    if (sup_indices.size() == 0) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
+    else if (locomotion_mode == WALK || is_walk) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
+    else {
+        if (cur_const_idx < constraints_list.size() - 2) {
             const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
             const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
             const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
@@ -428,6 +432,7 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
     }
 
     {
+        if (is_start) footstep_constraints.push_back(footstep_constraints.back());
         ConstraintsWithCount& jumping_phase_constraints = footstep_constraints.back();
         jumping_phase_constraints.start_count = jump_start_count;
         jumping_phase_constraints.clearLimbViaPoints();
@@ -446,6 +451,49 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
         const size_t land_indices_size = land_indices.size();
         for (size_t i = 0; i < land_indices_size; ++i) {
             LinkConstraint& landing_constraint = landing_phase_constraints.constraints[land_indices[i]];
+            landing_constraint.changeDefaultContacts();
+            landing_constraint.targetCoord() = targets[i];
+            landing_constraint.setConstraintType(LinkConstraint::FIX);
+        }
+    }
+
+    return footstep_constraints;
+}
+
+std::vector<ConstraintsWithCount>
+GaitGenerator::calcFootStepConstraintsForJump(const ConstraintsWithCount& last_constraints,
+                                             const std::vector<Eigen::Isometry3d>& targets,
+                                             const size_t jump_start_count,
+                                              const size_t jumping_count)
+{
+    std::vector<ConstraintsWithCount> footstep_constraints;
+    {
+        // TODO: is_endも必要か
+        constexpr size_t num_constraints = 2;
+        footstep_constraints.reserve(num_constraints);
+        footstep_constraints.push_back(last_constraints);
+    }
+
+    const size_t landing_count = jump_start_count + jumping_count;
+
+    {
+        ConstraintsWithCount& jumping_phase_constraints = footstep_constraints.back();
+        jumping_phase_constraints.start_count = jump_start_count;
+        jumping_phase_constraints.clearLimbViaPoints();
+        for (auto& constraint : jumping_phase_constraints.constraints) {
+            constraint.changeDefaultContacts();
+            constraint.setConstraintType(LinkConstraint::FLOAT);
+        }
+    }
+
+    {
+        footstep_constraints.push_back(footstep_constraints.back());
+        ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
+        landing_phase_constraints.start_count = landing_count;
+        landing_phase_constraints.clearLimbViaPoints();
+
+        for (size_t i = 0; i < landing_phase_constraints.constraints.size(); ++i) {
+            LinkConstraint& landing_constraint = landing_phase_constraints.constraints[i];
             landing_constraint.changeDefaultContacts();
             landing_constraint.targetCoord() = targets[i];
             landing_constraint.setConstraintType(LinkConstraint::FIX);
@@ -728,6 +776,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
     }
 
     std::vector<Eigen::Isometry3d> targets{org_targets[land_idx[0]]};
+    // std::vector<Eigen::Isometry3d> targets{org_targets[0], org_targets[1]}; // Jump
     const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
     const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
 
@@ -737,10 +786,14 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
                                                                                                 jump_idx,
                                                                                                 land_idx,
                                                                                                 targets,
-                                                                                                starting_count + default_support_count_run * 2.5, // tmp
+                                                                                                starting_count + default_support_count_run,
                                                                                                 flight_phase_count,
                                                                                                 true,
                                                                                                 starting_count);
+        // const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForJump(constraints_list[cur_const_idx],
+        //                                                                                          targets,
+        //                                                                                          starting_count + default_support_count_run,
+        //                                                                                          flight_phase_count);
         for (const auto& constraints : run_constraints) {
             new_constraints.push_back(constraints);
         }
@@ -749,7 +802,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         std::cerr << "add run first" << std::endl;
     }
 
-    for (size_t i = 0; i < 50; ++i) {
+    for (size_t i = 0; i < 10; ++i) {
         const ConstraintsWithCount last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_idx,
@@ -757,6 +810,10 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
                                                                                                 targets,
                                                                                                 last_constraints.start_count + default_support_count_run,
                                                                                                 flight_phase_count);
+        // const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForJump(last_constraints,
+        //                                                                                          targets,
+        //                                                                                          last_constraints.start_count + default_support_count_run,
+        //                                                                                          flight_phase_count);
         for (const auto& constraints : run_constraints) {
             new_constraints.push_back(constraints);
         }
