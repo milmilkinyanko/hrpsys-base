@@ -282,9 +282,13 @@ namespace rats
       coordinates ret;
       ret.rot = it1->worldcoords.rot * hrp::rotFromRpy(tmp_swing_foot_rot[it2->l_r]);
       if (it1->l_r == RLEG && act_contact_states[1] ||
-          it1->l_r == LLEG && act_contact_states[0])
-        is_touch_ground = true;
-      else is_touch_ground = false;
+          it1->l_r == LLEG && act_contact_states[0]) {
+        touch_ground_count++;
+      } else {
+        is_touch_ground = false;
+        touch_ground_count = 0;
+      }
+      if (touch_ground_count > static_cast<int>(_default_double_support_ratio_before/dt)) is_touch_ground = true;
       switch (default_orbit_type) {
       case SHUFFLING:
         ret.pos = swing_ratio*it1->worldcoords.pos + (1-swing_ratio)*it2->worldcoords.pos;
