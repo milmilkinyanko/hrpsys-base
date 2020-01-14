@@ -796,8 +796,8 @@ namespace rats
       // dc fxy
       hrp::Vector3 prev_fxy = fxy;
       hrp::Vector3 tmp_fxy = hrp::Vector3::Zero();
-      double cur_omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
-      double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - refzmp)(2));
+      double cur_omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
+      double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - rg.get_refzmp_cur())(2));
       act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
       ref_cp = cur_refcog + cur_refcogvel / ref_omega;
       hrp::Vector3 act_cpvel = (act_cp - prev_act_cp) / dt;
@@ -1379,7 +1379,7 @@ namespace rats
 
   void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
   {
-    double omega = std::sqrt(gravitational_acceleration / (cur_cog - refzmp)(2));
+    double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
     bool is_modify = false;
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
     hrp::Matrix33 orig_footstep_rot = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot;
