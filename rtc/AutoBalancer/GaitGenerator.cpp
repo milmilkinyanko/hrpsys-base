@@ -288,7 +288,7 @@ namespace rats
         is_touch_ground = false;
         touch_ground_count = 0;
       }
-      if (touch_ground_count > static_cast<int>(_default_double_support_ratio_before/dt)) is_touch_ground = true;
+      if (touch_ground_count > static_cast<int>((_default_double_support_ratio_before+_default_double_support_ratio_after)/dt)) is_touch_ground = true;
       switch (default_orbit_type) {
       case SHUFFLING:
         ret.pos = swing_ratio*it1->worldcoords.pos + (1-swing_ratio)*it2->worldcoords.pos;
@@ -1456,7 +1456,7 @@ namespace rats
           double inside_off = stride_limitation_with_off[4] + leg_margin[3];
           double tmp_remain_time = remain_count * dt + tmp_dt;
           double inside_cp = std::exp(omega * tmp_remain_time) * cur_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * tmp_remain_time) - 1) * safe_leg_margin[2];
-          if ((cur_sup == RLEG ? 1 : -1) * inside_cp < inside_off) {
+          if ((cur_sup == RLEG ? 1 : -1) * inside_cp < inside_off && safe_leg_margin[2] > (cur_sup == RLEG ? -1 : 1) * cur_cp(1)) {
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_sup == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
             if (std::isfinite(new_remain_time)) {
               is_change_time = true;
@@ -1466,9 +1466,18 @@ namespace rats
                 tmp_dt = overwritable_max_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
               }
             }
+          } else if (safe_leg_margin[2] <= (cur_sup == RLEG ? -1 : 1) * cur_cp(1)) {
+            tmp_dt = -0.001; // change to min_time
+            min_time_check(tmp_dt);
+            is_change_time = true;
           } else if (was_enlarged_time) {
             new_remain_time = std::log((inside_off + safe_leg_margin[2]) / ((cur_sup == RLEG ? 1 : -1) * cur_cp(1) + safe_leg_margin[2])) / omega;
-            tmp_dt = new_remain_time - remain_count*dt;
+            if (std::isfinite(new_remain_time)) {
+              tmp_dt = new_remain_time - remain_count*dt;
+              if (footstep_nodes_list[lcg.get_footstep_index()].front().step_time + tmp_dt > overwritable_max_time) {
+                tmp_dt = overwritable_max_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+              }
+            }
             min_time_check(tmp_dt);
             is_change_time = true;
           }
