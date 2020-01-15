@@ -68,7 +68,7 @@ void RefZMPGenerator::setRefZMPList(const std::vector<ConstraintsWithCount>& con
     size_t count = cur_count + zmp_start_index + 1;
     size_t zmp_index = zmp_start_index + 1;
 
-    // TODO: flight phase
+    // TODO: flight phase後に補間というよりは一気に移動させる
     for (size_t constraint_index = getConstraintIndexFromCount(constraints_list, count - 1);
          constraint_index < cwc_size && count < max_count;
          ++constraint_index) {

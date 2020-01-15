@@ -842,7 +842,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
 
     // Joint
     // fik->q_ref_constraint_weight.setConstant(1e-8);
-    fik->q_ref_constraint_weight.setConstant(1e-4);
+    fik->q_ref_constraint_weight.setConstant(1e-3);
 
     size_t i;
     for (i = 0; i < num_constraints; ++i) {
@@ -864,8 +864,8 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // COM
     ik_constraints[i].target_link_name = "COM";
     hrp::dvector6 com_weight;
-    // com_weight << 1, 1, 1e-1, 1e-7, 1e-7, 0;
-    com_weight << 1, 1, 1e-1, 0, 0, 0;
+    com_weight << 1, 1, 1e-1, 1e-4, 1e-4, 1e-5;
+    // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
     ik_constraints[i].constraint_weight = com_weight;
 }

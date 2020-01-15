@@ -42,8 +42,8 @@ inline int ccw(const Eigen::Ref<const Eigen::Vector2d>& a,
 // Calculate 2D convex hull based on Andrew's algorithm
 inline std::vector<Eigen::Vector2d> calcConvexHull(const std::vector<Eigen::Vector2d>& points)
 {
-    const size_t num_points = points.size();
-    size_t num_verts = 0;
+    const int num_points = points.size();
+    int num_verts = 0;
 
     std::vector<Eigen::Vector2d> convex_hull(2 * num_points);
     std::vector<Eigen::Vector2d> sorted_points = points;
@@ -68,7 +68,7 @@ inline std::vector<Eigen::Vector2d> calcConvexHull(const std::vector<Eigen::Vect
         ++num_verts;
     }
 
-    convex_hull.resize(num_verts - 1);
+    convex_hull.resize(std::max(0, num_verts - 1));
     return convex_hull;
 }
 
@@ -164,6 +164,9 @@ inline bool isInsideConvexHull(const std::vector<Eigen::Vector2d>& convex_hull,
 {
     // set any inner point and binary search two vertices(convex_hull[v_a], convex_hull[v_b]) between which p is.
     const size_t num_verts = convex_hull.size();
+    if (num_verts == 0) return false;
+
+    // TODO: num_verts == 1
     const Eigen::Vector2d inner_p = (convex_hull[0] + convex_hull[num_verts / 3] + convex_hull[2 * num_verts / 3]) / 3.0;
     const std::pair<size_t, size_t> verts = findVerticesContainingPoint(convex_hull, point, inner_p);
 

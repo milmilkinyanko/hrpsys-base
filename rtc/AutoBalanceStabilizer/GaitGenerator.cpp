@@ -83,8 +83,8 @@ void GaitGenerator::resetGaitGenerator(const hrp::BodyPtr& _robot,
 
 void GaitGenerator::forwardTimeStep(const size_t cur_count)
 {
+    zmp_gen->popAndPushRefZMP(constraints_list, cur_count);
     if (locomotion_mode != RUN) {
-        zmp_gen->popAndPushRefZMP(constraints_list, cur_count);
         ref_zmp = zmp_gen->getCurrentRefZMP();
     }
 
@@ -767,6 +767,9 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
 bool GaitGenerator::startRunning(const double dt, const double g_acc)
 {
     std::vector<ConstraintsWithCount> new_constraints;
+    ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
+    cur_constraints.start_count = loop;
+    new_constraints.push_back(std::move(cur_constraints));
 
     std::vector<size_t> jump_idx{0};
     std::vector<size_t> land_idx{1};
@@ -782,7 +785,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
 
     {
         const size_t starting_count = loop + 100;
-        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(constraints_list[cur_const_idx],
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(new_constraints.back(),
                                                                                                 jump_idx,
                                                                                                 land_idx,
                                                                                                 targets,
@@ -803,7 +806,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
     }
 
     for (size_t i = 0; i < 10; ++i) {
-        const ConstraintsWithCount last_constraints = new_constraints.back();
+        const ConstraintsWithCount& last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_idx,
                                                                                                 land_idx,
@@ -831,7 +834,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         constraints.start_count += diff_count;
     }
     setConstraintsList(std::move(new_constraints));
-    // setRefZMPList(loop);
+    setRefZMPList(loop);
     std::cerr << "add run end" << std::endl;
 }
 

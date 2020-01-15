@@ -33,7 +33,6 @@ void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refz
 
 hrp::Vector3 COGTrajectoryGenerator::calcCogForFlightPhase(const double dt, const double g_acc)
 {
-    std::cerr << "flight" << std::endl;
     cog_acc = hrp::Vector3(0, 0, -g_acc);
     cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
     cog_vel += cog_acc * dt;
@@ -163,6 +162,7 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForRunFromLandingPoints(const hrp::V
 
         ref_zmp = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
     }
+    ref_zmp = support_point;
 
     const hrp::Vector3 lambda = -(std::exp(omega * rel_cur_time) + (omega_T + 2) / (omega_T) * std::exp(omega * (2 * rel_land_time - rel_cur_time))) * c_1;
     const hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
