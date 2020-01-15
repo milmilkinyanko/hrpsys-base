@@ -113,7 +113,7 @@ public:
     size_t getPreviewWindow () { return preview_window; };
     double getPreview_f(const size_t idx) { return f_vec(idx); };
     Eigen::Vector3d getRefCog()    { return Eigen::Vector3d(x_k(0, 0), x_k(0, 1), cog_z); }
-    Eigen::Vector3d getRefCogVel() { return Eigen::Vector3d(x_k(0, 0), x_k(0, 1), 0); }
+    Eigen::Vector3d getRefCogVel() { return Eigen::Vector3d(x_k(1, 0), x_k(1, 1), 0); }
     Eigen::Vector3d getRefCogAcc() { return Eigen::Vector3d(x_k(2, 0), x_k(2, 1), 0); }
 
     // TODO: move to COGTrajectoryGenerator
