@@ -748,10 +748,10 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_diffFootOriginExtMomentOut.write();
 
     m_refCP.tm = m_qRef.tm;
-    const hrp::Vector3 rel_ref_cp = st->getOriginRefCP();
-    m_refCP.data.x = rel_ref_cp(0);
-    m_refCP.data.y = rel_ref_cp(1);
-    m_refCP.data.z = rel_ref_cp(2);
+    const hrp::Vector3 ref_cp = gg->calcCP();
+    m_refCP.data.x = ref_cp(0);
+    m_refCP.data.y = ref_cp(1);
+    m_refCP.data.z = ref_cp(2);
     m_refCPOut.write();
 
     m_actCP.tm = m_qRef.tm;
@@ -842,7 +842,9 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
 
     // Joint
     // fik->q_ref_constraint_weight.setConstant(1e-8);
-    fik->q_ref_constraint_weight.setConstant(1e-3);
+    fik->q_ref_constraint_weight.setConstant(2e-6);
+    // fik->q_ref_constraint_weight.setConstant(0);
+    // fik->q_ref_constraint_weight.setConstant(1e-3);
 
     size_t i;
     for (i = 0; i < num_constraints; ++i) {
@@ -855,16 +857,22 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // Body
     ik_constraints[i].target_link_name = _robot->rootLink()->name;
     hrp::dvector6 root_weight;
-    root_weight << 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3;
+    // root_weight << 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3;
+    // root_weight << 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-3;
+    // root_weight << 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3;
+    root_weight << 0, 0, 0, 1e-5, 1e-5, 1e-5;
     ik_constraints[i].constraint_weight = root_weight;
-    fik->rootlink_rpy_llimit << deg2rad(-15), deg2rad(-30), deg2rad(-180);
-    fik->rootlink_rpy_ulimit << deg2rad(15), deg2rad(45), deg2rad(180);
+    fik->rootlink_rpy_llimit = hrp::Vector3(deg2rad(-15), deg2rad(-30), deg2rad(-180));
+    fik->rootlink_rpy_ulimit = hrp::Vector3(deg2rad(15), deg2rad(45), deg2rad(180));
     ++i;
 
     // COM
     ik_constraints[i].target_link_name = "COM";
     hrp::dvector6 com_weight;
-    com_weight << 1, 1, 1e-1, 1e-4, 1e-4, 1e-5;
+    // com_weight << 1, 1, 1e-1, 1e-2, 1e-2, 1e-4;
+    // com_weight << 1, 1, 1e-1, 0, 0, 0;
+    // com_weight << 1, 1, 1e-1, 1e-3, 1e-3, 1e-4;
+    com_weight << 1, 1, 1, 1, 1, 0;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
     ik_constraints[i].constraint_weight = com_weight;
@@ -894,8 +902,17 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     ++i;
 
     // COM
+    static hrp::Vector3 hoge = hrp::Vector3::Zero();
     ik_constraints[i].targetPos = gg->getCog();
-    ik_constraints[i].targetOmega = hrp::Vector3::Zero();
+    // ik_constraints[i].targetOmega = (fik->getComMomentum() + gg->getCogMoment() * m_dt);
+    ik_constraints[i].targetOmega = (hoge + gg->getCogMoment() * m_dt);
+    ik_constraints[i].targetOmega[2] = 0; // tmp
+    if (gg->getCogMoment().squaredNorm() < 1e-6) ik_constraints[i].targetOmega.setZero();
+    hoge = hoge * 0.85 + ik_constraints[i].targetOmega * 0.15;
+    // ik_constraints[i].targetOmega.setZero();
+    // ik_constraints[i].targetOmega = hrp::clamp(ik_constraints[i].targetOmega, hrp::Vector3(-150, -150, -100), hrp::Vector3(150, 150, 100));
+    // ik_constraints[i].targetOmega = hrp::Vector3::Zero();
+    // std::cerr << "moment: " << ik_constraints[i].targetOmega.transpose() << std::endl;
     // std::cerr << "ref com:  " << ik_constraints[i].targetPos.transpose() << std::endl;
     // std::cerr << "ref com_vel:  " << gg->getCogVel().transpose() << std::endl;
     // std::cerr << "ref com_acc:  " << gg->getCogAcc().transpose() << std::endl;

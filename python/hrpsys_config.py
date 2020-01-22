@@ -969,6 +969,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abst, 'actContactStates')
             self.connectLoggerPort(self.abst, 'footOriginRefCog')
             self.connectLoggerPort(self.abst, 'footOriginActCog')
+            self.connectLoggerPort(self.abst, 'refCapturePoint')
 
         self.log_svc.clear()
         ## parallel running log process (outside from rtcd) for saving logs by emergency signal

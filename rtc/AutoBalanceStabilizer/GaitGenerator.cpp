@@ -11,6 +11,7 @@
 #include "GaitGenerator.h"
 #include "Utility.h"
 #include "EigenUtil.h"
+#include "PlaneGeometry.h"
 
 namespace hrp {
 
@@ -142,28 +143,30 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     // Update ref zmp TODO: わかりづらい
     if (sup_indices.size() == 0) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
     else if (locomotion_mode == WALK || is_walk) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
-    else {
-        if (cur_const_idx < constraints_list.size() - 2) {
-            const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
-            const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
-            const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
-            const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
-            const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
-            // TODO: walk (preview control)から走行への移行は？やはりABC起動時のtransitionは必要？
-            ref_zmp = cog_gen->calcCogForRunFromLandingPoints(support_point,
-                                                              landing_point,
-                                                              hrp::Vector3::Zero(),
-                                                              hrp::Vector3::Zero(),
-                                                              hrp::Vector3::Zero(),
-                                                              default_jump_height,
-                                                              constraints_list[cur_const_idx].start_count,
-                                                              supporting_count,
-                                                              constraints_list[cur_const_idx + 2].start_count,
-                                                              cur_count,
-                                                              dt);
-            cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
-        }
+    else if (cur_const_idx < constraints_list.size() - 2) {
+        const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
+        const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
+        const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
+        const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
+        const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
+        // TODO: walk (preview control)から走行への移行は？やはりABC起動時のtransitionは必要？
+
+        const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
+        ref_zmp = cog_gen->calcCogForRunFromLandingPoints(support_point,
+                                                          landing_point,
+                                                          offset,
+                                                          offset,
+                                                          hrp::Vector3::Zero(),
+                                                          default_jump_height,
+                                                          constraints_list[cur_const_idx].start_count,
+                                                          supporting_count,
+                                                          constraints_list[cur_const_idx + 2].start_count,
+                                                          cur_count,
+                                                          dt);
+        cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
     }
+
+    cog_moment = if_compensate_cog_moment ? calcCogMomentFromCMP(ref_zmp) : hrp::Vector3::Zero();
 
     constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt);
 
@@ -173,6 +176,27 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     prev_ref_cog = cog_gen->getCog();
 
     return;
+}
+
+hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp)
+{
+    // TODO: 平面仮定してる
+    std::vector<Eigen::Vector2d> convex_hull = constraints_list[cur_const_idx].calcContactConvexHullForAllConstraints();
+    const size_t num_verts = convex_hull.size();
+
+    if (num_verts == 0) return hrp::Vector3::Zero();
+
+    const Eigen::Vector2d inner_p = (convex_hull[0] + convex_hull[num_verts / 3] + convex_hull[2 * num_verts / 3]) / 3.0;
+    std::pair<size_t, size_t> closest_verts;
+    if (isInsideConvexHull(convex_hull, ref_cmp.head<2>(), inner_p, closest_verts.first, closest_verts.second)) return hrp::Vector3::Zero();
+
+    // TODO: これが最速かどうか，やり方を整理する
+    Eigen::Vector2d closest_point = ref_cmp.head<2>();
+    calcClosestBoundaryPoint(closest_point, convex_hull, closest_verts.first, closest_verts.second);
+
+    const double f_z = DEFAULT_GRAVITATIONAL_ACCELERATION * 70; // TODO: tmp
+    return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
+    // return hrp::Vector3((ref_cmp[1] - closest_point[1]), -(ref_cmp[0] - closest_point[0]), 0) * f_z;
 }
 
 void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
@@ -281,11 +305,9 @@ void GaitGenerator::adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const siz
     const ConstraintsWithCount& cur_consts = getCurrentConstraints(count);
     const hrp::Vector3 cop_pos = calcReferenceCOPFromModel(_robot, cur_consts.constraints);
     const hrp::Matrix33 cop_rot = calcReferenceCOPRotFromModel(_robot, cur_consts.constraints);
-    std::cerr << "cop_pos: " << cop_pos.transpose() << std::endl;
 
     const hrp::Vector3 target_cop_pos = cur_consts.calcCOPFromConstraints();
     const hrp::Matrix33 target_cop_rot = cur_consts.calcCOPRotationFromConstraints();
-    std::cerr << "target_cop_pos: " << target_cop_pos.transpose() << std::endl;
 
     rootPos() = (target_cop_pos - cop_pos) + _robot->rootLink()->p;
     // rootRot() = target_cop_rot * cop_rot.transpose() * _robot->rootLink()->R;
@@ -802,10 +824,12 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         }
         std::swap(jump_idx[0], land_idx[0]);
         targets[0] = org_targets[land_idx[0]];
+        // targets[0].translation()[0] += 0.2;
+        // targets[0].translation()[1] = org_targets[land_idx[0]].translation()[1];
         std::cerr << "add run first" << std::endl;
     }
 
-    for (size_t i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < 60; ++i) {
         const ConstraintsWithCount& last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_idx,
@@ -822,6 +846,8 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         }
         std::swap(jump_idx[0], land_idx[0]);
         targets[0] = org_targets[land_idx[0]];
+        // targets[0].translation()[0] += 0.2;
+        // targets[0].translation()[1] = org_targets[land_idx[0]].translation()[1];
         std::cerr << "add run " << i << std::endl;
     }
 

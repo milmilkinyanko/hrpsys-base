@@ -98,20 +98,18 @@ void testFootGuidedRunning()
     std::vector<hrp::Vector3> landing_points;
     std::vector<size_t> landing_counts;
     std::vector<size_t> supporting_counts;
-    const hrp::Vector3 _init_cog = hrp::Vector3(0, 0, init_cog_z); // Start from left kicking
-    // const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, init_cog_z); // Start from left kicking
+    const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, init_cog_z); // Start from left kicking
     // hrp::Vector3 one_step(0.56, -0.2, 0.0);
-    // hrp::Vector3 one_step(0.525, -0.2, 0.0);
-    hrp::Vector3 one_step(0, -0.2, 0.0);
-    // hrp::Vector3 one_step(0.0, -0.2, 0.0);
+    hrp::Vector3 one_step(0.525, -0.2, 0.0);
+    // hrp::Vector3 one_step(0, -0.2, 0.0);
 
     const double y_offset = _init_cog[1] > 0 ? -0.05 : 0.05;
-    // hrp::Vector3 start_zmp_offset = hrp::Vector3(-0.1, y_offset, 0);
-    // hrp::Vector3 end_zmp_offset = hrp::Vector3(0.1, y_offset, 0);
+    hrp::Vector3 start_zmp_offset = hrp::Vector3(-0.06, y_offset, 0);
+    hrp::Vector3 end_zmp_offset = hrp::Vector3(0.16, y_offset, 0);
     // hrp::Vector3 start_zmp_offset = hrp::Vector3(0, y_offset, 0);
     // hrp::Vector3 end_zmp_offset = hrp::Vector3(0, y_offset, 0);
-    hrp::Vector3 start_zmp_offset = hrp::Vector3(0, 0, 0);
-    hrp::Vector3 end_zmp_offset = hrp::Vector3(0, 0, 0);
+    // hrp::Vector3 start_zmp_offset = hrp::Vector3(0, 0, 0);
+    // hrp::Vector3 end_zmp_offset = hrp::Vector3(0, 0, 0);
     // hrp::Vector3 target_cp_offset(0.008, 0, 0);
     hrp::Vector3 target_cp_offset(0, 0, 0);
     // hrp::Vector3 target_cp_offset = hrp::Vector3::Zero();
@@ -121,7 +119,6 @@ void testFootGuidedRunning()
     // std::cerr << "cp offset: "<< target_cp_offset[0] << std::endl;
 
     landing_points.emplace_back(_init_cog[0], _init_cog[1], 0);
-    // landing_counts.push_back(0);
     landing_counts.push_back(500);
     supporting_counts.push_back(support_count);
 

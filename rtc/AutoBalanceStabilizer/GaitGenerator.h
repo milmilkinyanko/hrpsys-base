@@ -36,6 +36,8 @@ class GaitGenerator
     size_t loop = 0;
     const size_t root_id = 0;
     Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
+    bool if_compensate_cog_moment = true;
+    hrp::Vector3 cog_moment = hrp::Vector3::Zero();
     LocomotionMode locomotion_mode = WALK;
 
     size_t cur_const_idx = 0; // To reduce calculation time
@@ -52,7 +54,7 @@ class GaitGenerator
     // Run parameter
     // double default_take_off_z = 0.85;
     double default_take_off_z = 0.96;
-    double default_jump_height = 0.03;
+    double default_jump_height = 0.005;
     // double default_jump_height = 0.02;
     double default_support_count_run;
 
@@ -93,6 +95,7 @@ class GaitGenerator
     // -- LimbTrajectoryGenerator --
 
     void addFootStepVelocityMode(const size_t cur_count);
+    hrp::Vector3 calcCogMomentFromCMP(const hrp::Vector3& ref_cmp);
 
   public:
     GaitGenerator(const hrp::BodyPtr& _robot,
@@ -140,6 +143,7 @@ class GaitGenerator
     Eigen::Isometry3d::LinearPart rootRot() { return root_coord.linear(); }
     Eigen::Isometry3d::ConstLinearPart rootRot() const { return root_coord.linear(); }
 
+    const hrp::Vector3& getCogMoment() const { return cog_moment; }
     const hrp::Vector3& getRefZMP() const { return ref_zmp; }
 
     // Todo: Private ?
@@ -166,6 +170,7 @@ class GaitGenerator
     const hrp::Vector3& getCog()    const { return cog_gen->getCog(); }
     const hrp::Vector3& getCogVel() const { return cog_gen->getCogVel(); }
     const hrp::Vector3& getCogAcc() const { return cog_gen->getCogAcc(); }
+    hrp::Vector3 calcCP() const { return cog_gen->calcCP(); }
     void setCogCalculationType(COGTrajectoryGenerator::CogCalculationType type)
     {
         cog_gen->setCogCalculationType(type);

@@ -16,13 +16,17 @@ namespace hrp {
 // To avoid zero division when normalizing. This problem has been resolved in the latest version of Eigen.
 inline Eigen::VectorXd safeNormalize(const Eigen::VectorXd& vec)
 {
+    constexpr double EPS = 1e-6;
     const double norm = vec.norm();
-    return (norm > 1e-4) ? vec.normalized() : vec;
+    return (norm > EPS) ? vec.normalized() : vec;
 }
 
 inline Eigen::Matrix3d rotationMatrixFromOmega(const Eigen::Vector3d& omega)
 {
-    return Eigen::AngleAxisd(omega.norm(), safeNormalize(omega)).toRotationMatrix();
+    constexpr double EPS = 1e-6;
+    const double norm = omega.norm();
+    if (norm > EPS) return Eigen::AngleAxisd(norm, omega.normalized()).toRotationMatrix();
+    else return Eigen::Matrix3d::Identity();
 }
 
 template<typename VEC>

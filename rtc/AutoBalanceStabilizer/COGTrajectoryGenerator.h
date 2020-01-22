@@ -49,6 +49,7 @@ class COGTrajectoryGenerator
     const hrp::Vector3& getCog()    const { return cog; }
     const hrp::Vector3& getCogVel() const { return cog_vel; }
     const hrp::Vector3& getCogAcc() const { return cog_acc; }
+    hrp::Vector3 calcCP() const { return cog + cog_vel / omega; }
 
     void setCogCalculationType(const CogCalculationType type) { calculation_type = type; }
     void setOmega(const double cog_z, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)

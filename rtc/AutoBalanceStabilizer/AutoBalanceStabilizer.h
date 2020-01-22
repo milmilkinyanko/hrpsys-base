@@ -227,7 +227,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     hrp::Vector3 root_pos_prev_ik = hrp::Vector3::Zero();
     hrp::Matrix33 root_rot_prev_ik = hrp::Matrix33::Identity();
 
-    size_t max_ik_iteration = 3;
+    size_t max_ik_iteration = 5;
     std::vector<hrp::IKConstraint> ik_constraints;
     std::unique_ptr<hrp::FullbodyInverseKinematicsSolver> fik;
 
