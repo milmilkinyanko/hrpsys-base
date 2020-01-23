@@ -74,7 +74,9 @@ void testPreviewController()
 
 void testFootGuidedRunning()
 {
-    const double jump_height = 0.03;
+    const double jump_height = 0.0;
+    // const double jump_height = 0.001;
+    // const double jump_height = 0.03;
     // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
     const double init_cog_z = 0.93;
@@ -82,8 +84,11 @@ void testFootGuidedRunning()
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
-    const double support_time = 0.235;
+    // const double support_time = 0.235;
     // constexpr double support_time = 0.5;
+    // const double support_time = 0.65;
+    // const double support_time = 1.0;
+    const double support_time = 1.2;
     const double step_time = support_time + flight_time;
     const size_t step_count = static_cast<size_t>(std::round(step_time / dt));
     const size_t support_count = static_cast<size_t>(std::round(support_time / dt));
@@ -151,23 +156,24 @@ void testFootGuidedRunning()
             std::cerr << "next landing: " << landing_points[cur_idx].transpose() << std::endl;
         }
 
-        cog_traj_gen.calcCogForRun(landing_points[cur_idx],
-                                   landing_points[cur_idx + 1],
-                                   start_zmp_offset,
-                                   end_zmp_offset,
-                                   target_cp_offset,
-                                   take_off_z,
-                                   jump_height,
-                                   landing_counts[cur_idx],
-                                   supporting_counts[cur_idx],
-                                   landing_counts[cur_idx + 1],
-                                   i,
-                                   dt);
+        const hrp::Vector3 ref_zmp = cog_traj_gen.calcCogForRun(landing_points[cur_idx],
+                                                                landing_points[cur_idx + 1],
+                                                                start_zmp_offset,
+                                                                end_zmp_offset,
+                                                                target_cp_offset,
+                                                                take_off_z,
+                                                                jump_height,
+                                                                landing_counts[cur_idx],
+                                                                supporting_counts[cur_idx],
+                                                                landing_counts[cur_idx + 1],
+                                                                i,
+                                                                dt);
 
-        // cog_list[i] = cog_traj_gen.getCog() + cog_traj_gen.getCogVel() / omega; // CP
         cog_list[i]    = cog_traj_gen.getCog();
-        cogvel_list[i] = cog_traj_gen.getCogVel();
-        cogacc_list[i] = cog_traj_gen.getCogAcc();
+        // cogvel_list[i] = cog_traj_gen.getCogVel();
+        cogvel_list[i] = cog_traj_gen.calcCP();
+        // cogacc_list[i] = cog_traj_gen.getCogAcc();
+        cogacc_list[i] = ref_zmp;
         time_list[i]   = cur_time;
     }
 }

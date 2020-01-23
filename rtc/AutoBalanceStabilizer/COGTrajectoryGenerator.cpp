@@ -118,66 +118,85 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForRunFromLandingPoints(const hrp::V
     const hrp::Vector3 cp = cog + cog_vel / omega;
     const double omega_T = omega * flight_time;
     hrp::Vector3 c_1 = hrp::Vector3::Zero();
-    hrp::Vector3 ref_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 ref_zmp = support_point;
+    hrp::Vector3 input_zmp = hrp::Vector3::Zero();
+
+    hrp::Vector3 A_t;
+    hrp::Vector3 B_tau;
 
     // 3次関数
-    // {
-    //     const double tau = supporting_count * dt;
-    //     const double tau2 = tau * tau;
-    //     const double tau3 = tau2 * tau;
-    //     const double omega2 = omega * omega;
-    //     const double omega3 = omega2 * omega;
-
-    //     hrp::Vector3 a_var = hrp::Vector3::Zero();
-    //     hrp::Vector3 b_var = hrp::Vector3::Zero();
-    //     hrp::Vector3 c_var = hrp::Vector3::Zero();
-    //     hrp::Vector3 d_var = hrp::Vector3::Zero();
-
-    //     {
-    //         Eigen::Matrix<double, 6, 6> A;
-    //         A <<
-    //             0, 0, 0, 1, 0, 0,
-    //             tau3, tau2, tau, 1, 0, 0,
-    //             6 / omega3, 2 / omega2, 1 / omega, 1, 0, 2,
-    //             (flight_time + 1 / omega) * (3 * tau2 + 6 / omega2), 2 * (flight_time + 1 / omega) * tau, flight_time + 1 / omega, 0, (omega_T + 1) * exp(omega * tau), -(omega_T + 1) * exp(-omega * tau),
-    //             0, 2 / omega2, 0, 0, 1, 1,
-    //             6 * tau / omega2, 2 / omega2, 0, 0, exp(omega * tau), exp(-omega * tau);
-
-    //         const auto A_lu = A.partialPivLu();
-    //         for (size_t i = 0; i < 2; ++i) {
-    //             Eigen::Matrix<double, 6, 1> B;
-    //             B << support_point[i] + start_zmp_offset[i], support_point[i] + end_zmp_offset[i], support_point[i], target_cp[i] - (support_point[i] + end_zmp_offset[i]), 0, 0;
-    //             const Eigen::Matrix<double, 6, 1> ans = A_lu.solve(B);
-
-    //             a_var[i] = ans[0];
-    //             b_var[i] = ans[1];
-    //             c_var[i] = ans[2];
-    //             d_var[i] = ans[3];
-    //         }
-    //     }
-
-    //     const auto calcA = [&](const double t) { return d_var + (t + 1 / omega) * c_var + (t * t + 2 * t / omega + 2 / omega2) * b_var + (t * t * t + 3 * t * t / omega + 6 * t / omega2 + 6 / omega3) * a_var; };
-    //     const hrp::Vector3 B_tau = c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau * tau + 2 * tau / omega + 2 / omega2);
-
-    //     c_1 = (cp - calcA(rel_cur_time) - (target_cp - (calcA(tau) + B_tau * flight_time)) / (omega_T + 1) * std::exp(-omega * (tau - rel_cur_time))) / (-(omega * tau * flight_time + flight_time + tau) / (omega_T + 1) * omega3 * std::exp(omega * rel_cur_time) - (omega2 * flight_time * flight_time + omega * flight_time - 2) / (2 * flight_time * (omega_T + 1)) * std::exp(omega * (2 * rel_land_time - 2 * tau + rel_cur_time)) + omega3 * rel_cur_time * std::exp(omega * rel_cur_time) - (omega2 * flight_time + 2 * omega) / (2 * flight_time) * std::exp(omega * (2 * rel_land_time - rel_cur_time)));
-
-    //     ref_zmp = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
-    // }
-
-    // これは CP の1階微分方程式を解いた結果
     {
+        const double tau = supporting_count * dt;
+        const double tau2 = tau * tau;
+        const double tau3 = tau2 * tau;
+        const double omega2 = omega * omega;
+        const double omega3 = omega2 * omega;
+
+        hrp::Vector3 a_var = hrp::Vector3::Zero();
+        hrp::Vector3 b_var = hrp::Vector3::Zero();
+        hrp::Vector3 c_var = hrp::Vector3::Zero();
+        hrp::Vector3 d_var = hrp::Vector3::Zero();
+
+        {
+            Eigen::Matrix<double, 6, 6> A;
+            A <<
+                0, 0, 0, 1, 0, 0,
+                tau3, tau2, tau, 1, 0, 0,
+                6 / omega3, 2 / omega2, 1 / omega, 1, 0, 2,
+                (flight_time + 1 / omega) * (3 * tau2 + 6 / omega2), 2 * (flight_time + 1 / omega) * tau, flight_time + 1 / omega, 0, (omega_T + 1) * std::exp(omega * tau), -(omega_T + 1) * std::exp(-omega * tau),
+                0, 2 / omega2, 0, 0, 1, 1,
+                6 * tau / omega2, 2 / omega2, 0, 0, std::exp(omega * tau), std::exp(-omega * tau);
+
+            const auto A_lu = A.partialPivLu();
+            for (size_t i = 0; i < 2; ++i) {
+                Eigen::Matrix<double, 6, 1> B;
+                B <<
+                    support_point[i] + start_zmp_offset[i],
+                    support_point[i] + end_zmp_offset[i],
+                    support_point[i],
+                    target_cp[i] - (support_point[i] + end_zmp_offset[i]),
+                    0,
+                    0;
+                const Eigen::Matrix<double, 6, 1> ans = A_lu.solve(B);
+
+                a_var[i] = ans[0];
+                b_var[i] = ans[1];
+                c_var[i] = ans[2];
+                d_var[i] = ans[3];
+            }
+        }
+
+        const auto calcA = [&](const double t) { return d_var + (t + 1 / omega) * c_var + (t * t + 2 * t / omega + 2 / omega2) * b_var + (t * t * t + 3 * t * t / omega + 6 * t / omega2 + 6 / omega3) * a_var; };
+
         const double supporting_time = supporting_count * dt;
-        c_1 = cp - support_point - (landing_point - support_point) / (omega_T + 1) * std::exp(-omega * (supporting_time - rel_cur_time));
-        c_1 /= ((flight_time + supporting_time + omega * supporting_time * flight_time) / (omega_T + 1) + rel_cur_time) * omega * omega * omega * std::exp(omega * rel_cur_time) +
-            (omega + flight_time / 2 * omega * omega - 1 / flight_time - 0.5 * omega) / (omega_T + 1) * omega * std::exp(omega * (2 * rel_land_time - 2 * supporting_time + rel_cur_time)) +
-            omega * omega * omega * rel_cur_time * std::exp(omega * rel_cur_time) +
-            -(omega / flight_time + 0.5 * omega * omega) * std::exp(omega * (2 * rel_land_time - rel_cur_time));
-        ref_zmp = support_point;
+        A_t = calcA(rel_cur_time);
+        B_tau = (c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau2 + 2 * tau / omega + 2 / omega2)) * flight_time;
+        B_tau += calcA(supporting_time);
+
+        ref_zmp = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
+        // std::cerr << "a_var: " << a_var.transpose() << ", b_var: " << b_var.transpose() << std::endl;
+        // std::cerr << "ref_zmp: " << ref_zmp << std::endl;
     }
 
-    const hrp::Vector3 lambda = -(std::exp(omega * rel_cur_time) + (omega_T + 2) / (omega_T) * std::exp(omega * (2 * rel_land_time - rel_cur_time))) * c_1;
+    // これは CP の1階微分方程式を解いた結果
+    // {
+    //     A_t = support_point;
+    //     B_tau = support_point;
+    //     ref_zmp = support_point;
+    // }
 
-    hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
+    const size_t rel_cur_count = cur_count - start_count;
+    const double time_to_flight = (supporting_count - rel_cur_count) * dt;
+    const double time_to_land = (landing_count - cur_count) * dt;
+    const double omega2 = omega * omega;
+
+    const double C_t = -2 * flight_time * time_to_flight * omega2 / (omega_T + 2) - 2 * flight_time * flight_time * omega2 / ((omega_T + 2) * (omega_T + 1)) - std::exp(2 * omega * time_to_land) - (omega_T - 1) * std::exp(2 * omega_T) / (omega_T + 1);
+    const hrp::Vector3 D_t = cp - A_t - (landing_point - B_tau) / (omega_T + 1) * std::exp(-omega * time_to_flight);
+
+    const hrp::Vector3 omega2_lambda = -(2 * omega2 * flight_time / (omega_T + 2) + 2 * std::exp(2 * omega * time_to_land)) * D_t / C_t;
+    input_zmp = ref_zmp + omega2_lambda;
+
+    // hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
     // const hrp::Vector3 min_zmp = support_point + hrp::Vector3(-0.06, -0.5, 0);
     // const hrp::Vector3 max_zmp = support_point + hrp::Vector3(0.16, 0.5, 0);
     // input_zmp = hrp::clamp(input_zmp, min_zmp, max_zmp);
@@ -186,7 +205,8 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForRunFromLandingPoints(const hrp::V
     cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
     cog_vel.head<2>() += cog_acc.head<2>() * dt;
 
-    return input_zmp;
+    // return input_zmp;
+    return ref_zmp;
 }
 
 }
