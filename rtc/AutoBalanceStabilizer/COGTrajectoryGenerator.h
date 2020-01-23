@@ -20,6 +20,7 @@ class COGTrajectoryGenerator
 {
   public:
     enum CogCalculationType : size_t { PREVIEW_CONTROL, FOOT_GUIDED };
+    enum FootGuidedRefZMPType : size_t { FIX, LINEAR, CUBIC };
 
   private:
     static constexpr double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
@@ -82,23 +83,25 @@ class COGTrajectoryGenerator
                                const size_t landing_count,
                                const size_t cur_count,
                                const double dt,
+                               const FootGuidedRefZMPType ref_zmp_type = FIX,
                                const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     /**
      * @fn
      * @return reference zmp
      */
-    hrp::Vector3 calcCogForRunFromLandingPoints(const hrp::Vector3& support_point,
-                                                const hrp::Vector3& landing_points,
-                                                const hrp::Vector3& start_zmp_offset,
-                                                const hrp::Vector3& end_zmp_offset,
-                                                const hrp::Vector3& target_cp_offset,
-                                                const double jump_height,
-                                                const size_t start_count,
-                                                const size_t supporting_count,
-                                                const size_t landing_count,
-                                                const size_t cur_count,
-                                                const double dt,
-                                                const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    hrp::Vector3 calcFootGuidedCog(const hrp::Vector3& support_point,
+                                   const hrp::Vector3& landing_points,
+                                   const hrp::Vector3& start_zmp_offset,
+                                   const hrp::Vector3& end_zmp_offset,
+                                   const hrp::Vector3& target_cp_offset,
+                                   const double jump_height,
+                                   const size_t start_count,
+                                   const size_t supporting_count,
+                                   const size_t landing_count,
+                                   const size_t cur_count,
+                                   const double dt,
+                                   const FootGuidedRefZMPType ref_zmp_type = FIX,
+                                   const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     void calcCogZForJump(const size_t count_to_jump,
                          const double jump_height,

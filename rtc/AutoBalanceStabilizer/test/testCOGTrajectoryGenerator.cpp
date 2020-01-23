@@ -74,9 +74,9 @@ void testPreviewController()
 
 void testFootGuidedRunning()
 {
-    const double jump_height = 0.0;
+    // const double jump_height = 0.0;
     // const double jump_height = 0.001;
-    // const double jump_height = 0.03;
+    const double jump_height = 0.03;
     // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
     const double init_cog_z = 0.93;
@@ -84,11 +84,11 @@ void testFootGuidedRunning()
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
-    // const double support_time = 0.235;
+    const double support_time = 0.235;
     // constexpr double support_time = 0.5;
     // const double support_time = 0.65;
     // const double support_time = 1.0;
-    const double support_time = 1.2;
+    // const double support_time = 1.2;
     const double step_time = support_time + flight_time;
     const size_t step_count = static_cast<size_t>(std::round(step_time / dt));
     const size_t support_count = static_cast<size_t>(std::round(support_time / dt));
@@ -119,7 +119,7 @@ void testFootGuidedRunning()
     hrp::Vector3 target_cp_offset(0, 0, 0);
     // hrp::Vector3 target_cp_offset = hrp::Vector3::Zero();
 
-    // const double omega = std::sqrt(g_acc / _init_cog[2]);
+    const double omega = std::sqrt(g_acc / _init_cog[2]);
     // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
     // std::cerr << "cp offset: "<< target_cp_offset[0] << std::endl;
 
@@ -141,6 +141,7 @@ void testFootGuidedRunning()
     }
 
     size_t cur_idx = 0;
+    hrp::Vector3 prev_cp = _init_cog;
     for (size_t i = 0; i < _max_count; ++i) {
         const double cur_time = i * dt;
         // if (i == 0) start_zmp_offset[0] = 0; // TODO: 最初のoffsetを0にしたい
@@ -148,17 +149,22 @@ void testFootGuidedRunning()
 
         if (i == landing_counts[cur_idx + 1]) {
             ++cur_idx;
-            start_zmp_offset[1] *= -1;
+            start_zmp_offset = cog_traj_gen.getCog() - landing_points[cur_idx];
+            std::cerr << "offset: " << start_zmp_offset.transpose() << std::endl;
+            // start_zmp_offset[1] *= -1;
             end_zmp_offset[1] *= -1;
             // _init_cog = cog_list[i - 1];
             std::cerr << "count: " << i << std::endl;
             // std::cerr << "init cog: " << _init_cog.transpose() << std::endl;
-            std::cerr << "next landing: " << landing_points[cur_idx].transpose() << std::endl;
+            std::cerr << "cur landing: " << landing_points[cur_idx].transpose() << std::endl;
         }
+
+        const hrp::Vector3 s_offset = cur_idx == 0 ? hrp::Vector3::Zero() : start_zmp_offset;
 
         const hrp::Vector3 ref_zmp = cog_traj_gen.calcCogForRun(landing_points[cur_idx],
                                                                 landing_points[cur_idx + 1],
-                                                                start_zmp_offset,
+                                                                // start_zmp_offset,
+                                                                s_offset,
                                                                 end_zmp_offset,
                                                                 target_cp_offset,
                                                                 take_off_z,
@@ -167,7 +173,8 @@ void testFootGuidedRunning()
                                                                 supporting_counts[cur_idx],
                                                                 landing_counts[cur_idx + 1],
                                                                 i,
-                                                                dt);
+                                                                dt,
+                                                                hrp::COGTrajectoryGenerator::CUBIC);
 
         cog_list[i]    = cog_traj_gen.getCog();
         // cogvel_list[i] = cog_traj_gen.getCogVel();
@@ -175,6 +182,12 @@ void testFootGuidedRunning()
         // cogacc_list[i] = cog_traj_gen.getCogAcc();
         cogacc_list[i] = ref_zmp;
         time_list[i]   = cur_time;
+
+        if (i - landing_counts[cur_idx] == supporting_counts[cur_idx] - 1) {
+            const hrp::Vector3 cp = cog_traj_gen.calcCP();
+            std::cerr << "cp + dcp*T = " << (cp + (cp - prev_cp) / dt * flight_time).transpose() << std::endl;
+        }
+        prev_cp = cog_traj_gen.calcCP();
     }
 }
 

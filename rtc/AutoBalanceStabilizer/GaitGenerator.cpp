@@ -152,17 +152,18 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         // TODO: walk (preview control)から走行への移行は？やはりABC起動時のtransitionは必要？
 
         const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
-        ref_zmp = cog_gen->calcCogForRunFromLandingPoints(support_point,
-                                                          landing_point,
-                                                          offset,
-                                                          offset,
-                                                          hrp::Vector3::Zero(),
-                                                          default_jump_height,
-                                                          constraints_list[cur_const_idx].start_count,
-                                                          supporting_count,
-                                                          constraints_list[cur_const_idx + 2].start_count,
-                                                          cur_count,
-                                                          dt);
+        ref_zmp = cog_gen->calcFootGuidedCog(support_point,
+                                             landing_point,
+                                             offset,
+                                             offset,
+                                             hrp::Vector3::Zero(),
+                                             default_jump_height,
+                                             constraints_list[cur_const_idx].start_count,
+                                             supporting_count,
+                                             constraints_list[cur_const_idx + 2].start_count,
+                                             cur_count,
+                                             dt,
+                                             COGTrajectoryGenerator::CUBIC);
         cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
     }
 
