@@ -72,8 +72,7 @@ void RefZMPGenerator::setRefZMPList(const std::vector<ConstraintsWithCount>& con
     for (size_t constraint_index = getConstraintIndexFromCount(constraints_list, count - 1);
          constraint_index < cwc_size && count < max_count;
          ++constraint_index) {
-        std::cerr << "zmp const index: " << constraint_index << std::endl;
-        // TODO: interpolatorの使い方がおかしい？前に設定したgoalから新しいgoalへの補間になっている？
+
         calcZMPInterpolationGoal(constraints_list, constraint_index, cur_count, count - 1);
         const size_t cur_max_count = (constraint_index < cwc_size - 1) ? std::min(constraints_list[constraint_index + 1].start_count + 1, max_count) : max_count;
 

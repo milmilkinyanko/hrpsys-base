@@ -1100,7 +1100,8 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
         return false;
     }
 
-    gg->startRunning(m_dt);
+    // gg->startRunning(m_dt);
+    gg->startJumping(m_dt);
 
     // const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
     // Eigen::Isometry3d target = cur_constraints.calcCOPCoord();

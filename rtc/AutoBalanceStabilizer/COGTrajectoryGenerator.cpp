@@ -124,12 +124,12 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
     hrp::Vector3 input_zmp = hrp::Vector3::Zero();
 
     hrp::Vector3 A_t;
-    hrp::Vector3 B_tau;
+    hrp::Vector3 Atau_dAtauT;
 
     if (ref_zmp_type == FIX) {
-        A_t     = support_point;
-        B_tau   = support_point;
-        ref_zmp = support_point;
+        A_t         = support_point;
+        Atau_dAtauT = support_point;
+        ref_zmp     = support_point;
     } else if (ref_zmp_type == CUBIC) {
         const double tau = supporting_count * dt;
         const double tau2 = tau * tau;
@@ -175,8 +175,8 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
 
         const double supporting_time = supporting_count * dt;
         A_t = calcA(rel_cur_time);
-        B_tau = (c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau2 + 2 * tau / omega + 2 / omega2)) * flight_time;
-        B_tau += calcA(supporting_time);
+        Atau_dAtauT = (c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau2 + 2 * tau / omega + 2 / omega2)) * flight_time;
+        Atau_dAtauT += calcA(supporting_time);
 
         ref_zmp = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
     }
@@ -188,11 +188,11 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
         const double omega2 = omega * omega;
 
         const double C_t = -2 * flight_time * time_to_flight * omega2 / (omega_T + 2) - 2 * flight_time * flight_time * omega2 / ((omega_T + 2) * (omega_T + 1)) - std::exp(2 * omega * time_to_land) - (omega_T - 1) * std::exp(2 * omega_T) / (omega_T + 1);
-        const hrp::Vector3 D_t = cp - A_t - (landing_point - B_tau) / (omega_T + 1) * std::exp(-omega * time_to_flight);
+        const hrp::Vector3 D_t = cp - A_t - (landing_point - Atau_dAtauT) / (omega_T + 1) * std::exp(-omega * time_to_flight);
         const hrp::Vector3 omega2_lambda = -(2 * omega2 * flight_time / (omega_T + 2) + 2 * std::exp(2 * omega * time_to_land)) * D_t / C_t;
 
-        // input_zmp = ref_zmp + omega2_lambda;
-        input_zmp = ref_zmp;
+        input_zmp = ref_zmp + omega2_lambda;
+        // input_zmp = ref_zmp;
     }
 
     // hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;

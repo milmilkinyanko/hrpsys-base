@@ -28,6 +28,7 @@ class GaitGenerator
 {
   public:
     enum LocomotionMode : size_t { WALK, RUN };
+    enum WalkingMode : size_t { PREVIEW_CONTROL, FOOT_GUIDED }; // TODO: COGTrajectoryGeneratorとどちらか
 
   private:
     static constexpr double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
@@ -39,6 +40,7 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
     LocomotionMode locomotion_mode = WALK;
+    WalkingMode walking_mode = FOOT_GUIDED;
 
     size_t cur_const_idx = 0; // To reduce calculation time
 
@@ -55,7 +57,8 @@ class GaitGenerator
     // double default_take_off_z = 0.85;
     double default_take_off_z = 0.96;
     // double default_jump_height = 0.005;
-    double default_jump_height = 0.03;
+    // double default_jump_height = 0.03;
+    double default_jump_height = 0.05;
     double default_support_count_run;
 
     // Walking cycle
@@ -78,7 +81,6 @@ class GaitGenerator
 
     /// Instance
     std::vector<ConstraintsWithCount> constraints_list;
-    std::vector<LimbTrajectoryGenerator> limb_gens;
     std::unique_ptr<RefZMPGenerator> zmp_gen;
     std::unique_ptr<COGTrajectoryGenerator> cog_gen;
     // TODO: STも持っても良いかも (AutoBalancerを上ではなくする)
@@ -275,6 +277,7 @@ class GaitGenerator
                const std::vector<int>& support_link_cycle,
                const std::vector<int>& swing_link_cycle);
     bool startRunning(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    bool startJumping(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     // gopos: 接触のCycleを記述したい
     // void goPos(const rats::coordinates& target, const size_t one_step_count,

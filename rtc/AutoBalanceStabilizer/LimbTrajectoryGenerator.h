@@ -33,7 +33,8 @@ class LimbTrajectoryGenerator
     Eigen::AngleAxisd diff_rot = Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
 
     // Params for delay Hoff & Arbib
-    double delay_time_offset = 0.2; // [s]
+    // double delay_time_offset = 0.2; // [s]
+    double delay_time_offset = 0.03; // [s] // jump
 
     std::tuple<size_t, double, hrp::Vector3, double> calcTarget(const size_t count, const double dt);
     void calcLinearTrajectory(const size_t count, const double dt,
