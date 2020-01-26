@@ -84,6 +84,7 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_baseOriginRefZmpOut("baseOriginRefZmp", m_baseOriginRefZmp),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_refCogOut("refCogOut", m_refCog),
+      m_refAngularMomentumRPYOut("refAngularMomentumRPY", m_refAngularMomentumRPY),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_originNewRefZmpOut("originNewRefZmp", m_originNewRefZmp),
@@ -447,7 +448,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
                        hrp::paramsFromSensors{q_act, act_rpy, act_wrenches});
 
     writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, ref_zmp_base_frame,
-                     gg->getCog(), sbp_cog_offset, kf_acc_ref, st->getStabilizerLogData());
+                     gg->getCog(), ref_angular_momentum, sbp_cog_offset,
+                     kf_acc_ref, st->getStabilizerLogData());
 
     return RTC::RTC_OK;
 }
@@ -495,6 +497,7 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("baseOriginRefZmp", m_baseOriginRefZmpOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("refCogOut", m_refCogOut);
+    addOutPort("refAngularMomentumRPYOut", m_refAngularMomentumRPYOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     addOutPort("originNewRefZmp", m_originNewRefZmpOut);
@@ -610,6 +613,7 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
                                              const hrp::Vector3& ref_zmp_global,
                                              const hrp::Vector3& ref_zmp_base_frame,
                                              const hrp::Vector3& ref_cog,
+                                             const hrp::Vector3& ref_momentum,
                                              const hrp::Vector3& sbp_cog_offset,
                                              const hrp::Vector3& acc_ref,
                                              const hrp::stabilizerLogData& st_log_data)
@@ -667,6 +671,15 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_refCog.data.y = ref_cog(1);
     m_refCog.data.z = ref_cog(2);
     m_refCogOut.write();
+
+    {
+        m_refAngularMomentumRPY.tm = m_qRef.tm;
+        const hrp::Vector3 ref_momentum_rpy = hrp::rpyFromRot(hrp::rotationMatrixFromOmega(ref_momentum));
+        m_refAngularMomentumRPY.data.x = ref_momentum_rpy(0);
+        m_refAngularMomentumRPY.data.y = ref_momentum_rpy(1);
+        m_refAngularMomentumRPY.data.z = ref_momentum_rpy(2);
+        m_refAngularMomentumRPYOut.write();
+    }
 
     m_sbpCogOffset.tm = m_qRef.tm;
     m_sbpCogOffset.data.x = sbp_cog_offset(0);
@@ -819,6 +832,7 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
             std::sort(sorted_contact_points.begin(), sorted_contact_points.end(),
                       [](hrp::Vector3& a, hrp::Vector3& b) { return a[0] > b[0]; });
             sorted_contact_points.resize(2);
+            for (const auto& point : sorted_contact_points) std::cerr << "toe point: " << point.transpose() << std::endl;
             return sorted_contact_points;
         };
         const auto getHeelContactPoints = [&](const std::vector<hrp::Vector3>& contact_points) {
@@ -826,6 +840,7 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
             std::sort(sorted_contact_points.begin(), sorted_contact_points.end(),
                       [](hrp::Vector3& a, hrp::Vector3& b) { return a[0] < b[0]; });
             sorted_contact_points.resize(2);
+            for (const auto& point : sorted_contact_points) std::cerr << "heel point: " << point.transpose() << std::endl;
             return sorted_contact_points;
         };
 
@@ -869,7 +884,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     hrp::dvector q_weights(_robot->numJoints());
     constexpr double W = 2e-6; // default q weight
     q_weights <<
-        W, W, W, // chest
+        1e-3, 1e-3, 1e-3, // chest
         W, W,    // HEAD
         1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // LARM
         1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // RARM
@@ -893,7 +908,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // root_weight << 1e-4, 1e-4, 1e-4, 1e-3, 1e-3, 1e-3;
     // root_weight << 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-3;
     // root_weight << 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3;
-    root_weight << 0, 0, 0, 1e-5, 1e-5, 1e-5;
+    root_weight << 0, 0, 0, 1e-2, 1e-2, 1e-4;
     ik_constraints[i].constraint_weight = root_weight;
     fik->rootlink_rpy_llimit = hrp::Vector3(deg2rad(-15), deg2rad(-30), deg2rad(-180));
     fik->rootlink_rpy_ulimit = hrp::Vector3(deg2rad(15), deg2rad(45), deg2rad(180));
@@ -905,8 +920,9 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // com_weight << 1, 1, 1e-1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1, 1, 1e-1, 1e-3, 1e-3, 1e-4;
-    com_weight << 1, 1, 1, 1, 1, 1e-5;
+    com_weight << 1, 1, 1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
+    // com_weight << 1e-1, 1e-1, 1e-2, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
     ik_constraints[i].constraint_weight = com_weight;
 }
@@ -919,14 +935,13 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     for (i = 0; i < cur_constraints.size(); ++i) {
         if (cur_constraints[i].getConstraintType() == hrp::LinkConstraint::ConstraintType::FREE) {
             ik_constraints[i].constraint_weight.setZero();
-            // ik_constraints[i].constraint_weight = hrp::dvector6::Zero();
             continue;
         }
-        ik_constraints[i].targetPos         = cur_constraints[i].targetPos();
-        ik_constraints[i].localPos          = cur_constraints[i].localPos();
-        ik_constraints[i].localR            = cur_constraints[i].localRot();
-        ik_constraints[i].targetOmega       = hrp::omegaFromRot(cur_constraints[i].targetRot());
-        ik_constraints[i].constraint_weight = hrp::dvector6::Ones();
+        ik_constraints[i].targetPos   = cur_constraints[i].targetPos();
+        ik_constraints[i].localPos    = cur_constraints[i].localPos();
+        ik_constraints[i].localR      = cur_constraints[i].localRot();
+        ik_constraints[i].targetOmega = hrp::omegaFromRot(cur_constraints[i].targetRot());
+        ik_constraints[i].constraint_weight.setOnes();
         // std::cerr << "omega: " << ik_constraints[i].targetOmega.transpose() << std::endl;
     }
 
@@ -937,12 +952,16 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
 
     // COM
     static hrp::Vector3 hoge = hrp::Vector3::Zero();
+    if (gg->getCogMoment().squaredNorm() < 1e-6) ref_angular_momentum.setZero();
+    else {
+        ref_angular_momentum = hoge + gg->getCogMoment() * m_dt;
+        ref_angular_momentum[2] = 0; // tmp
+    }
     ik_constraints[i].targetPos = gg->getCog();
-    // ik_constraints[i].targetOmega = (fik->getComMomentum() + gg->getCogMoment() * m_dt);
-    ik_constraints[i].targetOmega = (hoge + gg->getCogMoment() * m_dt);
-    ik_constraints[i].targetOmega[2] = 0; // tmp
-    if (gg->getCogMoment().squaredNorm() < 1e-6) ik_constraints[i].targetOmega.setZero();
-    hoge = hoge * 0.85 + ik_constraints[i].targetOmega * 0.15;
+    ik_constraints[i].targetOmega = ref_angular_momentum;
+    hoge = hoge * 0.85 + ref_angular_momentum * 0.15;
+    ik_constraints[i].targetOmega.setZero();
+
     // ik_constraints[i].targetOmega.setZero();
     // ik_constraints[i].targetOmega = hrp::clamp(ik_constraints[i].targetOmega, hrp::Vector3(-150, -150, -100), hrp::Vector3(150, 150, 100));
     // ik_constraints[i].targetOmega = hrp::Vector3::Zero();
@@ -1144,7 +1163,6 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
     std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
 
     // TODO: confファイルからcycleをよむ
-    gg->setUseToeHeel(true);
     // CHIDORI
     // std::vector<int> support_link_cycle{13, 7};
     // std::vector<int> swing_link_cycle{7, 13};

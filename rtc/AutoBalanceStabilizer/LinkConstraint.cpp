@@ -206,6 +206,14 @@ void ConstraintsWithCount::copyLimbState(const ConstraintsWithCount& cwc)
     }
 }
 
+bool ConstraintsWithCount::isFlightPhase()
+{
+    for (const auto& constraint : constraints) {
+        if (constraint.getConstraintType() < LinkConstraint::FLOAT) return false;
+    }
+    return true;
+}
+
 // void ConstraintsWithCount::modifyLimbViaPoints(const size_t constraint_idx,
 //                                                const Eigen::Isometry3d& new_goal,
 //                                                const size_t new_goal_count)

@@ -247,6 +247,7 @@ struct ConstraintsWithCount
     {
         for (auto& constraint : constraints) constraint.setDelayTimeOffset(offset);
     }
+    bool isFlightPhase();
 };
 
 

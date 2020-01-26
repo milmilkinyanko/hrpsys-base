@@ -135,16 +135,16 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 
 void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const double dt)
 {
-    bool is_walk = true;
+    bool next_flight = false;
     if (cur_const_idx < constraints_list.size() - 1) {
-        const size_t next_num_support = constraints_list[cur_const_idx + 1].getConstraintIndicesFromType(LinkConstraint::FIX).size();
-        if (next_num_support == 0) is_walk = false;
+        next_flight = constraints_list[cur_const_idx + 1].isFlightPhase();
     }
 
-    const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
+    // const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
+    const bool is_flight = constraints_list[cur_const_idx].isFlightPhase();
     // Update ref zmp TODO: わかりづらい
-    if (sup_indices.size() == 0) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
-    else if (is_walk) {
+    if (is_flight) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
+    else if (!next_flight) {
         if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
         else if (walking_mode == FOOT_GUIDED) {
             // TODO: 両脚支持期間
@@ -385,6 +385,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
         }
     }
+
     if (use_toe_heel) {
         std::cerr << "toe heel" << std::endl;
         const size_t toe_start_count  = swing_start_count + (one_step_count - heel_support_count - toe_support_count);
@@ -751,6 +752,9 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
         const std::vector<size_t> toe_support_indices{support_idx};
 
+        if (use_toe_heel) std::cerr << "use true" << std::endl;
+        else std::cerr << "use false" << std::endl;
+
         const std::vector<ConstraintsWithCount> footstep_constraints =
         calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
                                 swing_start_count, default_single_support_count,
@@ -787,9 +791,9 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         landing_target = landing_target * translationFromLimbToCOP[swing_idx] * rotate_around_cop; // TODO
         landing_target.translation() += dp;
 
-        // addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
-        addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, true);
-
+        if (default_use_toe_heel) std::cerr << "default true" << std::endl;
+        else std::cerr << "default false" << std::endl;
+        addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
         // Update to next step
         calcdpAnddr(landing_target, swing_idx);
         sup_to_swing_trans = sup_to_swing_trans.inverse(); // TODO: biped

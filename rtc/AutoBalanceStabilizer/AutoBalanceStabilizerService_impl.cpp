@@ -48,14 +48,14 @@ void AutoBalanceStabilizerService_impl::setUseToeHeel(const CORBA::Boolean use_t
     m_autobalancestabilizer->setUseToeHeel(use_toe_heel);
 }
 
-void AutoBalanceStabilizerService_impl::setToeKickAngle(const CORBA::Double angle_rad)
+void AutoBalanceStabilizerService_impl::setToeKickAngle(const CORBA::Double angle_deg)
 {
-    m_autobalancestabilizer->setToeKickAngle(angle_rad);
+    m_autobalancestabilizer->setToeKickAngle(hrp::deg2rad(angle_deg));
 }
 
-void AutoBalanceStabilizerService_impl::setHeelContactAngle(const CORBA::Double angle_rad)
+void AutoBalanceStabilizerService_impl::setHeelContactAngle(const CORBA::Double angle_deg)
 {
-    m_autobalancestabilizer->setHeelContactAngle(angle_rad);
+    m_autobalancestabilizer->setHeelContactAngle(hrp::deg2rad(angle_deg));
 }
 
 CORBA::Boolean AutoBalanceStabilizerService_impl::setToeContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points)
