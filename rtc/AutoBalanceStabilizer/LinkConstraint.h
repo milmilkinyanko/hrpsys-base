@@ -206,6 +206,7 @@ class LinkConstraint
             limb_traj.calcTrajectory(cur_count, dt, targetPos(), pos_vel, pos_acc, targetRot(), rot_vel, rot_acc);
         }
     }
+    void setDelayTimeOffset(const double offset) { limb_traj.setDelayTimeOffset(offset); }
 };
 
 struct ConstraintsWithCount
@@ -241,6 +242,10 @@ struct ConstraintsWithCount
     void calcLimbTrajectory(const size_t cur_count, const double dt)
     {
         for (auto& constraint : constraints) constraint.calcLimbTrajectory(cur_count, dt);
+    }
+    void setDelayTimeOffsets(const double offset)
+    {
+        for (auto& constraint : constraints) constraint.setDelayTimeOffset(offset);
     }
 };
 

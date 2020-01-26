@@ -798,6 +798,7 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     const coil::vstring contact_str = coil::split(prop["contact_points"], ",");
     init_constraints.reserve(contact_str.size());
     for (size_t i = 0; i < contact_str.size();) {
+        std::cerr << contact_str[i] << " Index: " << m_robot->link(contact_str[i])->index;
         hrp::LinkConstraint constraint(m_robot->link(contact_str[i++])->index);
 
         const std::string constraint_type_str = contact_str[i++];
@@ -812,6 +813,22 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
         }
         constraint.setConstraintType(constraint_type);
 
+        // tmp
+        const auto getToeContactPoints = [&](const std::vector<hrp::Vector3>& contact_points) {
+            std::vector<hrp::Vector3> sorted_contact_points = contact_points;
+            std::sort(sorted_contact_points.begin(), sorted_contact_points.end(),
+                      [](hrp::Vector3& a, hrp::Vector3& b) { return a[0] > b[0]; });
+            sorted_contact_points.resize(2);
+            return sorted_contact_points;
+        };
+        const auto getHeelContactPoints = [&](const std::vector<hrp::Vector3>& contact_points) {
+            std::vector<hrp::Vector3> sorted_contact_points = contact_points;
+            std::sort(sorted_contact_points.begin(), sorted_contact_points.end(),
+                      [](hrp::Vector3& a, hrp::Vector3& b) { return a[0] < b[0]; });
+            sorted_contact_points.resize(2);
+            return sorted_contact_points;
+        };
+
         const size_t num_contact_points = std::stoi(contact_str[i++]);
         std::vector<hrp::Vector3> contact_points(num_contact_points);
         for (size_t j = 0; j < num_contact_points; ++j) {
@@ -821,6 +838,8 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
         }
         constraint.setLinkContactPoints(contact_points);
         constraint.setDefaultContactPoints(contact_points);
+        constraint.setToeContactPoints(getToeContactPoints(contact_points));
+        constraint.setHeelContactPoints(getHeelContactPoints(contact_points));
         constraint.calcLinkLocalPos();
 
         std::array<double, 4> local_rot;
@@ -842,16 +861,30 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
 
     // Joint
     // fik->q_ref_constraint_weight.setConstant(1e-8);
-    fik->q_ref_constraint_weight.setConstant(2e-6);
+    // fik->q_ref_constraint_weight.setConstant(2e-6);
+    // fik->q_ref_constraint_weight.setConstant(2e-3);
     // fik->q_ref_constraint_weight.setConstant(0);
-    // fik->q_ref_constraint_weight.setConstant(1e-3);
+    // fik->q_ref_constraint_weight.setConstant(10);
+
+    hrp::dvector q_weights(_robot->numJoints());
+    constexpr double W = 2e-6; // default q weight
+    q_weights <<
+        W, W, W, // chest
+        W, W,    // HEAD
+        1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // LARM
+        1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // RARM
+        W, W, W, W, W, W, // LLEG
+        W, W, W, W, W, W; // RLEG
+    fik->q_ref_constraint_weight = q_weights;
 
     size_t i;
     for (i = 0; i < num_constraints; ++i) {
         ik_constraints[i].target_link_name = _robot->link(constraints[i].getLinkId())->name;
         ik_constraints[i].localPos = constraints[i].localPos();
         ik_constraints[i].localR = constraints[i].localRot();
-        ik_constraints[i].constraint_weight = hrp::dvector6::Ones();
+        hrp::dvector6 const_weight;
+        const_weight << 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
+        ik_constraints[i].constraint_weight = const_weight;
     }
 
     // Body
@@ -872,7 +905,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // com_weight << 1, 1, 1e-1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1, 1, 1e-1, 1e-3, 1e-3, 1e-4;
-    com_weight << 1, 1, 1, 1, 1, 0;
+    com_weight << 1, 1, 1, 1, 1, 1e-5;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
     ik_constraints[i].constraint_weight = com_weight;
@@ -894,6 +927,7 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
         ik_constraints[i].localR            = cur_constraints[i].localRot();
         ik_constraints[i].targetOmega       = hrp::omegaFromRot(cur_constraints[i].targetRot());
         ik_constraints[i].constraint_weight = hrp::dvector6::Ones();
+        // std::cerr << "omega: " << ik_constraints[i].targetOmega.transpose() << std::endl;
     }
 
     // Body
@@ -1101,18 +1135,24 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
     }
 
     // gg->startRunning(m_dt);
-    gg->startJumping(m_dt);
+    // gg->startJumping(m_dt);
 
-    // const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
-    // Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
-    // target.translation() += target.linear() * hrp::Vector3(x, y, 0);
-    // target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
-    // std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
+    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    Eigen::Isometry3d target = cur_constraints.calcCOPCoord();
+    target.translation() += target.linear() * hrp::Vector3(x, y, 0);
+    target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    std::cerr << "gopos target: " << target.translation().transpose() << std::endl;
 
-    // // TODO: confファイルからcycleをよむ
+    // TODO: confファイルからcycleをよむ
+    gg->setUseToeHeel(true);
+    // CHIDORI
     // std::vector<int> support_link_cycle{13, 7};
     // std::vector<int> swing_link_cycle{7, 13};
-    // if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
+
+    // Blue
+    std::vector<int> support_link_cycle{25, 31};
+    std::vector<int> swing_link_cycle{31, 25};
+    if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
 
     Guard guard(m_mutex);
     gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear

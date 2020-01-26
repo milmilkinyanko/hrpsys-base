@@ -27,9 +27,9 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     default_double_support_count(static_cast<size_t>(0.25 / _dt)),
     default_toe_support_count(static_cast<size_t>(0.5 / _dt)),
     default_heel_support_count(static_cast<size_t>(0.15 / _dt)),
-    default_support_count_run(static_cast<size_t>(0.85 / _dt))
+    // default_support_count_run(static_cast<size_t>(0.85 / _dt))
     // default_support_count_run(static_cast<size_t>(0.65 / _dt))
-    // default_support_count_run(static_cast<size_t>(0.235 / _dt))
+    default_support_count_run(static_cast<size_t>(0.235 / _dt))
     // default_support_count_run(static_cast<size_t>(0.335 / _dt))
 {
     const size_t num_limbs = init_constraints.size();
@@ -180,18 +180,18 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
 
         // const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
         const hrp::Vector3 offset = hrp::Vector3::Zero();
-        // ref_zmp = cog_gen->calcFootGuidedCog(support_point,
-        //                                      landing_point,
-        //                                      offset,
-        //                                      offset,
-        //                                      hrp::Vector3::Zero(),
-        //                                      default_jump_height,
-        //                                      constraints_list[cur_const_idx].start_count,
-        //                                      supporting_count,
-        //                                      constraints_list[cur_const_idx + 2].start_count,
-        //                                      cur_count,
-        //                                      dt,
-        //                                      COGTrajectoryGenerator::FIX);
+        ref_zmp = cog_gen->calcFootGuidedCog(support_point,
+                                             landing_point,
+                                             offset,
+                                             offset,
+                                             hrp::Vector3::Zero(),
+                                             default_jump_height,
+                                             constraints_list[cur_const_idx].start_count,
+                                             supporting_count,
+                                             constraints_list[cur_const_idx + 2].start_count,
+                                             cur_count,
+                                             dt,
+                                             COGTrajectoryGenerator::FIX);
         cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
     }
 
@@ -385,8 +385,8 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
         }
     }
-
     if (use_toe_heel) {
+        std::cerr << "toe heel" << std::endl;
         const size_t toe_start_count  = swing_start_count + (one_step_count - heel_support_count - toe_support_count);
         const size_t heel_start_count = toe_start_count + toe_support_count;
 
@@ -787,7 +787,8 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         landing_target = landing_target * translationFromLimbToCOP[swing_idx] * rotate_around_cop; // TODO
         landing_target.translation() += dp;
 
-        addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
+        // addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
+        addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, true);
 
         // Update to next step
         calcdpAnddr(landing_target, swing_idx);
@@ -821,6 +822,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
     ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
     cur_constraints.start_count = loop;
     new_constraints.push_back(std::move(cur_constraints));
+    new_constraints.back().setDelayTimeOffsets(0.03);
 
     std::vector<size_t> jump_idx{0};
     std::vector<size_t> land_idx{1};
@@ -902,6 +904,7 @@ bool GaitGenerator::startJumping(const double dt, const double g_acc)
         ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
         cur_constraints.start_count = loop;
         new_constraints.push_back(std::move(cur_constraints));
+        new_constraints.back().setDelayTimeOffsets(0.03);
     }
 
     std::vector<size_t> jump_indices{0, 1};

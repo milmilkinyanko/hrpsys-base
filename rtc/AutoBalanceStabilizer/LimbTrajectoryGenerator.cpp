@@ -176,8 +176,6 @@ void LimbTrajectoryGenerator::calcDelayHoffArbibTrajectory(const size_t count, c
     std::tie(pos, vel, acc) = hoffArbibInterpolation(remain_time, dt, pos, vel, acc, target);
     std::tie(diff_rot.angle(), rot_vel, rot_acc) = hoffArbibInterpolation(remain_time, dt, diff_rot.angle(), rot_vel, rot_acc, rot_angle);
     rot = start_rot * diff_rot.toRotationMatrix();
-
-    std::cerr << "remain_time: " << remain_time << ", target: " << target.transpose() << ", pos: " << pos.transpose() << std::endl;
 }
 
 void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
