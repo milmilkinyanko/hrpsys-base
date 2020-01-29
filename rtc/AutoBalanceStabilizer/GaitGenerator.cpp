@@ -122,12 +122,11 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
         } else if (cur_const.getConstraintType() == LinkConstraint::SLIDE) {
             std::cerr << "[GaitGenerator] SLIDE is not implemented yet." << std::endl;
         } else if (cur_const.getConstraintType() == LinkConstraint::ROTATE) {
-            // TODO: calcLimbViaPointsに統合?
-            cur_const.calcLimbRotationViaPoints(LimbTrajectoryGenerator::LINEAR,
-                                                Eigen::Vector3d::UnitY(),
-                                                toe_kick_angle,
-                                                cur_cwc.start_count,
-                                                goal_cwc.start_count);
+            cur_const.calcLimbViaPoints(LimbTrajectoryGenerator::LINEAR,
+                                        target_coord,
+                                        cur_cwc.start_count,
+                                        goal_cwc.start_count,
+                                        0);
         }
     }
     // }
@@ -201,7 +200,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
 
     root_coord.translation() += cog_gen->getCog() - prev_ref_cog;
     // TODO: 手が追加された時やその他の時にも対応できるように
-    root_coord.linear() = constraints_list[cur_const_idx].calcCOPRotationFromConstraints(LinkConstraint::FREE);
+    root_coord.linear() = constraints_list[cur_const_idx].calcCOPRotationFromConstraints(LinkConstraint::FREE); // TODO: toe-heelで回る
     prev_ref_cog = cog_gen->getCog();
 
     return;
@@ -380,6 +379,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
     {
         swing_phase_constraints.start_count = swing_start_count;
         swing_phase_constraints.clearLimbViaPoints();
+        swing_phase_constraints.is_stable = false;
         for (const size_t swing_idx : swing_indices) {
             swing_phase_constraints.constraints[swing_idx].changeDefaultContacts();
             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
@@ -387,7 +387,6 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
     }
 
     if (use_toe_heel) {
-        std::cerr << "toe heel" << std::endl;
         const size_t toe_start_count  = swing_start_count + (one_step_count - heel_support_count - toe_support_count);
         const size_t heel_start_count = toe_start_count + toe_support_count;
 
@@ -395,8 +394,10 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         if (!toe_support_indices.empty()) {
             footstep_constraints.push_back(footstep_constraints.back());
             ConstraintsWithCount& toe_phase_constraints = footstep_constraints.back();
+
             toe_phase_constraints.start_count = toe_start_count;
             toe_phase_constraints.clearLimbViaPoints();
+            toe_phase_constraints.is_stable = false;
             for (const size_t support_idx : toe_support_indices) {
                 LinkConstraint& toe_constraint = toe_phase_constraints.constraints[support_idx];
                 if (!toe_constraint.hasToeHeelContacts()) continue;
@@ -408,9 +409,10 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         {
             footstep_constraints.push_back(footstep_constraints.back());
             ConstraintsWithCount& heel_phase_constraints = footstep_constraints.back();
+
             heel_phase_constraints.start_count = heel_start_count;
             heel_phase_constraints.clearLimbViaPoints();
-
+            heel_phase_constraints.is_stable = false;
             // TODO: これはtoeに依存しているので，heelがなくても動くように ?
             for (const size_t support_idx : toe_support_indices) {
                 heel_phase_constraints.constraints[support_idx].targetRot() = Eigen::AngleAxisd(toe_kick_angle, Eigen::Vector3d::UnitY()).toRotationMatrix() * heel_phase_constraints.constraints[support_idx].targetRot();
@@ -440,6 +442,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
         landing_phase_constraints.start_count = landing_count;
         landing_phase_constraints.clearLimbViaPoints();
+        landing_phase_constraints.is_stable = true;
 
         const size_t swing_indices_size = swing_indices.size();
         for (size_t i = 0; i < swing_indices_size; ++i) {
@@ -475,8 +478,10 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
 
     if (is_start) {
         ConstraintsWithCount& first_constraints = footstep_constraints.back();
+
         first_constraints.start_count = starting_count;
         first_constraints.clearLimbViaPoints();
+        first_constraints.is_stable = false;
         for (const size_t up_idx : land_indices) {
             first_constraints.constraints[up_idx].changeDefaultContacts();
             first_constraints.constraints[up_idx].setConstraintType(LinkConstraint::FLOAT);
@@ -486,8 +491,10 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
     {
         if (is_start) footstep_constraints.push_back(footstep_constraints.back());
         ConstraintsWithCount& jumping_phase_constraints = footstep_constraints.back();
+
         jumping_phase_constraints.start_count = jump_start_count;
         jumping_phase_constraints.clearLimbViaPoints();
+        jumping_phase_constraints.is_stable = false;
         for (const size_t jump_idx : jump_indices) {
             jumping_phase_constraints.constraints[jump_idx].changeDefaultContacts();
             jumping_phase_constraints.constraints[jump_idx].setConstraintType(LinkConstraint::FLOAT);
@@ -497,8 +504,10 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
     {
         footstep_constraints.push_back(footstep_constraints.back());
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
+
         landing_phase_constraints.start_count = landing_count;
         landing_phase_constraints.clearLimbViaPoints();
+        landing_phase_constraints.is_stable = true;
 
         const size_t land_indices_size = land_indices.size();
         for (size_t i = 0; i < land_indices_size; ++i) {
@@ -532,6 +541,8 @@ GaitGenerator::calcFootStepConstraintsForJump(const ConstraintsWithCount& last_c
         ConstraintsWithCount& jumping_phase_constraints = footstep_constraints.back();
         jumping_phase_constraints.start_count = jump_start_count;
         jumping_phase_constraints.clearLimbViaPoints();
+        jumping_phase_constraints.is_stable = false;
+
         for (auto& constraint : jumping_phase_constraints.constraints) {
             constraint.changeDefaultContacts();
             constraint.setConstraintType(LinkConstraint::FLOAT);
@@ -543,6 +554,7 @@ GaitGenerator::calcFootStepConstraintsForJump(const ConstraintsWithCount& last_c
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
         landing_phase_constraints.start_count = landing_count;
         landing_phase_constraints.clearLimbViaPoints();
+        landing_phase_constraints.is_stable = true;
 
         for (size_t i = 0; i < landing_phase_constraints.constraints.size(); ++i) {
             LinkConstraint& landing_constraint = landing_phase_constraints.constraints[i];

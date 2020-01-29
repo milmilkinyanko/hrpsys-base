@@ -1,4 +1,4 @@
-// -*- C++ -*-
+// -*- mode: C++; coding: utf-8-unix; -*-
 
 /**
  * @file  GaitGenerator.h

@@ -189,19 +189,24 @@ void LimbTrajectoryGenerator::calcViaPoints(const TrajectoryType _traj_type,
     switch (_traj_type) {
         // TODO: calcRotationViaPointsを消してLinearを足す？
       case CYCLOIDDELAY:
+
           calcCycloidDelayViaPoints(start.translation(), goal.translation(), start_count, goal_count, height);
           break;
       case RECTANGLE:
           calcRectangleViaPoints(start.translation(), goal.translation(), start_count, goal_count, height);
+          break;
+      case LINEAR:
+          calcLinearViaPoints(start.translation(), goal.translation(), start_count, goal_count);
           break;
       default:
           std::cerr << "[LimbTrajectoryGenerator] Please select a appropreate trajectory type" << std::endl;
           break;
     }
 
+    // Rotation
     if (!via_points.empty()) {
         start_rot = start.linear();
-        diff_rot = Eigen::AngleAxisd(start.linear().transpose() * goal.linear());
+        diff_rot = Eigen::AngleAxisd(start_rot.transpose() * goal.linear());
         via_points.back().diff_rot_angle = diff_rot.angle();
         diff_rot.angle() = 0;
     }
@@ -225,31 +230,6 @@ void LimbTrajectoryGenerator::setViaPoints(const TrajectoryType _traj_type,
     diff_rot = Eigen::AngleAxisd(start.linear().transpose() * goal.linear());
     via_points.back().diff_rot_angle = diff_rot.angle();
     diff_rot.angle() = 0;
-}
-
-void LimbTrajectoryGenerator::calcRotationViaPoints(const TrajectoryType _traj_type,
-                                                    const Eigen::Isometry3d& start,
-                                                    const Eigen::Vector3d& rot_axis,
-                                                    const double rot_angle,
-                                                    const size_t start_count,
-                                                    const size_t goal_count)
-{
-    std::cerr << "calc limb rot" << std::endl;
-    traj_type = _traj_type;
-    start_rot = start.linear();
-    diff_rot = Eigen::AngleAxisd(0, rot_axis);
-
-    via_points.clear();
-    via_points.resize(2);
-
-    via_points[0].point = start.translation();
-    via_points[0].count = start_count;
-
-    via_points[1].point = start.translation();
-    via_points[1].count = goal_count;
-    via_points[1].diff_rot_angle = rot_angle;
-    std::cerr << "goal point: " << via_points[1].point.transpose() << std::endl;
-    std::cerr << "goal rot angle: " << via_points[1].diff_rot_angle << std::endl;
 }
 
 void LimbTrajectoryGenerator::calcCycloidDelayViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
@@ -317,6 +297,18 @@ void LimbTrajectoryGenerator::calcRectangleViaPoints(const hrp::Vector3& start, 
 
     via_points[3].point = goal;
     via_points[3].count = goal_count;
+}
+
+void LimbTrajectoryGenerator::calcLinearViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
+                                                  const size_t start_count, const size_t goal_count)
+{
+    via_points.resize(2);
+
+    via_points[0].point = start;
+    via_points[0].count = start_count;
+
+    via_points[1].point = goal;
+    via_points[1].count = goal_count;
 }
 
 void LimbTrajectoryGenerator::modifyViaPoints(const Eigen::Isometry3d& current_coord,

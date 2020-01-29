@@ -185,14 +185,6 @@ class LinkConstraint
     {
         limb_traj.setViaPoints(_traj_type, start, goal, _via_points);
     }
-    void calcLimbRotationViaPoints(const LimbTrajectoryGenerator::TrajectoryType _traj_type,
-                                   const hrp::Vector3& local_rot_axis,
-                                   const double rot_angle,
-                                   const size_t start_count,
-                                   const size_t goal_count)
-    {
-        limb_traj.calcRotationViaPoints(_traj_type, targetCoord(), targetRot() * local_rot_axis, rot_angle, start_count, goal_count);
-    }
     void modifyLimbViaPoints(const Eigen::Isometry3d& new_goal,
                              const size_t current_count,
                              const size_t new_goal_count,
@@ -213,6 +205,7 @@ struct ConstraintsWithCount
 {
     std::vector<LinkConstraint> constraints;
     size_t start_count = 0;
+    bool is_stable = true;
 
     hrp::Vector3 calcCOPFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const;
     hrp::Matrix33 calcCOPRotationFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const;

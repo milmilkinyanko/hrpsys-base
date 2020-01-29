@@ -54,6 +54,8 @@ class LimbTrajectoryGenerator
     void calcRectangleViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
                                 const size_t start_count, const size_t goal_count,
                                 const double height);
+    void calcLinearViaPoints(const hrp::Vector3& start, const hrp::Vector3& goal,
+                             const size_t start_count, const size_t goal_count);
     void modifyRectangleViaPoints(const hrp::Vector3& goal,
                                   const size_t current_count,
                                   const size_t new_goal_count,
@@ -72,13 +74,6 @@ class LimbTrajectoryGenerator
                       const Eigen::Isometry3d& start,
                       const Eigen::Isometry3d& goal,
                       const std::vector<ViaPoint>& _via_points);
-
-    void calcRotationViaPoints(const TrajectoryType _traj_type,
-                               const Eigen::Isometry3d& start,
-                               const Eigen::Vector3d& rot_axis,
-                               const double rot_angle,
-                               const size_t start_count,
-                               const size_t goal_count);
 
     void modifyViaPoints(const Eigen::Isometry3d& current_coord,
                          const Eigen::Isometry3d& new_goal,

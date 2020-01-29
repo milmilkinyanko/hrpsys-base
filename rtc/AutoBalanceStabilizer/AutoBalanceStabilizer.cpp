@@ -338,13 +338,13 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // 脚軌道, COP, RootLink計算
         gg->forwardTimeStep(loop);
         gg->calcCogAndLimbTrajectory(loop, m_dt);
-        // ref_zmp = gg->getCurrentRefZMP();
         ref_zmp = gg->getRefZMP();
 
         // TODO: rootlink計算
         // TODO: IKを後ろに回す
         setIKConstraintsTarget();
         fik->solveFullbodyIKLoop(ik_constraints, max_ik_iteration);
+        // std::cerr << "moment: " << fik->getComMomentum().transpose() << std::endl;
     }
 
     storeRobotStatesForIK();
@@ -920,7 +920,8 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     // com_weight << 1, 1, 1e-1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1, 1, 1e-1, 1e-3, 1e-3, 1e-4;
-    com_weight << 1, 1, 1, 1e-2, 1e-2, 1e-4;
+    com_weight << 1, 1, 1, 1, 1, 1e-2;
+    // com_weight << 1, 1, 1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1e-1, 1e-1, 1e-2, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
@@ -960,7 +961,7 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     ik_constraints[i].targetPos = gg->getCog();
     ik_constraints[i].targetOmega = ref_angular_momentum;
     hoge = hoge * 0.85 + ref_angular_momentum * 0.15;
-    ik_constraints[i].targetOmega.setZero();
+    ik_constraints[i].targetOmega.setZero(); // tmp
 
     // ik_constraints[i].targetOmega.setZero();
     // ik_constraints[i].targetOmega = hrp::clamp(ik_constraints[i].targetOmega, hrp::Vector3(-150, -150, -100), hrp::Vector3(150, 150, 100));
