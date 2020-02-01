@@ -189,6 +189,10 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPoint3D> m_baseOriginRefZmpOut;
     TimedPoint3D m_refCog;
     OutPort<TimedPoint3D> m_refCogOut;
+    TimedPoint3D m_refCogVel;
+    OutPort<TimedPoint3D> m_refCogVelOut;
+    TimedPoint3D m_refCogAcc;
+    OutPort<TimedPoint3D> m_refCogAccOut;
     TimedPoint3D m_refAngularMomentumRPY;
     OutPort<TimedPoint3D> m_refAngularMomentumRPYOut;
     TimedPoint3D m_originNewRefZmp;
@@ -244,6 +248,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
                                  const hrp::Vector3& ref_zmp_global,
                                  const hrp::Vector3& ref_zmp_base_frame,
                                  const hrp::Vector3& ref_cog,
+                                 const hrp::Vector3& ref_cog_vel,
+                                 const hrp::Vector3& ref_cog_acc,
                                  const hrp::Vector3& ref_momentum,
                                  const hrp::Vector3& sbp_cog_offset,
                                  const hrp::Vector3& acc_ref,

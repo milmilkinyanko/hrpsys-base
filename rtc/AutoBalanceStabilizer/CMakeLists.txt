@@ -38,7 +38,7 @@ add_executable(testLimbTrajectoryGenerator test/testLimbTrajectoryGenerator.cpp)
 target_link_libraries(testLimbTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
 
 add_executable(testCOGTrajectoryGenerator test/testCOGTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
-target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs})
+target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
 
 add_executable(testTwoDofControllerABS testTwoDofControllerABS.cpp TwoDofController.cpp Integrator.cpp)
 target_link_libraries(testTwoDofControllerABS ${libs})

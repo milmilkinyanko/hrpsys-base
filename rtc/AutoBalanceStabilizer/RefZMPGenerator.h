@@ -23,6 +23,7 @@ class RefZMPGenerator
   private:
     double dt;
     std::deque<hrp::Vector3> refzmp_list;
+    hrp::Vector3 refzmp_vel = hrp::Vector3::Zero();
     std::unique_ptr<interpolator> zmp_interpolator;
 
     hrp::Vector3 calcRefZMP(const ConstraintsWithCount& constraints) const;
@@ -37,6 +38,7 @@ class RefZMPGenerator
 
     const hrp::Vector3& getCurrentRefZMP() const { return refzmp_list.front(); }
     const std::deque<hrp::Vector3>& getRefZMPList() const { return refzmp_list; }
+    const hrp::Vector3& getRefZMPVel() const { return refzmp_vel; }
 
     void setInterpolationAlgorithm(const interpolator::interpolation_mode i_mode)
     {

@@ -6,6 +6,7 @@
  * @date  $Date$
  */
 
+#include <iostream>
 #include <cstdio>
 #include <fstream>
 #include "../RefZMPGenerator.h"

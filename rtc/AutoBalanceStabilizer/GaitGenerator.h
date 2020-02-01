@@ -40,7 +40,7 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
     LocomotionMode locomotion_mode = WALK;
-    WalkingMode walking_mode = PREVIEW_CONTROL;
+    WalkingMode walking_mode = FOOT_GUIDED;
 
     size_t cur_const_idx = 0; // To reduce calculation time
 

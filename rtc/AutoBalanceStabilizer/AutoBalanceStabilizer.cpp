@@ -84,6 +84,8 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_baseOriginRefZmpOut("baseOriginRefZmp", m_baseOriginRefZmp),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_refCogOut("refCogOut", m_refCog),
+      m_refCogVelOut("refCogVelOut", m_refCogVel),
+      m_refCogAccOut("refCogAccOut", m_refCogAcc),
       m_refAngularMomentumRPYOut("refAngularMomentumRPY", m_refAngularMomentumRPY),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
@@ -448,7 +450,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
                        hrp::paramsFromSensors{q_act, act_rpy, act_wrenches});
 
     writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, ref_zmp_base_frame,
-                     gg->getCog(), ref_angular_momentum, sbp_cog_offset,
+                     gg->getCog(), gg->getCogVel(), gg->getCogAcc(),
+                     ref_angular_momentum, sbp_cog_offset,
                      kf_acc_ref, st->getStabilizerLogData());
 
     return RTC::RTC_OK;
@@ -497,6 +500,8 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("baseOriginRefZmp", m_baseOriginRefZmpOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("refCogOut", m_refCogOut);
+    addOutPort("refCogVelOut", m_refCogVelOut);
+    addOutPort("refCogAccOut", m_refCogAccOut);
     addOutPort("refAngularMomentumRPYOut", m_refAngularMomentumRPYOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
@@ -613,6 +618,8 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
                                              const hrp::Vector3& ref_zmp_global,
                                              const hrp::Vector3& ref_zmp_base_frame,
                                              const hrp::Vector3& ref_cog,
+                                             const hrp::Vector3& ref_cog_vel,
+                                             const hrp::Vector3& ref_cog_acc,
                                              const hrp::Vector3& ref_momentum,
                                              const hrp::Vector3& sbp_cog_offset,
                                              const hrp::Vector3& acc_ref,
@@ -624,53 +631,65 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     }
     if (m_qRef.data.length() != 0) m_qOut.write();
 
-    m_basePos.tm = m_qRef.tm;
+    m_basePos.tm     = m_qRef.tm;
     m_basePos.data.x = base_pos(0);
     m_basePos.data.y = base_pos(1);
     m_basePos.data.z = base_pos(2);
     m_basePosOut.write();
 
     const hrp::Vector3 base_rpy = hrp::rpyFromRot(base_rot);
-    m_baseRpy.tm = m_qRef.tm;
+    m_baseRpy.tm     = m_qRef.tm;
     m_baseRpy.data.r = base_rpy(0);
     m_baseRpy.data.p = base_rpy(1);
     m_baseRpy.data.y = base_rpy(2);
     m_baseRpyOut.write();
 
     double *tform_arr = m_baseTform.data.get_buffer();
-    m_baseTform.tm = m_qRef.tm;
-    tform_arr[0] = m_basePos.data.x;
-    tform_arr[1] = m_basePos.data.y;
-    tform_arr[2] = m_basePos.data.z;
+    m_baseTform.tm    = m_qRef.tm;
+    tform_arr[0]      = m_basePos.data.x;
+    tform_arr[1]      = m_basePos.data.y;
+    tform_arr[2]      = m_basePos.data.z;
     hrp::setMatrix33ToRowMajorArray(base_rot, tform_arr, 3);
     m_baseTformOut.write();
 
-    m_basePose.tm = m_qRef.tm;
-    m_basePose.data.position.x = m_basePos.data.x;
-    m_basePose.data.position.y = m_basePos.data.y;
-    m_basePose.data.position.z = m_basePos.data.z;
+    m_basePose.tm                 = m_qRef.tm;
+    m_basePose.data.position.x    = m_basePos.data.x;
+    m_basePose.data.position.y    = m_basePos.data.y;
+    m_basePose.data.position.z    = m_basePos.data.z;
     m_basePose.data.orientation.r = m_baseRpy.data.r;
     m_basePose.data.orientation.p = m_baseRpy.data.p;
     m_basePose.data.orientation.y = m_baseRpy.data.y;
     m_basePoseOut.write();
 
-    m_refZmp.tm = m_qRef.tm;
+    m_refZmp.tm     = m_qRef.tm;
     m_refZmp.data.x = ref_zmp_global(0);
     m_refZmp.data.y = ref_zmp_global(1);
     m_refZmp.data.z = ref_zmp_global(2);
     m_refZmpOut.write();
 
-    m_baseOriginRefZmp.tm = m_qRef.tm;
+    m_baseOriginRefZmp.tm     = m_qRef.tm;
     m_baseOriginRefZmp.data.x = ref_zmp_base_frame(0);
     m_baseOriginRefZmp.data.y = ref_zmp_base_frame(1);
     m_baseOriginRefZmp.data.z = ref_zmp_base_frame(2);
     m_baseOriginRefZmpOut.write();
 
-    m_refCog.tm = m_qRef.tm;
+    m_refCog.tm     = m_qRef.tm;
     m_refCog.data.x = ref_cog(0);
     m_refCog.data.y = ref_cog(1);
     m_refCog.data.z = ref_cog(2);
     m_refCogOut.write();
+
+    m_refCogVel.tm     = m_qRef.tm;
+    m_refCogVel.data.x = ref_cog_vel(0);
+    m_refCogVel.data.y = ref_cog_vel(1);
+    m_refCogVel.data.z = ref_cog_vel(2);
+    m_refCogVelOut.write();
+
+    m_refCogAcc.tm     = m_qRef.tm;
+    m_refCogAcc.data.x = ref_cog_acc(0);
+    m_refCogAcc.data.y = ref_cog_acc(1);
+    m_refCogAcc.data.z = ref_cog_acc(2);
+    m_refCogAccOut.write();
 
     {
         m_refAngularMomentumRPY.tm = m_qRef.tm;

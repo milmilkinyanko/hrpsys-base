@@ -6,6 +6,7 @@
  * @date  $Date$
  */
 
+#include <iostream>
 #include <iterator>
 #include "PlaneGeometry.h"
 #include "RefZMPGenerator.h"
@@ -95,7 +96,7 @@ void RefZMPGenerator::popAndPushRefZMP(const std::vector<ConstraintsWithCount>& 
     }
 
     hrp::Vector3 next_zmp;
-    zmp_interpolator->get(next_zmp.data(), true);
+    zmp_interpolator->get(next_zmp.data(), refzmp_vel.data(), true);
     refzmp_list.pop_front();
     refzmp_list.push_back(next_zmp);
 }

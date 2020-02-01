@@ -9,7 +9,6 @@
 #ifndef LINKCONSTRAINT_H
 #define LINKCONSTRAINT_H
 
-#include <iostream> // Debug: this file should not include iostream
 #include <vector>
 #include <numeric>
 #include <algorithm>
@@ -29,6 +28,7 @@ class LinkConstraint
 
   private:
     int link_id;
+    ConstraintType constraint_type = FIX;
     std::vector<hrp::Vector3> link_contact_points; // Link local
     Eigen::Isometry3d link_local_coord = Eigen::Isometry3d::Identity(); // Link local
     Eigen::Isometry3d target_coord = Eigen::Isometry3d::Identity(); // Global
@@ -40,9 +40,10 @@ class LinkConstraint
 
     // TODO: sensorやref forceなど入れる？
     bool is_zmp_calc_target = true;
+    hrp::Vector3 local_pos_offset = hrp::Vector3::Zero(); // Link local
+    hrp::Vector3 start_cop_offset = hrp::Vector3::Zero(); // Link local // TODO: cop_offsetやcop_weightを関数化してしまうのもあり
     hrp::Vector3 cop_offset = hrp::Vector3::Zero(); // Link local
     double cop_weight = 1.0; // TODO: FLOATではweightを0に?
-    ConstraintType constraint_type = FIX;
 
     // // IK variables
     // hrp::dvector6 constraint_weight = hrp::dvector6::Ones(); // Pos + Rot (Axis-angle)
@@ -55,13 +56,12 @@ class LinkConstraint
     std::vector<hrp::Vector3> heel_contact_points; // Link local
 
     LimbTrajectoryGenerator limb_traj;
-    // std::unique_ptr<LimbTrajectoryGenerator> limb_traj_impl;
 
-    hrp::Vector3 calcCop(const std::vector<hrp::Vector3>& points,
-                         const hrp::Vector3& _cop_offset = hrp::Vector3::Zero())
+    hrp::Vector3 calcLocalCop(const std::vector<hrp::Vector3>& points,
+                              const hrp::Vector3& _pos_offset = hrp::Vector3::Zero())
     {
         return std::accumulate(points.begin(), points.end(), hrp::Vector3::Zero().eval()) /
-            link_contact_points.size() + cop_offset;
+            link_contact_points.size() + _pos_offset;
     }
 
   public:
@@ -85,7 +85,7 @@ class LinkConstraint
 
     void calcLinkLocalPos()
     {
-        link_local_coord.translation() = calcCop(link_contact_points, cop_offset);
+        link_local_coord.translation() = calcLocalCop(link_contact_points, local_pos_offset);
     }
 
     const Eigen::Isometry3d& localCoord() const { return link_local_coord; }
@@ -105,6 +105,19 @@ class LinkConstraint
 
     bool isZmpCalcTarget() const { return is_zmp_calc_target; }
 
+    void setLocalPosOffset(const hrp::Vector3& _offset) { local_pos_offset = _offset; }
+    const hrp::Vector3& getLocalPosOffset() const { return local_pos_offset; }
+
+    void setStartCOPOffset(const hrp::Vector3& _offset) { start_cop_offset = _offset; }
+    const hrp::Vector3& getStartCOPOffset() const { return start_cop_offset; }
+    void setStartCOPOffsetToToe()  { start_cop_offset = calcLocalCop(toe_contact_points); }
+    void setStartCOPOffsetToHeel() { start_cop_offset = calcLocalCop(heel_contact_points); }
+
+    void setCOPOffset(const hrp::Vector3& _offset) { cop_offset = _offset; }
+    const hrp::Vector3& getCOPOffset() const { return cop_offset; }
+    void setCOPOffsetToToe()  { cop_offset = calcLocalCop(toe_contact_points); }
+    void setCOPOffsetToHeel() { cop_offset = calcLocalCop(heel_contact_points); }
+
     void setCOPWeight(double _weight) { cop_weight = _weight; }
     double getCOPWeight() const { return cop_weight; }
 
@@ -123,26 +136,8 @@ class LinkConstraint
         return link_rot * localRot();
     }
 
-    // TODO: toeとheelの時のcop_offsetの切り替え
-    void changeContactPoints(const std::vector<hrp::Vector3>& points)
-    {
-        if (points.empty()) {
-            std::cerr << "The given vector is empty" << std::endl;
-            return;
-        }
-
-        const hrp::Vector3 prev_local_pos = localPos();
-        link_contact_points = points;
-        calcLinkLocalPos();
-        // std::cerr << "changed points:\n";
-        // for (const auto& point : link_contact_points) std::cerr << point.transpose() << std::endl;
-        std::cerr << "prev local: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
-        std::cerr << "prev target: " << targetPos().transpose();
-        const hrp::Vector3 move_pos = targetRot() * localRot() * (localPos() - prev_local_pos);
-        targetPos() += move_pos;
-        std::cerr << ", move_pos: " << move_pos.transpose() << ", new target: " << targetPos().transpose() << std::endl;
-        // TODO: toeの回転した時のtargetRot
-    }
+    // TODO: toeとheelの時のlocal_pos_offset, cop_offsetの切り替え
+    void changeContactPoints(const std::vector<hrp::Vector3>& points);
 
     // Toe-Heel methods
     bool hasToeHeelContacts() const { return !(toe_contact_points.empty() || heel_contact_points.empty()); }
@@ -175,7 +170,6 @@ class LinkConstraint
                            const size_t start_count, const size_t goal_count,
                            const double step_height)
     {
-        std::cerr << "limbvia target: " << target_coord.translation().transpose() << std::endl;
         limb_traj.calcViaPoints(traj_type, target_coord, goal, start_count, goal_count, step_height);
     }
     void setLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType _traj_type,
@@ -208,6 +202,7 @@ struct ConstraintsWithCount
     bool is_stable = true;
 
     hrp::Vector3 calcCOPFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const;
+    hrp::Vector3 calcStartCOPFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const;
     hrp::Matrix33 calcCOPRotationFromConstraints(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const;
     Eigen::Isometry3d calcCOPCoord(const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT) const
     {
@@ -249,11 +244,23 @@ struct ConstraintsWithCount
 inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount>& constraints_list,
                                           const size_t count, const size_t search_start_idx = 0)
 {
-    size_t constraint_index = search_start_idx;
+    size_t constraint_idx = search_start_idx;
     for (size_t i = search_start_idx; i < constraints_list.size() && constraints_list[i].start_count <= count; ++i) {
-        constraint_index = i;
+        constraint_idx = i;
     }
-    return constraint_index;
+    return constraint_idx;
+}
+
+// Return next stable constraints index if it exists. If not, return current index if it is stable, else return -1.
+inline int getNextStableConstraints(const std::vector<ConstraintsWithCount>& constraints_list, const size_t current_idx = 0)
+{
+    const size_t constraint_list_size = constraints_list.size();
+    for (int i = current_idx + 1; i < constraint_list_size; ++i) {
+        if (constraints_list[i].is_stable) return i;
+    }
+
+    if (constraints_list[current_idx].is_stable) return current_idx;
+    return -1;
 }
 
 }

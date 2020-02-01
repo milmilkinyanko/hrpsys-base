@@ -16,6 +16,8 @@
 
 namespace hrp {
 
+struct ConstraintsWithCount;
+
 class COGTrajectoryGenerator
 {
   public:
@@ -102,6 +104,27 @@ class COGTrajectoryGenerator
                                    const double dt,
                                    const FootGuidedRefZMPType ref_zmp_type = FIX,
                                    const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
+    /**
+     * @fn
+     * @return reference zmp
+     */
+    hrp::Vector3 calcFootGuidedCogWalk(const std::vector<ConstraintsWithCount>& constraints_list,
+                                       const int cur_const_idx,
+                                       const size_t cur_count,
+                                       const double dt,
+                                       const hrp::Vector3& target_cp_offset);
+    /**
+     * @fn
+     * @return reference zmp
+     */
+    hrp::Vector3 calcFootGuidedCogWalk(const std::vector<ConstraintsWithCount>& constraints_list,
+                                       const hrp::Vector3& ref_zmp,
+                                       const hrp::Vector3& ref_zmp_vel,
+                                       const int cur_const_idx,
+                                       const size_t cur_count,
+                                       const double dt,
+                                       const hrp::Vector3& target_cp_offset = hrp::Vector3::Zero());
 
     void calcCogZForJump(const size_t count_to_jump,
                          const double jump_height,

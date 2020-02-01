@@ -146,26 +146,8 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     else if (!next_flight) {
         if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
         else if (walking_mode == FOOT_GUIDED) {
-            // TODO: 両脚支持期間
-            const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-            const auto landing_point = constraints_list[cur_const_idx + 1].calcCOPFromConstraints();
-            const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
-            const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
-
-            // const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
             const hrp::Vector3 offset = hrp::Vector3::Zero();
-            // ref_zmp = cog_gen->calcFootGuidedCog(support_point,
-            //                                      landing_point,
-            //                                      offset,
-            //                                      offset,
-            //                                      hrp::Vector3::Zero(),
-            //                                      default_jump_height,
-            //                                      constraints_list[cur_const_idx].start_count,
-            //                                      supporting_count,
-            //                                      constraints_list[cur_const_idx + 2].start_count,
-            //                                      cur_count,
-            //                                      dt,
-            //                                      COGTrajectoryGenerator::FIX);
+            ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, zmp_gen->getCurrentRefZMP(), zmp_gen->getRefZMPVel(), cur_const_idx, cur_count, dt, offset);
         }
     } else if (cur_const_idx < constraints_list.size() - 2) {
         // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
@@ -375,11 +357,12 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
 
     const size_t landing_count = swing_start_count + one_step_count;
 
+    // TODO: 足上げた状態を最初にする？そうするとis_stableを追加するのが最後になって良い感じだが
     ConstraintsWithCount& swing_phase_constraints = footstep_constraints.back();
     {
         swing_phase_constraints.start_count = swing_start_count;
         swing_phase_constraints.clearLimbViaPoints();
-        swing_phase_constraints.is_stable = false;
+        swing_phase_constraints.is_stable = true;
         for (const size_t swing_idx : swing_indices) {
             swing_phase_constraints.constraints[swing_idx].changeDefaultContacts();
             swing_phase_constraints.constraints[swing_idx].setConstraintType(LinkConstraint::FLOAT);
@@ -442,7 +425,7 @@ GaitGenerator::calcFootStepConstraints(const ConstraintsWithCount& last_constrai
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
         landing_phase_constraints.start_count = landing_count;
         landing_phase_constraints.clearLimbViaPoints();
-        landing_phase_constraints.is_stable = true;
+        landing_phase_constraints.is_stable = false;
 
         const size_t swing_indices_size = swing_indices.size();
         for (size_t i = 0; i < swing_indices_size; ++i) {
@@ -819,6 +802,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     const Eigen::Isometry3d landing_target = last_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
 
     addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, false);
+    new_constraints.back().is_stable = true;
 
     // Update constraints_list
     std::lock_guard<std::mutex> lock(m_mutex);

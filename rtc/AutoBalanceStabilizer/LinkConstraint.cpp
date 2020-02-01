@@ -62,12 +62,32 @@ std::vector<Eigen::Vector2d> LinkConstraint::calcContactConvexHull() const
     return calcConvexHull(vertices); // TODO: 1点のときと2点のときの確認
 }
 
+void LinkConstraint::changeContactPoints(const std::vector<hrp::Vector3>& points)
+{
+    if (points.empty()) {
+        std::cerr << "[LinkConstraint] The given vector is empty" << std::endl;
+        return;
+    }
+
+    const hrp::Vector3 prev_local_pos = localPos();
+    link_contact_points = points;
+    calcLinkLocalPos();
+    // std::cerr << "changed points:\n";
+    // for (const auto& point : link_contact_points) std::cerr << point.transpose() << std::endl;
+    // std::cerr << "prev local: " << prev_local_pos.transpose() << ", localpos:" << localPos().transpose() << std::endl;
+    // std::cerr << "prev target: " << targetPos().transpose();
+    const hrp::Vector3 move_pos = targetRot() * localRot() * (localPos() - prev_local_pos);
+    targetPos() += move_pos;
+    // std::cerr << ", move_pos: " << move_pos.transpose() << ", new target: " << targetPos().transpose() << std::endl;
+    // TODO: toeの回転した時のtargetRot
+}
+
 // TODO: 要確認
 Eigen::Isometry3d LinkConstraint::calcRotatedTargetAroundToe(const Eigen::Isometry3d& target,
                                                              const Eigen::AngleAxisd& local_rot)
 {
     Eigen::Isometry3d rotated_target = target;
-    const hrp::Vector3 toe_to_default = localPos() - calcCop(toe_contact_points);
+    const hrp::Vector3 toe_to_default = localPos() - calcLocalCop(toe_contact_points);
     rotated_target.translation() += target.linear() * localRot() * (local_rot.toRotationMatrix() * toe_to_default - toe_to_default);
     rotated_target.linear() = local_rot.toRotationMatrix() * target.linear();
     return rotated_target;
@@ -77,37 +97,11 @@ Eigen::Isometry3d LinkConstraint::calcRotatedTargetAroundHeel(const Eigen::Isome
                                                               const Eigen::AngleAxisd& local_rot)
 {
     Eigen::Isometry3d rotated_target = target;
-    const hrp::Vector3 heel_to_default = localPos() - calcCop(heel_contact_points);
+    const hrp::Vector3 heel_to_default = localPos() - calcLocalCop(heel_contact_points);
     rotated_target.translation() += target.linear() * localRot() * (local_rot.toRotationMatrix() * heel_to_default - heel_to_default);
     rotated_target.linear() = local_rot.toRotationMatrix() * target.linear(); // TODO: localRotを使わないと
     return rotated_target;
 }
-
-// -- LImbTrajectoryGenerator --
-// void LinkConstraint::copyLimbTrajectoryGenerator(const LinkConstraint& lc)
-// {
-//     // *limb_traj_impl = *(lc.limb_traj_impl);
-//     limb_traj = lc.limb_traj;
-// }
-
-// void LinkConstraint::calcLimbViaPoints(const LimbTrajectoryGenerator::TrajectoryType traj_type,
-//                                        const Eigen::Isometry3d& goal,
-//                                        const size_t start_count, const size_t goal_count,
-//                                        const double step_height)
-// {
-//     // limb_traj_impl->calcViaPoints(traj_type, target_coord, goal, start_count, goal_count, step_height);
-//     limb_traj.calcViaPoints(traj_type, target_coord, goal, start_count, goal_count, step_height);
-// }
-
-// void LinkConstraint::calcLimbTrajectory(const size_t cur_count, const double dt)
-// {
-//     // limb_traj_impl->calcTrajectory(cur_count, dt);
-//     limb_traj.calcTrajectory(cur_count, dt);
-// }
-
-// const hrp::Vector3& getLimbPos()  const { return limb_traj.getPos(); }
-// const hrp::Matrix33& getLimbRot() const { return limb_traj.getRot(); }
-// -- LImbTrajectoryGenerator --
 
 hrp::Vector3 ConstraintsWithCount::calcCOPFromConstraints(const LinkConstraint::ConstraintType type_thre) const
 {
@@ -119,7 +113,25 @@ hrp::Vector3 ConstraintsWithCount::calcCOPFromConstraints(const LinkConstraint::
         const double weight = constraint.getCOPWeight();
         // TODO:
         //       面接触してる時みたいに、target_coordと実際がずれているときは？
-        cop_pos += constraint.targetPos() * weight;
+        cop_pos += (constraint.targetPos() + constraint.getCOPOffset()) * weight;
+        sum_weight += weight;
+    }
+    if (sum_weight > 0) cop_pos /= sum_weight;
+
+    return cop_pos;
+}
+
+hrp::Vector3 ConstraintsWithCount::calcStartCOPFromConstraints(const LinkConstraint::ConstraintType type_thre) const
+{
+    hrp::Vector3 cop_pos = hrp::Vector3::Zero();
+    double sum_weight = 0;
+
+    for (const LinkConstraint& constraint : constraints) {
+        if (constraint.getConstraintType() >= type_thre) continue;
+        const double weight = constraint.getCOPWeight();
+        // TODO:
+        //       面接触してる時みたいに、target_coordと実際がずれているときは？
+        cop_pos += (constraint.targetPos() + constraint.getStartCOPOffset()) * weight;
         sum_weight += weight;
     }
     if (sum_weight > 0) cop_pos /= sum_weight;
