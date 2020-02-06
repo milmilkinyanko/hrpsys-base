@@ -81,6 +81,7 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
 
       // Out port for debugging
       m_refZmpOut("refZmpOut", m_refZmp), // global
+      m_refCmpOut("refCmpOut", m_refCmp),
       m_baseOriginRefZmpOut("baseOriginRefZmp", m_baseOriginRefZmp),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_refCogOut("refCogOut", m_refCog),
@@ -497,6 +498,7 @@ void AutoBalanceStabilizer::setupBasicPort()
 
     // Out port for debugging
     addOutPort("refZmpOut", m_refZmpOut);
+    addOutPort("refCmpOut", m_refCmpOut);
     addOutPort("baseOriginRefZmp", m_baseOriginRefZmpOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("refCogOut", m_refCogOut);
@@ -617,6 +619,7 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
                                              const hrp::Matrix33& base_rot,
                                              const hrp::Vector3& ref_zmp_global,
                                              const hrp::Vector3& ref_zmp_base_frame,
+                                             // const hrp::Vector3& ref_cmp,
                                              const hrp::Vector3& ref_cog,
                                              const hrp::Vector3& ref_cog_vel,
                                              const hrp::Vector3& ref_cog_acc,
@@ -672,6 +675,12 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_baseOriginRefZmp.data.y = ref_zmp_base_frame(1);
     m_baseOriginRefZmp.data.z = ref_zmp_base_frame(2);
     m_baseOriginRefZmpOut.write();
+
+    // m_refCmp.tm     = m_qRef.tm;
+    // m_refCmp.data.x = ref_cmp(0);
+    // m_refCmp.data.y = ref_cmp(1);
+    // m_refCmp.data.z = ref_cmp(2);
+    // m_refCmpOut.write();
 
     m_refCog.tm     = m_qRef.tm;
     m_refCog.data.x = ref_cog(0);
@@ -980,7 +989,7 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     ik_constraints[i].targetPos = gg->getCog();
     ik_constraints[i].targetOmega = ref_angular_momentum;
     hoge = hoge * 0.85 + ref_angular_momentum * 0.15;
-    ik_constraints[i].targetOmega.setZero(); // tmp
+    // ik_constraints[i].targetOmega.setZero(); // tmp
 
     // ik_constraints[i].targetOmega.setZero();
     // ik_constraints[i].targetOmega = hrp::clamp(ik_constraints[i].targetOmega, hrp::Vector3(-150, -150, -100), hrp::Vector3(150, 150, 100));
@@ -1147,12 +1156,15 @@ void AutoBalanceStabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabili
 
 void AutoBalanceStabilizer::startStabilizer(void)
 {
-    st->startStabilizer();
+    // st->startStabilizer();
+    gg->startRunning(m_dt);
 }
 
 void AutoBalanceStabilizer::stopStabilizer(void)
 {
-    st->stopStabilizer();
+    // st->stopStabilizer();
+    // gg->startJumping(m_dt);
+    gg->startRunJumpDemo(m_dt);
 }
 
 void AutoBalanceStabilizer::waitABCTransition()
@@ -1172,9 +1184,6 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos if not MODE_ABC." << std::endl;
         return false;
     }
-
-    // gg->startRunning(m_dt);
-    // gg->startJumping(m_dt);
 
     const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
     Eigen::Isometry3d target = cur_constraints.calcCOPCoord();

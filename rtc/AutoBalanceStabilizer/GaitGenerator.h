@@ -35,6 +35,7 @@ class GaitGenerator
 
     std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
     size_t loop = 0;
+    const double robot_mass;
     const size_t root_id = 0;
     Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
     bool if_compensate_cog_moment = true;
@@ -60,6 +61,8 @@ class GaitGenerator
     // double default_jump_height = 0.03;
     double default_jump_height = 0.05;
     double default_support_count_run;
+
+    std::vector<std::pair<hrp::Vector3, size_t>> ref_zmp_goals;
 
     // Walking cycle
     std::vector<int> support_limb_cycle; // TODO: std::vector<std::vector<int>>
@@ -97,7 +100,7 @@ class GaitGenerator
     // -- LimbTrajectoryGenerator --
 
     void addFootStepVelocityMode(const size_t cur_count);
-    hrp::Vector3 calcCogMomentFromCMP(const hrp::Vector3& ref_cmp);
+    hrp::Vector3 calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, const double total_mass, const double z_acc = 0);
 
   public:
     GaitGenerator(const hrp::BodyPtr& _robot,
@@ -278,6 +281,7 @@ class GaitGenerator
                const std::vector<int>& swing_link_cycle);
     bool startRunning(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startJumping(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    bool startRunJumpDemo(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     // gopos: 接触のCycleを記述したい
     // void goPos(const rats::coordinates& target, const size_t one_step_count,

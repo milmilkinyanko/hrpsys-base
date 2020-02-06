@@ -30,6 +30,8 @@ class COGTrajectoryGenerator
     hrp::Vector3 cog     = hrp::Vector3::Zero();
     hrp::Vector3 cog_vel = hrp::Vector3::Zero();
     hrp::Vector3 cog_acc = hrp::Vector3::Zero();
+    double ref_cog_z = 1.0;
+    double diff_ref_cog_z = 0;
     double omega = std::sqrt(DEFAULT_GRAVITATIONAL_ACCELERATION / 1.0);
 
     CogCalculationType calculation_type = PREVIEW_CONTROL;
@@ -39,25 +41,36 @@ class COGTrajectoryGenerator
   public:
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
                            const CogCalculationType type = PREVIEW_CONTROL) :
-        cog(init_cog), calculation_type(type), omega(std::sqrt(DEFAULT_GRAVITATIONAL_ACCELERATION / init_cog[2]))
-    {}
+        cog(init_cog), calculation_type(type)
+    {
+        setOmega(init_cog[2]);
+    }
 
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
                            const hrp::Vector3& init_cog_vel,
                            const hrp::Vector3& init_cog_acc,
                            const CogCalculationType type = PREVIEW_CONTROL) :
-        cog(init_cog), cog_vel(init_cog_vel), cog_acc(init_cog_acc), calculation_type(type), omega(std::sqrt(DEFAULT_GRAVITATIONAL_ACCELERATION / init_cog[2]))
-    {}
+        cog(init_cog), cog_vel(init_cog_vel), cog_acc(init_cog_acc), calculation_type(type)
+    {
+        setOmega(init_cog[2]);
+    }
 
     const hrp::Vector3& getCog()    const { return cog; }
     const hrp::Vector3& getCogVel() const { return cog_vel; }
     const hrp::Vector3& getCogAcc() const { return cog_acc; }
+    const double getRefCogZ() const { return ref_cog_z; }
     hrp::Vector3 calcCP() const { return cog + cog_vel / omega; }
 
     void setCogCalculationType(const CogCalculationType type) { calculation_type = type; }
     void setOmega(const double cog_z, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)
     {
+        ref_cog_z = cog_z;
         omega = std::sqrt(g_acc / cog_z);
+    }
+    void retreiveCogZ(const double dt)
+    {
+        diff_ref_cog_z = -1 / 1.5 * diff_ref_cog_z * dt + diff_ref_cog_z;
+        cog[2] = ref_cog_z + diff_ref_cog_z;
     }
     void initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp);
 
@@ -110,10 +123,11 @@ class COGTrajectoryGenerator
      * @return reference zmp
      */
     hrp::Vector3 calcFootGuidedCogWalk(const std::vector<ConstraintsWithCount>& constraints_list,
+                                       const std::vector<std::pair<hrp::Vector3, size_t>>& ref_zmp_goals,
                                        const int cur_const_idx,
                                        const size_t cur_count,
                                        const double dt,
-                                       const hrp::Vector3& target_cp_offset);
+                                       const hrp::Vector3& target_cp_offset = hrp::Vector3::Zero());
     /**
      * @fn
      * @return reference zmp

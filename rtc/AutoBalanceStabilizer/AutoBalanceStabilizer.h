@@ -185,6 +185,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     TimedDoubleSeq m_baseTform;
     OutPort<TimedDoubleSeq> m_baseTformOut;
     OutPort<TimedPoint3D> m_refZmpOut;
+    TimedPoint3D m_refCmp; // Calculated by cog trajectory
+    OutPort<TimedPoint3D> m_refCmpOut;
     TimedPoint3D m_baseOriginRefZmp;
     OutPort<TimedPoint3D> m_baseOriginRefZmpOut;
     TimedPoint3D m_refCog;
@@ -247,6 +249,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
                                  const hrp::Matrix33& base_rot,
                                  const hrp::Vector3& ref_zmp_global,
                                  const hrp::Vector3& ref_zmp_base_frame,
+                                 // const hrp::Vector3& ref_cmp,
                                  const hrp::Vector3& ref_cog,
                                  const hrp::Vector3& ref_cog_vel,
                                  const hrp::Vector3& ref_cog_acc,

@@ -12,6 +12,7 @@
 #include <vector>
 #include <deque>
 #include <memory>
+#include <utility>
 #include <hrpUtil/EigenTypes.h>
 #include "LinkConstraint.h"
 #include "interpolator.h"
@@ -27,11 +28,16 @@ class RefZMPGenerator
     std::unique_ptr<interpolator> zmp_interpolator;
 
     hrp::Vector3 calcRefZMP(const ConstraintsWithCount& constraints) const;
-    void calcZMPInterpolationGoal(const std::vector<ConstraintsWithCount>& constraints_list,
-                                  const size_t start_constraint_idx,
-                                  const size_t cur_count,
-                                  const size_t start_count,
-                                  const double final_interpolation_time = 2.0);
+    std::pair<hrp::Vector3, size_t> calcZMPInterpolationGoal(const std::vector<ConstraintsWithCount>& constraints_list,
+                                                             const hrp::Vector3& start_zmp,
+                                                             const size_t start_constraint_idx,
+                                                             const size_t start_count,
+                                                             const double final_interpolation_time = 1.6);
+    void calcAndSetZMPInterpolationGoal(const std::vector<ConstraintsWithCount>& constraints_list,
+                                        const size_t start_constraint_idx,
+                                        const size_t cur_count,
+                                        const size_t start_count,
+                                        const double final_interpolation_time = .6);
   public:
     RefZMPGenerator(const double dt, const size_t list_size,
                     const ConstraintsWithCount& init_constraints);
@@ -48,6 +54,11 @@ class RefZMPGenerator
                        const size_t cur_count, const size_t zmp_start_index = 0);
     void popAndPushRefZMP(const std::vector<ConstraintsWithCount>& constraints_list,
                           const size_t cur_count);
+    std::vector<std::pair<hrp::Vector3, size_t>> calcZMPGoalsFromConstraints(const std::vector<ConstraintsWithCount>& constraints_list,
+                                                                             const size_t start_constraint_idx,
+                                                                             const hrp::Vector3 start_zmp,
+                                                                             const size_t start_count,
+                                                                             const double final_interpolation_time = 1.6);
 };
 
 }

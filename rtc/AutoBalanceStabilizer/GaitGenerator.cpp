@@ -21,6 +21,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
                              std::vector<LinkConstraint>&& init_constraints,
                              const double preview_time) :
     m_mutex(_mutex),
+    robot_mass(_robot->totalMass()),
     root_id(_robot->rootLink()->index),
     preview_window(static_cast<size_t>(std::round(preview_time / _dt))),
     default_single_support_count(static_cast<size_t>(1.0 / _dt)),
@@ -31,6 +32,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     // default_support_count_run(static_cast<size_t>(0.65 / _dt))
     default_support_count_run(static_cast<size_t>(0.235 / _dt))
     // default_support_count_run(static_cast<size_t>(0.335 / _dt))
+    // default_support_count_run(static_cast<size_t>(0.285 / _dt))
 {
     const size_t num_limbs = init_constraints.size();
 
@@ -58,6 +60,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
 
     cog_gen->initPreviewController(_dt, zmp_gen->getCurrentRefZMP());
     ref_zmp = zmp_gen->getCurrentRefZMP();
+    ref_zmp_goals.push_back(std::make_pair(constraints_list[0].calcCOPFromConstraints(), constraints_list[0].start_count));
 }
 
 // TODO: cur_count か メンバ変数のloopかどちらかにする
@@ -82,6 +85,7 @@ void GaitGenerator::resetGaitGenerator(const hrp::BodyPtr& _robot,
 
     zmp_gen.reset(new RefZMPGenerator(_dt, preview_window, constraints_list[0]));
     resetCOGTrajectoryGenerator(prev_ref_cog, _dt);
+    ref_zmp_goals.push_back(std::make_pair(constraints_list[0].calcCOPFromConstraints(), constraints_list[0].start_count));
 }
 
 void GaitGenerator::forwardTimeStep(const size_t cur_count)
@@ -146,8 +150,19 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     else if (!next_flight) {
         if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
         else if (walking_mode == FOOT_GUIDED) {
+            if (cur_count == constraints_list[cur_const_idx].start_count &&
+                constraints_list[cur_const_idx].is_stable) {
+                // TODO: 空中をなんとかしてforward timestepにいれる
+                // TODO: ref_zmp_goalsが更新されていない場合があって，その接続が問題になるかも
+                std::cerr << "ref_zmp_goals.back().first: " << ref_zmp_goals.back().first.transpose() << std::endl;
+                ref_zmp_goals = zmp_gen->calcZMPGoalsFromConstraints(constraints_list, cur_const_idx, ref_zmp_goals.back().first, constraints_list[cur_const_idx].start_count);
+            }
+
             const hrp::Vector3 offset = hrp::Vector3::Zero();
-            ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, zmp_gen->getCurrentRefZMP(), zmp_gen->getRefZMPVel(), cur_const_idx, cur_count, dt, offset);
+            // ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, zmp_gen->getCurrentRefZMP(), zmp_gen->getRefZMPVel(), cur_const_idx, cur_count, dt, offset);
+            ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, ref_zmp_goals, cur_const_idx, cur_count, dt);
+            // cog_gen->retreiveCogZ(dt); // TODO: 衝撃を吸収は出来ていない
+            // cog_gen->calcCogZForJump(800, 0, cog_gen->getRefCogZ(), dt); // TODO: Zの引き戻し．跳ぶ高さを0にしている.最初に無駄に上下する
         }
     } else if (cur_const_idx < constraints_list.size() - 2) {
         // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
@@ -176,7 +191,9 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
     }
 
-    cog_moment = if_compensate_cog_moment ? calcCogMomentFromCMP(ref_zmp) : hrp::Vector3::Zero();
+    cog_moment = (if_compensate_cog_moment) ?
+        calcCogMomentFromCMP(ref_zmp, cog_gen->getCog()[2], robot_mass) : hrp::Vector3::Zero();
+    // std::cerr << "cog_moment: " << cog_moment.transpose() << std::endl;
 
     constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt);
 
@@ -188,7 +205,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     return;
 }
 
-hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp)
+hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, const double total_mass, const double z_acc)
 {
     // TODO: 平面仮定してる
     std::vector<Eigen::Vector2d> convex_hull = constraints_list[cur_const_idx].calcContactConvexHullForAllConstraints();
@@ -204,9 +221,10 @@ hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp)
     Eigen::Vector2d closest_point = ref_cmp.head<2>();
     calcClosestBoundaryPoint(closest_point, convex_hull, closest_verts.first, closest_verts.second);
 
-    const double f_z = DEFAULT_GRAVITATIONAL_ACCELERATION * 70; // TODO: tmp
+    const double f_z = (z_acc + DEFAULT_GRAVITATIONAL_ACCELERATION) * total_mass;
+    std::cerr << "f_z: " << f_z << std::endl;
+    // const double f_z = DEFAULT_GRAVITATIONAL_ACCELERATION * 70; // TODO: tmp
     return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
-    // return hrp::Vector3((ref_cmp[1] - closest_point[1]), -(ref_cmp[0] - closest_point[0]), 0) * f_z;
 }
 
 void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
@@ -747,9 +765,6 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
         const std::vector<size_t> toe_support_indices{support_idx};
 
-        if (use_toe_heel) std::cerr << "use true" << std::endl;
-        else std::cerr << "use false" << std::endl;
-
         const std::vector<ConstraintsWithCount> footstep_constraints =
         calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
                                 swing_start_count, default_single_support_count,
@@ -876,9 +891,9 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
             new_constraints.push_back(constraints);
         }
         std::swap(jump_idx[0], land_idx[0]);
-        targets[0] = org_targets[land_idx[0]];
-        // targets[0].translation()[0] += 0.2;
-        // targets[0].translation()[1] = org_targets[land_idx[0]].translation()[1];
+        // targets[0] = org_targets[land_idx[0]];
+        targets[0].translation()[0] += 0.2;
+        targets[0].translation()[1] = org_targets[land_idx[0]].translation()[1];
         std::cerr << "add run " << i << std::endl;
     }
 
@@ -894,6 +909,117 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
     setConstraintsList(std::move(new_constraints));
     setRefZMPList(loop);
     std::cerr << "add run end" << std::endl;
+}
+
+bool GaitGenerator::startRunJumpDemo(const double dt, const double g_acc)
+{
+    std::vector<ConstraintsWithCount> new_constraints;
+    ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
+    cur_constraints.start_count = loop;
+    new_constraints.push_back(std::move(cur_constraints));
+    new_constraints.back().setDelayTimeOffsets(0.03);
+
+    std::vector<size_t> jump_idx{0};
+    std::vector<size_t> land_idx{1};
+    std::vector<Eigen::Isometry3d> org_targets;
+    for (const auto& constraint : constraints_list[cur_const_idx].constraints) {
+        org_targets.push_back(constraint.targetCoord());
+    }
+
+    std::vector<Eigen::Isometry3d> targets{org_targets[land_idx[0]]};
+    // std::vector<Eigen::Isometry3d> targets{org_targets[0], org_targets[1]}; // Jump
+
+    const auto swapTarget = [&]() {
+        std::swap(jump_idx[0], land_idx[0]);
+        targets[0] = org_targets[land_idx[0]];
+    };
+
+    const double jump_height = 0.03;
+    const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+    const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+
+    {
+        const size_t starting_count = loop + 100;
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(new_constraints.back(),
+                                                                                                jump_idx,
+                                                                                                land_idx,
+                                                                                                targets,
+                                                                                                starting_count + default_support_count_run,
+                                                                                                flight_phase_count,
+                                                                                                true,
+                                                                                                starting_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+    }
+
+    for (size_t i = 0; i < 3; ++i) {
+        const ConstraintsWithCount& last_constraints = new_constraints.back();
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
+                                                                                                std::vector<size_t>{0, 1},
+                                                                                                land_idx,
+                                                                                                targets,
+                                                                                                last_constraints.start_count + default_support_count_run,
+                                                                                                flight_phase_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+    }
+
+    swapTarget();
+
+    for (size_t i = 0; i < 3; ++i) {
+        const ConstraintsWithCount& last_constraints = new_constraints.back();
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
+                                                                                                std::vector<size_t>{0, 1},
+                                                                                                land_idx,
+                                                                                                targets,
+                                                                                                last_constraints.start_count + default_support_count_run,
+                                                                                                flight_phase_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+    }
+
+    for (size_t i = 0; i < 5; ++i) {
+        swapTarget();
+        const ConstraintsWithCount& last_constraints = new_constraints.back();
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
+                                                                                                jump_idx,
+                                                                                                land_idx,
+                                                                                                targets,
+                                                                                                last_constraints.start_count + default_support_count_run,
+                                                                                                flight_phase_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+    }
+
+    {
+        new_constraints.push_back(new_constraints.back());
+        ConstraintsWithCount& last_constraints = new_constraints.back();
+
+        last_constraints.start_count += default_single_support_count;
+        last_constraints.clearLimbViaPoints();
+        last_constraints.is_stable = true;
+
+        for (size_t i = 0; i < org_targets.size(); ++i) {
+            last_constraints.constraints[i].targetCoord() = org_targets[i];
+            last_constraints.constraints[i].setConstraintType(LinkConstraint::FIX);
+        }
+    }
+
+    // Update constraints_list
+    std::lock_guard<std::mutex> lock(m_mutex);
+    // default_step_height = 0.15; // tmp
+    default_step_height = 0.05; // tmp
+    locomotion_mode = RUN;
+    const size_t diff_count = loop - new_constraints[0].start_count + 1;
+    for (auto& constraints : new_constraints) {
+        constraints.start_count += diff_count;
+    }
+    setConstraintsList(std::move(new_constraints));
+    setRefZMPList(loop);
 }
 
 bool GaitGenerator::startJumping(const double dt, const double g_acc)
