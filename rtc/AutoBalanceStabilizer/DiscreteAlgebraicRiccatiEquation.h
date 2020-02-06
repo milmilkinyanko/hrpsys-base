@@ -18,8 +18,7 @@
 
 #include <Eigen/Eigenvalues>
 
-namespace hrp
-{
+namespace hrp {
 
 template<size_t dim_state, size_t dim_control>
 Eigen::Matrix<double, dim_state, dim_state> solveDiscreteAlgebraicRiccati(
