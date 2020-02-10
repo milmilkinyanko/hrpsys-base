@@ -10,6 +10,7 @@
 #define COGTRAJECTORYGENERATOR_H
 
 #include <vector>
+#include <tuple>
 #include <memory>
 #include <hrpUtil/EigenTypes.h>
 #include "PreviewController.h"
@@ -33,6 +34,9 @@ class COGTrajectoryGenerator
     double ref_cog_z = 1.0;
     double diff_ref_cog_z = 0;
     double omega = std::sqrt(DEFAULT_GRAVITATIONAL_ACCELERATION / 1.0);
+
+    size_t cog_list_start_count = 0;
+    std::vector<hrp::Vector3> cog_list;
 
     CogCalculationType calculation_type = PREVIEW_CONTROL;
     std::unique_ptr<ExtendedPreviewController> preview_controller;
@@ -73,6 +77,16 @@ class COGTrajectoryGenerator
         cog[2] = ref_cog_z + diff_ref_cog_z;
     }
     void initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp);
+    void getCogFromCogList(const size_t cur_count, const double dt)
+    {
+        for (size_t i = 0; i < 3; ++i) {
+            const double ref_cog = cog_list[cur_count - cog_list_start_count][i];
+            const double ref_vel = (ref_cog - cog[i]) / dt;
+            cog_acc[i] = (ref_vel - cog_vel[i]) / dt;
+            cog_vel[i] = ref_vel;
+            cog[i]     = ref_cog;
+        }
+    }
 
     void calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list, const double dt);
 
@@ -118,6 +132,15 @@ class COGTrajectoryGenerator
                                    const FootGuidedRefZMPType ref_zmp_type = FIX,
                                    const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
+    void calcCogListForRun(const hrp::Vector3 target_cp,
+                           const hrp::Vector3 ref_zmp,
+                           const size_t count_to_jump,
+                           const size_t cur_count,
+                           const double jump_height,
+                           const double take_off_z,
+                           const double dt,
+                           const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
     /**
      * @fn
      * @return reference zmp
@@ -145,6 +168,12 @@ class COGTrajectoryGenerator
                          const double take_off_z,
                          const double dt,
                          const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
+    std::vector<std::tuple<double, double, double>> calcCogZListForJump(const size_t count_to_jump,
+                                                                        const double jump_height,
+                                                                        const double take_off_z,
+                                                                        const double dt,
+                                                                        const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 };
 
 }

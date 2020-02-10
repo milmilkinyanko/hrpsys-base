@@ -6,7 +6,9 @@
  * @date  $Date$
  */
 
+#include <array>
 #include "Utility.h"
+#include "TDMASolver.h"
 #include "LinkConstraint.h"
 #include "COGTrajectoryGenerator.h"
 
@@ -97,6 +99,96 @@ void COGTrajectoryGenerator::calcCogZForJump(const size_t count_to_jump,
     cog_acc[2] = 20 * a * dt*dt*dt   + 12 * b * dt*dt   + 6 * c * dt    + 2 * d;
 
     diff_ref_cog_z = ref_cog_z - cog[2];
+}
+
+std::vector<std::tuple<double, double, double>> COGTrajectoryGenerator::calcCogZListForJump(const size_t count_to_jump,
+                                                                                            const double jump_height,
+                                                                                            const double take_off_z,
+                                                                                            const double dt,
+                                                                                            const double g_acc)
+{
+    // 6th order function: s.t. cog_acc(T) = -g_acc
+    const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+    const double T  = count_to_jump * dt;
+    const double T2 = T * T;
+    const double T3 = T2 * T;
+    const double T4 = T3 * T;
+    const double T5 = T4 * T;
+
+    const double a = (-T2 * (cog_acc[2] + g_acc) - 6 * T * (cog_vel[2] + take_off_z_vel) + 12 * (-cog[2] + take_off_z)) / (2 * T5);
+    const double b = (T2 * (3 * cog_acc[2] + 2 * g_acc) + 2 * T * (8 * cog_vel[2] + 7 * take_off_z_vel) + 30 * (cog[2] - take_off_z)) / (2 * T4);
+    const double c = (-T2 * (3 * cog_acc[2] + g_acc) - 4 * T * (3 * cog_vel[2] + 2 * take_off_z_vel) + 20 * (-cog[2] + take_off_z)) / (2 * T3);
+    const double d = cog_acc[2] / 2;
+    const double e = cog_vel[2];
+    const double f = cog[2];
+
+    std::vector<std::tuple<double, double, double>> cog_z_list;
+    cog_z_list.reserve(count_to_jump);
+    for (size_t i = 1; i <= count_to_jump; ++i) {
+        const double t = dt * i;
+        const double cog     = a * t*t*t*t*t   + b * t*t*t*t   + c * t*t*t   + d * t*t   + e * t + f;
+        const double cog_vel = 5 * a * t*t*t*t + 4 * b * t*t*t + 3 * c * t*t + 2 * d * t + e;
+        const double cog_acc = 20 * a * t*t*t  + 12 * b * t*t  + 6 * c * t   + 2 * d;
+        cog_z_list.emplace_back(cog, cog_vel, cog_acc);
+    }
+
+    return cog_z_list;
+}
+
+void COGTrajectoryGenerator::calcCogListForRun(const hrp::Vector3 target_cp,
+                                               const hrp::Vector3 ref_zmp,
+                                               const size_t count_to_jump,
+                                               const size_t cur_count,
+                                               const double jump_height,
+                                               const double take_off_z,
+                                               const double dt,
+                                               const double g_acc)
+{
+    cog_list_start_count = cur_count;
+    const std::vector<std::tuple<double, double, double>>
+        ref_cog_z_list = calcCogZListForJump(count_to_jump, jump_height, take_off_z, dt, g_acc);
+
+    const size_t dim = count_to_jump;
+    std::vector<double> a(dim);
+    std::vector<double> b(dim);
+    std::vector<double> c(dim);
+
+    const double dt2 = dt * dt;
+    for (size_t i = 0; i < dim; ++i) {
+        const double denominator = (std::get<2>(ref_cog_z_list[i]) + g_acc) * dt2;
+        const double cog_z = std::get<0>(ref_cog_z_list[i]);
+
+        a[i] = -cog_z / denominator;
+        b[i] = 2 * cog_z / denominator + 1;
+        c[i] = a[i];
+    }
+
+    const double a_zero = a[0];
+    a[0] = 0;
+    b[0] += a_zero * (1 + std::sqrt(g_acc / std::get<0>(ref_cog_z_list[0])) * dt);
+    c.back() = 0;
+
+    // Capture point
+    {
+        const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+        const double flight_time = 2 * take_off_z_vel / g_acc;
+        const double taking_off_omega = std::sqrt(g_acc / std::get<0>(ref_cog_z_list.back())); // TODO: 加速度考慮したい
+        a.back() = -(flight_time * taking_off_omega + 1) / (taking_off_omega * dt);
+        b.back() = 1 - a.back();
+    }
+
+    const hrp::Vector3 cur_cp = calcCP();
+    cog_list.resize(dim);
+    for (size_t xy = 0; xy <= 1; ++xy) {
+        std::vector<double> ref_list(dim, ref_zmp[xy]);
+        ref_list[0] += a_zero * omega * cur_cp[xy] * dt;
+        ref_list.back() = target_cp[xy];
+
+        const std::vector<double> ref_cog_list = (xy == 0) ? solveTDMAPreserve(a, b, c, ref_list) : solveTDMA(a, b, c, ref_list);
+        for (size_t i = 0; i < dim; ++i) cog_list[i][xy] = ref_cog_list[i];
+    }
+
+    for (size_t i = 0; i < dim; ++i) cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
 }
 
 hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& support_point,
@@ -290,8 +382,8 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
     cog_vel.head<2>() += cog_acc.head<2>() * dt;
 
-    // return input_cmp;
-    return ref_zmp;
+    return input_cmp;
+    // return ref_zmp;
 }
 
 hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<ConstraintsWithCount>& constraints_list,

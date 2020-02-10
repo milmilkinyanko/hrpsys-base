@@ -28,7 +28,8 @@ class GaitGenerator
 {
   public:
     enum LocomotionMode : size_t { WALK, RUN };
-    enum WalkingMode : size_t { PREVIEW_CONTROL, FOOT_GUIDED }; // TODO: COGTrajectoryGeneratorとどちらか
+    enum WalkingMode : size_t { PREVIEW_CONTROL, FOOT_GUIDED_WALK }; // TODO: COGTrajectoryGeneratorとどちらか
+    enum RunningMode : size_t { FOOT_GUIDED_RUN, EXTENDED_MATRIX };
 
   private:
     static constexpr double DEFAULT_GRAVITATIONAL_ACCELERATION = 9.80665; // [m/s^2]
@@ -41,7 +42,8 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
     LocomotionMode locomotion_mode = WALK;
-    WalkingMode walking_mode = FOOT_GUIDED;
+    WalkingMode walking_mode = FOOT_GUIDED_WALK;
+    RunningMode running_mode = FOOT_GUIDED_RUN;
 
     size_t cur_const_idx = 0; // To reduce calculation time
 
