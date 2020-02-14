@@ -872,6 +872,18 @@ namespace rats
         end_cogvel(2) = 0.0;
       }
       // judge whehter regenerate motion
+      if (lcg.get_footstep_index() > 1 &&
+          lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1) { // reset is_stuck
+        for (size_t i = 0; i < 2; i++) {
+          // minus and x
+          if (sum_d_footstep_minus(i) < - sum_d_footstep_thre(i) &&
+              footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(i) < footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i)) {
+            footstep_hist_max(i) = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i);
+            sum_d_footstep_minus(i) = 0.0;
+            is_stuck = false;
+          }
+        }
+      }
       if (lcg.get_footstep_index() > 0 &&
           lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) &&
           lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
