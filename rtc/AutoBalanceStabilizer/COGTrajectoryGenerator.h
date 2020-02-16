@@ -63,7 +63,13 @@ class COGTrajectoryGenerator
     const hrp::Vector3& getCogVel() const { return cog_vel; }
     const hrp::Vector3& getCogAcc() const { return cog_acc; }
     const double getRefCogZ() const { return ref_cog_z; }
-    hrp::Vector3 calcCP() const { return cog + cog_vel / omega; }
+    hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / std::sqrt(g_acc / cog[2]); }
+    hrp::Vector3 calcPointMassZMP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const
+    {
+        hrp::Vector3 zmp = cog;
+        zmp.head<2>() -= cog_acc.head<2>() / (cog_acc[2] + g_acc) * cog[2];
+        return zmp;
+    }
 
     void setCogCalculationType(const CogCalculationType type) { calculation_type = type; }
     void setOmega(const double cog_z, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION)
@@ -79,6 +85,14 @@ class COGTrajectoryGenerator
     void initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp);
     void getCogFromCogList(const size_t cur_count, const double dt)
     {
+        const size_t cog_idx = cur_count - cog_list_start_count;
+
+        if (cog_list.empty() || cog_list.size() < cog_idx) {
+            cog_vel.setZero();
+            cog_acc.setZero();
+            return;
+        }
+
         for (size_t i = 0; i < 3; ++i) {
             const double ref_cog = cog_list[cur_count - cog_list_start_count][i];
             const double ref_vel = (ref_cog - cog[i]) / dt;
@@ -86,6 +100,7 @@ class COGTrajectoryGenerator
             cog_vel[i] = ref_vel;
             cog[i]     = ref_cog;
         }
+        std::cerr << "acc: " << cog_acc.transpose() << std::endl;
     }
 
     void calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list, const double dt);
@@ -134,6 +149,7 @@ class COGTrajectoryGenerator
 
     void calcCogListForRun(const hrp::Vector3 target_cp,
                            const hrp::Vector3 ref_zmp,
+                           const hrp::Vector3 next_ref_zmp,
                            const size_t count_to_jump,
                            const size_t cur_count,
                            const double jump_height,
@@ -141,6 +157,19 @@ class COGTrajectoryGenerator
                            const double dt,
                            const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
+    void calcCogListForRun2Step(const hrp::Vector3 target_cp,
+                                const hrp::Vector3 ref_zmp,
+                                const hrp::Vector3 next_ref_zmp,
+                                const hrp::Vector3 last_ref_zmp,
+                                const int count_to_jump1,
+                                const int count_to_jump2,
+                                const size_t cur_count,
+                                const double jump_height1,
+                                const double jump_height2,
+                                const double take_off_z1,
+                                const double take_off_z2,
+                                const double dt,
+                                const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     /**
      * @fn
      * @return reference zmp

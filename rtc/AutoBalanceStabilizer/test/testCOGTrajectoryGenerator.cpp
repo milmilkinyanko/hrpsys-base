@@ -74,10 +74,7 @@ void testPreviewController()
 
 void testFootGuidedRunning()
 {
-    // const double jump_height = 0.0;
-    // const double jump_height = 0.001;
     const double jump_height = 0.03;
-    // const double jump_height = 0.08;
     constexpr double g_acc = 9.80665;
     const double init_cog_z = 0.93;
     const double take_off_z = 0.96;
@@ -119,7 +116,7 @@ void testFootGuidedRunning()
     hrp::Vector3 target_cp_offset(0, 0, 0);
     // hrp::Vector3 target_cp_offset = hrp::Vector3::Zero();
 
-    const double omega = std::sqrt(g_acc / _init_cog[2]);
+    // const double omega = std::sqrt(g_acc / _init_cog[2]);
     // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
     // std::cerr << "cp offset: "<< target_cp_offset[0] << std::endl;
 
@@ -191,6 +188,105 @@ void testFootGuidedRunning()
     }
 }
 
+void testExtendedMatrixRunning()
+{
+    const double jump_height = 0.03;
+    constexpr double g_acc = 9.80665;
+    const double init_cog_z = 0.93;
+    const double take_off_z = 0.96;
+    const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+    const double flight_time = 2 * take_off_z_vel / g_acc;
+
+    const double support_time = 0.235;
+    const double step_time = support_time + flight_time;
+    const size_t step_count = static_cast<size_t>(std::round(step_time / dt));
+    const size_t support_count = static_cast<size_t>(std::round(support_time / dt));
+
+    const double _max_time = step_time * 60;
+    const size_t _max_count = static_cast<size_t>(std::round(_max_time / dt));
+    cog_list.resize(_max_count);
+    cogvel_list.resize(_max_count);
+    cogacc_list.resize(_max_count);
+    time_list.resize(_max_count);
+
+    std::vector<hrp::Vector3> landing_points;
+    std::vector<size_t> landing_counts;
+    std::vector<size_t> supporting_counts;
+    const hrp::Vector3 _init_cog = hrp::Vector3(0, 0.1, init_cog_z); // Start from left kicking
+    hrp::Vector3 one_step(0.525, -0.2, 0.0);
+
+    const double y_offset = _init_cog[1] > 0 ? -0.03 : 0.03;
+    hrp::Vector3 target_cp_offset(0.0, 0, 0);
+
+    landing_points.emplace_back(_init_cog[0], _init_cog[1], 0);
+    landing_counts.push_back(500);
+    supporting_counts.push_back(support_count);
+
+    for (double count = step_count; count < _max_count * 2; count += step_count) {
+        landing_points.push_back(landing_points.back());
+        landing_points.back() += one_step;
+        landing_counts.push_back(landing_counts.back());
+        landing_counts.back() += step_count;
+        supporting_counts.push_back(support_count);
+        one_step[1] *= -1;
+
+        std::cerr << "landing point: " << landing_points.back().transpose() << std::endl;
+        std::cerr << "landing time:  " << landing_counts.back() * dt << std::endl;
+    }
+
+    hrp::COGTrajectoryGenerator cog_gen(_init_cog);
+    size_t cur_idx = 0;
+    hrp::Vector3 ref_zmp = landing_points[0];
+    for (size_t count = 0; count < _max_count; ++count) {
+        const double cur_time = count * dt;
+
+        // if (count == landing_counts[cur_idx + 1]) {
+        //     ++cur_idx;
+        //     ref_zmp = landing_points[cur_idx];
+        //     ref_zmp[1] += (ref_zmp[1] < 0) ? y_offset : -y_offset;
+        //     hrp::Vector3 next_ref_zmp = landing_points[cur_idx + 1];
+        //     next_ref_zmp[1] += (next_ref_zmp[1] < 0) ? y_offset : -y_offset;
+
+        //     hrp::Vector3 target_cp = landing_points[cur_idx + 1];
+        //     target_cp += target_cp_offset;
+
+        //     // Memo: 0.03608 [ms] 程度
+        //     cog_gen.calcCogListForRun(target_cp, ref_zmp, next_ref_zmp, landing_counts[cur_idx + 1] - landing_counts[cur_idx], count,
+        //                               jump_height, take_off_z, dt);
+        // }
+
+        if (count == landing_counts[cur_idx + 1]) {
+            ++cur_idx;
+            ref_zmp = landing_points[cur_idx];
+            ref_zmp[1] += (ref_zmp[1] < 0) ? y_offset : -y_offset;
+            hrp::Vector3 next_ref_zmp = landing_points[cur_idx + 1];
+            next_ref_zmp[1] += (next_ref_zmp[1] < 0) ? y_offset : -y_offset;
+
+            hrp::Vector3 last_ref_zmp = landing_points[cur_idx + 2];
+            last_ref_zmp[1] += (last_ref_zmp[1] < 0) ? y_offset : -y_offset;
+
+            hrp::Vector3 target_cp = landing_points[cur_idx + 2];
+            target_cp += target_cp_offset;
+
+            // Memo:  [ms] 程度
+            cog_gen.calcCogListForRun2Step(target_cp, ref_zmp, next_ref_zmp, last_ref_zmp,
+                                           landing_counts[cur_idx + 1] - landing_counts[cur_idx],
+                                           landing_counts[cur_idx + 2] - landing_counts[cur_idx + 1],
+                                           count,
+                                           jump_height, jump_height, take_off_z, take_off_z, dt);
+        }
+
+        cog_gen.getCogFromCogList(count, dt);
+
+        cog_list[count]    = cog_gen.getCog();
+        // cogvel_list[count] = cog_gen.getCogVel();
+        // cogvel_list[count] = cog_gen.calcCP();
+        cogvel_list[count] = cog_gen.calcPointMassZMP() - ref_zmp;
+        cogacc_list[count] = cog_gen.getCogAcc();
+        time_list[count]   = cur_time;
+    }
+}
+
 int main(int argc, char **argv)
 {
     std::vector<std::string> arg_strs;
@@ -207,7 +303,8 @@ int main(int argc, char **argv)
     }
 
     // testPreviewController(cog_list, time_list);
-    testFootGuidedRunning();
+    // testFootGuidedRunning();
+    testExtendedMatrixRunning();
 
     const std::string fname("/tmp/testCOGTrajectoryGenerator.dat");
     std::ofstream ofs(fname);

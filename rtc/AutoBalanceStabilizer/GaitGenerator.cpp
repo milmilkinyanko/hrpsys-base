@@ -193,7 +193,23 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
                 const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
-                cog_gen->calcCogListForRun(landing_point, support_point, count_to_jump, cur_count,
+
+                std::cerr << "cur  cp: " << cog_gen->calcCP().transpose() << std::endl;
+                std::cerr << "diff cp: " << (cog_gen->calcCP() - support_point).transpose() << std::endl;
+
+                ref_zmp = support_point;
+                const double y_offset = 0.015;
+                ref_zmp[1] += (support_point[1] < 0) ? y_offset : -y_offset; // TODO: Body相対か何かを使う
+                hrp::Vector3 next_ref_zmp = landing_point;
+                next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
+
+                hrp::Vector3 target_cp = landing_point;
+                target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
+                // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
+                // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+
+                // Memo: 0.03608 [ms] 程度
+                cog_gen->calcCogListForRun(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
                                            default_jump_height, default_take_off_z, dt);
             }
 
@@ -843,6 +859,8 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
 
 bool GaitGenerator::startRunning(const double dt, const double g_acc)
 {
+    running_mode = EXTENDED_MATRIX;
+
     std::vector<ConstraintsWithCount> new_constraints;
     ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
     cur_constraints.start_count = loop;
@@ -885,7 +903,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         std::cerr << "add run first" << std::endl;
     }
 
-    for (size_t i = 0; i < 60; ++i) {
+    for (size_t i = 0; i < 30; ++i) {
         const ConstraintsWithCount& last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_idx,
