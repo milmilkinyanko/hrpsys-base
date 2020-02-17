@@ -709,11 +709,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       if ((gg->get_support_leg_names().front() == "rleg" && m_landingHeight.data.l_r == 0) ||
           (gg->get_support_leg_names().front() == "lleg" && m_landingHeight.data.l_r == 1))
         {
-          gg->set_is_vision_updated(true);
           hrp::Vector3 pos(hrp::Vector3(m_landingHeight.data.x, m_landingHeight.data.y, m_landingHeight.data.z));
           hrp::Vector3 normal(hrp::Vector3(m_landingHeight.data.nx, m_landingHeight.data.ny, m_landingHeight.data.nz));
-          gg->set_rel_landing_height(pos);
-          gg->set_rel_landing_normal(normal);
+          if (isfinite(pos(2))) {
+              gg->set_is_vision_updated(true);
+              gg->set_rel_landing_height(pos);
+              gg->set_rel_landing_normal(normal);
+          }
         }
     }
     if (m_steppableRegionIn.isNew()) {
@@ -1545,7 +1547,7 @@ void AutoBalancer::solveFullbodyIK ()
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   ref_cog.head(2) -= sbp_cog_offset.head(2);
 
-  stopFootForEarlyTouchDown();
+  // stopFootForEarlyTouchDown();
 
     std::vector<IKConstraint> ik_tgt_list;
     {
@@ -1578,7 +1580,7 @@ void AutoBalancer::solveFullbodyIK ()
     }
     if (ikp.size() >= 4) {
       if (ikp["rarm"].is_active) {
-        double tmp_const = 1e-6 * transition_interpolator_ratio;
+        double tmp_const = 1e-2 * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["rarm"].target_link->name;
         tmp.localPos = ikp["rarm"].localPos;
@@ -1589,7 +1591,7 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
       }
       if (ikp["larm"].is_active) {
-        double tmp_const = 1e-6 * transition_interpolator_ratio;
+        double tmp_const = 1e-2 * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["larm"].target_link->name;
         tmp.localPos = ikp["larm"].localPos;
@@ -1616,6 +1618,7 @@ void AutoBalancer::solveFullbodyIK ()
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 1.0, weight_normal_interpolator_time = 1.5;
+        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
         // roll
         if (gg->get_use_roll_flywheel()) {
           if (!prev_roll_state) {
@@ -1663,6 +1666,7 @@ void AutoBalancer::solveFullbodyIK ()
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
+        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 0.0;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
             if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
@@ -1688,6 +1692,12 @@ void AutoBalancer::solveFullbodyIK ()
         prev_pitch_state = gg->get_use_pitch_flywheel();
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
+        if(m_robot->link("RARM_F_JOINT0") != NULL) fik->q_ref_constraint_weight[m_robot->link("RARM_F_JOINT0")->jointId] = 1e-3;
+        if(m_robot->link("RARM_F_JOINT1") != NULL) fik->q_ref_constraint_weight[m_robot->link("RARM_F_JOINT1")->jointId] = 1e-3;
+        if(m_robot->link("LARM_F_JOINT0") != NULL) fik->q_ref_constraint_weight[m_robot->link("LARM_F_JOINT0")->jointId] = 1e-3;
+        if(m_robot->link("LARM_F_JOINT1") != NULL) fik->q_ref_constraint_weight[m_robot->link("LARM_F_JOINT1")->jointId] = 1e-3;
+        if(m_robot->link("HEAD_JOINT0") != NULL) fik->q_ref_constraint_weight[m_robot->link("HEAD_JOINT0")->jointId] = 1e-3;
+        if(m_robot->link("HEAD_JOINT1") != NULL) fik->q_ref_constraint_weight[m_robot->link("HEAD_JOINT1")->jointId] = 1e-3;
 
 //        tmp.rot_precision = 1e-1;//angular momentum precision
         ik_tgt_list.push_back(tmp);
@@ -1706,6 +1716,9 @@ void AutoBalancer::solveFullbodyIK ()
     if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 10;
     if(m_robot->link("CHEST_Y") != NULL) fik->dq_weight_all(m_robot->link("CHEST_Y")->jointId) = 10;
     if(m_robot->link("CHEST_P") != NULL) fik->dq_weight_all(m_robot->link("CHEST_P")->jointId) = 10;
+    //reduce head joint move
+    // if(m_robot->link("HEAD_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT0")->jointId) = 10;
+    // if(m_robot->link("HEAD_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT1")->jointId) = 10;
     // fik->dq_weight_all.tail(3).fill(1e1);//ベースリンク回転変位の重みは1e1以下は暴れる？
     fik->rootlink_rpy_llimit << deg2rad(-15), deg2rad(-30), -DBL_MAX;
     fik->rootlink_rpy_ulimit << deg2rad(15), deg2rad(45), DBL_MAX;

@@ -242,7 +242,26 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                // }
 
                 // update joint angles
-                for(int i=0;i<dq_all.rows();i++){ if( isnan(dq_all(i)) || isinf(dq_all(i)) ){ std::cerr <<"ERROR nan/inf is found" << std::endl; return;} }
+                for(int i=0;i<dq_all.rows();i++){
+                    if( isnan(dq_all(i)) || isinf(dq_all(i)) ){
+                        std::cerr <<"ERROR nan/inf is found" << std::endl;
+                        // return;
+                        std::cout<<std::setprecision(2) << "J=\n"<<J_all<<std::setprecision(6)<<std::endl;
+                        std::cout<<std::setprecision(2) << "J_all_inv=\n"<<J_all_inv<<std::setprecision(6)<<std::endl;
+                        // dbgn(selection_mat);
+                        dbgn(H);
+                        dbg(Wn(0,0));
+                        dbg(g.transpose());
+                        dbg(err_all.transpose());
+                        dbg(dq_all.transpose());
+                        dbg(constraint_weight_all.transpose());
+                        // dbg(dq_weight_all_inv.transpose());
+                        std::cout<<"q_ans_all\n";
+                        for(int i=0;i<_robot->numJoints();i++)std::cerr<<_robot->joint(i)->q<<" ";
+                        std::cout<<std::endl;
+                        // dq_all = hrp::dvector::Zero(ALL_DOF); // tmp fix
+                    }
+                }
                 for(int i=0;i<J_DOF;i++){
                     _robot->joint(i)->q += dq_all(i);
                     LIMIT_MINMAX(_robot->joint(i)->q, _robot->joint(i)->llimit, _robot->joint(i)->ulimit);
@@ -382,4 +401,3 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
 
 
 #endif //  FULLBODYIK_H
-
