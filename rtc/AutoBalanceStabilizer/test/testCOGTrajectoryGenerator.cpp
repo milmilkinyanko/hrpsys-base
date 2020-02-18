@@ -10,6 +10,8 @@
 #include <fstream>
 #include "../COGTrajectoryGenerator.h"
 
+#include <chrono>
+
 namespace
 {
 constexpr double dt = 0.002;
@@ -268,12 +270,22 @@ void testExtendedMatrixRunning()
             hrp::Vector3 target_cp = landing_points[cur_idx + 2];
             target_cp += target_cp_offset;
 
-            // Memo:  [ms] 程度
+            // std::chrono::system_clock::time_point  start, end;
+            // start = std::chrono::system_clock::now();
+            // constexpr size_t LOOP = 1000;
+
+            // for (size_t i = 0; i < LOOP; ++i) {
+
+            // Memo: 0.15 [ms] 程度
             cog_gen.calcCogListForRun2Step(target_cp, ref_zmp, next_ref_zmp, last_ref_zmp,
                                            landing_counts[cur_idx + 1] - landing_counts[cur_idx],
                                            landing_counts[cur_idx + 2] - landing_counts[cur_idx + 1],
                                            count,
                                            jump_height, jump_height, take_off_z, take_off_z, dt);
+            // }
+            // end = std::chrono::system_clock::now();  // 計測終了時間
+            // double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+            // std::cerr << "time: " << elapsed / LOOP << " [ms]" << std::endl;
         }
 
         cog_gen.getCogFromCogList(count, dt);

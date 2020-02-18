@@ -192,28 +192,55 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         } else if (running_mode == EXTENDED_MATRIX) {
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-                const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+                ref_zmp = support_point;
+                // const double y_offset = 0.015;
+                const double y_offset = 0.0;
+                ref_zmp[1] += (support_point[1] < 0) ? y_offset : -y_offset; // TODO: Body相対か何かを使う
 
                 std::cerr << "cur  cp: " << cog_gen->calcCP().transpose() << std::endl;
                 std::cerr << "diff cp: " << (cog_gen->calcCP() - support_point).transpose() << std::endl;
 
-                ref_zmp = support_point;
-                const double y_offset = 0.015;
-                ref_zmp[1] += (support_point[1] < 0) ? y_offset : -y_offset; // TODO: Body相対か何かを使う
-                hrp::Vector3 next_ref_zmp = landing_point;
-                next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
+                if (cur_const_idx < constraints_list.size() - 4) {
+                    const auto next_landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+                    const auto last_landing_point = constraints_list[cur_const_idx + 4].calcCOPFromConstraints();
 
-                hrp::Vector3 target_cp = landing_point;
-                target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
-                // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
-                // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+                    hrp::Vector3 next_ref_zmp = next_landing_point;
+                    next_ref_zmp[1] += (next_landing_point[1] < 0) ? y_offset : -y_offset;
 
-                // Memo: 0.03608 [ms] 程度
-                cog_gen->calcCogListForRun(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
-                                           default_jump_height, default_take_off_z, dt);
+                    hrp::Vector3 last_ref_zmp = last_landing_point;
+                    last_ref_zmp[1] += (last_landing_point[1] < 0) ? y_offset : -y_offset;
+
+                    hrp::Vector3 target_cp = last_landing_point;
+                    // target_cp[0] += (last_landing_point[0] - next_landing_point[0] > 0) ? 0.1 : 0.0;
+                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
+                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+
+                    const size_t count_to_jump2 = constraints_list[cur_const_idx + 3].start_count - constraints_list[cur_const_idx + 2].start_count;
+
+                    // Memo:  [ms] 程度
+                    cog_gen->calcCogListForRun2Step(target_cp, ref_zmp, next_ref_zmp, last_ref_zmp,
+                                                    count_to_jump, count_to_jump2, cur_count,
+                                                    default_jump_height, default_jump_height,
+                                                    default_take_off_z, default_take_off_z, dt);
+                } else {
+                    const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+
+                    hrp::Vector3 next_ref_zmp = landing_point;
+                    next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
+
+                    hrp::Vector3 target_cp = landing_point;
+                    target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
+                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
+                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+
+                    // Memo: 0.03608 [ms] 程度
+                    cog_gen->calcCogListForRun(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
+                                               default_jump_height, default_take_off_z, dt);
+                }
             }
 
             cog_gen->getCogFromCogList(cur_count, dt);
+            ref_zmp = cog_gen->calcPointMassZMP();
         }
     }
 
@@ -246,12 +273,29 @@ hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, co
     // TODO: これが最速かどうか，やり方を整理する
     Eigen::Vector2d closest_point = ref_cmp.head<2>();
     calcClosestBoundaryPoint(closest_point, convex_hull, closest_verts.first, closest_verts.second);
-
     const double f_z = (z_acc + DEFAULT_GRAVITATIONAL_ACCELERATION) * total_mass;
     std::cerr << "f_z: " << f_z << std::endl;
-    // const double f_z = DEFAULT_GRAVITATIONAL_ACCELERATION * 70; // TODO: tmp
     return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
 }
+
+// hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, const double total_mass, const double z_acc)
+// {
+//     // TODO: 平面仮定してる
+//     std::vector<Eigen::Vector2d> convex_hull = constraints_list[cur_const_idx].calcContactConvexHullForAllConstraints();
+//     const size_t num_verts = convex_hull.size();
+
+//     if (num_verts == 0) return hrp::Vector3::Zero();
+
+//     const Eigen::Vector2d inner_p = (convex_hull[0] + convex_hull[num_verts / 3] + convex_hull[2 * num_verts / 3]) / 3.0;
+//     std::pair<size_t, size_t> closest_verts;
+//     if (isInsideConvexHull(convex_hull, ref_cmp.head<2>(), inner_p, closest_verts.first, closest_verts.second)) return hrp::Vector3::Zero();
+
+//     // TODO: これが最速かどうか，やり方を整理する
+//     Eigen::Vector2d closest_point = ref_cmp.head<2>();
+//     calcClosestBoundaryPoint(closest_point, convex_hull, closest_verts.first, closest_verts.second);
+//     const double f_z = (z_acc + DEFAULT_GRAVITATIONAL_ACCELERATION) * total_mass;
+//     return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
+// }
 
 void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
                                             const size_t cwc_idx_from_current,

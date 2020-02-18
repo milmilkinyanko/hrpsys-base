@@ -106,6 +106,12 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
     bool emergencyStop ();
+    bool setIKJointWeight(const hrp::dvector q_weights)
+    {
+        if (fik->q_ref_constraint_weight.size() != q_weights.size()) return false;
+        fik->q_ref_constraint_weight = q_weights;
+        return true;
+    }
     bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
     bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
     bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, const OpenHRP::AutoBalanceStabilizerService::StepParamSequence& sps, CORBA::Long overwrite_fs_idx);
