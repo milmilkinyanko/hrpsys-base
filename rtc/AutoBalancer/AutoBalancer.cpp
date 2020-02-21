@@ -1545,7 +1545,7 @@ void AutoBalancer::solveFullbodyIK ()
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   ref_cog.head(2) -= sbp_cog_offset.head(2);
 
-  stopFootForEarlyTouchDown();
+  // stopFootForEarlyTouchDown();
 
     std::vector<IKConstraint> ik_tgt_list;
     {
