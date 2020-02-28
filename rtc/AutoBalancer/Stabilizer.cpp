@@ -1394,6 +1394,7 @@ void Stabilizer::calcStateForEmergencySignal()
       szd->get_margined_vertices(margined_support_polygon_vetices);
       szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
       is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+      is_emergency_motion = is_cp_outside;
       // start emregency stepping
       szd->get_vertices(support_polygon_vetices);
       szd->calc_convex_hull(support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
