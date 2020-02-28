@@ -390,6 +390,9 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
             std::cerr << "[" << m_profile.instance_name << "] [" << m_qRef.tm
                       << "] emergencyTouchWall is set!" << std::endl;
             break;
+          case 3:
+            // emergencyFallMotion is set at the same time
+            break;
           default:
             break;
           }

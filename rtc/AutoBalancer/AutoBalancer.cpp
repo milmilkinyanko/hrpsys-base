@@ -651,6 +651,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         is_stop_mode = true;
         m_emergencyFallMotion.data = true;
         m_emergencyFallMotionOut.write();
+        m_emergencySignal.data = 3;
+        m_emergencySignalOut.write();
         gg->finalize_velocity_mode2();
         stopABCparamEmergency();
         st->stopSTEmergency();
