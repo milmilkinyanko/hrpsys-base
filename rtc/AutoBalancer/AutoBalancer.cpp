@@ -2061,8 +2061,10 @@ bool AutoBalancer::emergencyStop ()
 {
   std::cerr << "[" << m_profile.instance_name << "] emergencyStop" << std::endl;
   // is_stop_mode = true;
-  gg->emergency_stop();
-  waitFootSteps();
+  // gg->emergency_stop();
+  // waitFootSteps();
+  m_emergencySignal.data = 1;
+  m_emergencySignalOut.write();
   return true;
 }
 
