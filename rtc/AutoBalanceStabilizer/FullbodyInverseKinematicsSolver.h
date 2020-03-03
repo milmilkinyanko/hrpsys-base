@@ -2,6 +2,7 @@
 #define FULLBODYIK_H
 
 #include <iomanip>
+#include <cmath>
 #include <limits>
 #include <cfloat>
 #include <array>
@@ -277,7 +278,7 @@ class FullbodyInverseKinematicsSolver
                 jlim_avoid_weight = std::numeric_limits<double>::max();
             } else {
                 jlim_avoid_weight = std::fabs((pow(jmax - jmin, 2) * (2 * jang - jmax - jmin)) / (4 * pow(jmax - jang, 2) * pow(jang - jmin, 2)));
-                if (isnan(jlim_avoid_weight)) jlim_avoid_weight = 0;
+                if (std::isnan(jlim_avoid_weight)) jlim_avoid_weight = 0;
             }
 
             if ((jlim_avoid_weight - prev_jlim_avoid_weight(j)) >= 0) { // add weight only if q approaching to the limit

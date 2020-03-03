@@ -10,6 +10,8 @@
 #include <boost/make_shared.hpp>
 #include <hrpModel/ModelLoaderUtil.h>
 #include <hrpModel/Sensor.h>
+#include "interpolator.h"
+#include "../TorqueFilter/IIRFilter.h"
 #include "EigenUtil.h"
 #include "AutoBalanceStabilizer.h"
 
@@ -214,7 +216,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     // }
 
     transition_interpolator = std::make_unique<interpolator>(1, m_dt, interpolator::HOFFARBIB, 1);
-    transition_interpolator->setName(std::string(m_profile.instance_name)+" transition_interpolator");
+    transition_interpolator->setName(std::string(m_profile.instance_name) + " transition_interpolator");
 
     // load virtual force sensors
     readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
@@ -902,23 +904,35 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     const size_t num_constraints = constraints.size();
     ik_constraints.resize(num_constraints + 2); // LinkConstraints + Body + COM constraint
 
-    // Joint
-    // fik->q_ref_constraint_weight.setConstant(1e-8);
-    // fik->q_ref_constraint_weight.setConstant(2e-6);
-    // fik->q_ref_constraint_weight.setConstant(2e-3);
-    // fik->q_ref_constraint_weight.setConstant(0);
-    // fik->q_ref_constraint_weight.setConstant(10);
+    q_weights_interpolator = std::make_unique<interpolator>(_robot->numJoints(), m_dt, interpolator::CUBICSPLINE);
+    q_weights_interpolator->setName(std::string(m_profile.instance_name) + " q_weights_interpolator");
 
-    hrp::dvector q_weights(_robot->numJoints());
+    momentum_weights_interpolator = std::make_unique<interpolator>(3, m_dt, interpolator::CUBICSPLINE);
+    momentum_weights_interpolator->setName(std::string(m_profile.instance_name) + " momentum_weights_interpolator");
+
+    // Joint
+    default_q_weights.resize(_robot->numJoints());
+    flywheel_q_weights.resize(_robot->numJoints());
     constexpr double W = 2e-6; // default q weight
-    q_weights <<
+    default_q_weights <<
         1e-3, 1e-3, 1e-3, // chest
         W, W,    // HEAD
         1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // LARM
         1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // RARM
         W, W, W, W, W, W, // LLEG
         W, W, W, W, W, W; // RLEG
-    fik->q_ref_constraint_weight = q_weights;
+
+    flywheel_q_weights <<
+        W, W, W, // chest
+        W, W,    // HEAD
+        0, 0, 0, 0, 0, 0, 0, // LARM
+        0, 0, 0, 0, 0, 0, 0, // RARM
+        W, W, W, W, W, W, // LLEG
+        W, W, W, W, W, W; // RLEG
+
+    q_weights_interpolator->set(default_q_weights.data());
+    flywheel_q_weights = default_q_weights;
+    fik->q_ref_constraint_weight = default_q_weights;
 
     size_t i;
     for (i = 0; i < num_constraints; ++i) {
@@ -944,16 +958,20 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
 
     // COM
     ik_constraints[i].target_link_name = "COM";
-    hrp::dvector6 com_weight;
     // com_weight << 1, 1, 1e-1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1, 1, 1e-1, 1e-3, 1e-3, 1e-4;
-    com_weight << 1, 1, 1, 1, 1, 1e-2;
     // com_weight << 1, 1, 1, 1e-2, 1e-2, 1e-4;
     // com_weight << 1, 1, 1e-1, 0, 0, 0;
     // com_weight << 1e-1, 1e-1, 1e-2, 0, 0, 0;
     // com_weight << 1e-3, 1e-3, 1e-4, 0, 0, 0;
-    ik_constraints[i].constraint_weight = com_weight;
+    // default_momentum_weights = hrp::Vector3(1e-6, 1e-6, 1e-2);
+    default_momentum_weights = hrp::Vector3(1, 1, 1e-2);
+    flywheel_momentum_weights = hrp::Vector3(1, 1, 1e-2);
+    momentum_weights_interpolator->set(default_momentum_weights.data());
+    const hrp::Vector3 com_weight = hrp::Vector3::Ones();
+    ik_constraints[i].constraint_weight.head<3>() = com_weight;
+    ik_constraints[i].constraint_weight.tail<3>() = default_momentum_weights;
 }
 
 void AutoBalanceStabilizer::setIKConstraintsTarget()
@@ -979,13 +997,32 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     ik_constraints[i].targetOmega = hrp::omegaFromRot(gg->rootRot());
     ++i;
 
-    // COM
+    // Momentum
+    constexpr double INTERPOLATE_TIME = 0.2; // [s]
     static hrp::Vector3 hoge = hrp::Vector3::Zero();
-    if (gg->getCogMoment().squaredNorm() < 1e-6) ref_angular_momentum.setZero();
-    else {
+    if (gg->getCogMoment().squaredNorm() < 1e-6) {
+        ref_angular_momentum.setZero();
+
+        // if (interpolating_to_flywheel) {
+        //     interpolating_to_flywheel = false;
+        //     q_weights_interpolator->setGoal(default_q_weights.data(), nullptr, INTERPOLATE_TIME, true);
+        //     momentum_weights_interpolator->setGoal(default_momentum_weights.data(), nullptr, INTERPOLATE_TIME, true);
+        // }
+    } else {
         ref_angular_momentum = hoge + gg->getCogMoment() * m_dt;
         ref_angular_momentum[2] = 0; // tmp
+
+        // if (!interpolating_to_flywheel) {
+        //     interpolating_to_flywheel = true;
+        //     q_weights_interpolator->setGoal(flywheel_q_weights.data(), nullptr, INTERPOLATE_TIME, true);
+        //     momentum_weights_interpolator->setGoal(flywheel_momentum_weights.data(), nullptr, INTERPOLATE_TIME, true);
+        // }
     }
+
+    q_weights_interpolator->get(fik->q_ref_constraint_weight.data(), true);
+    momentum_weights_interpolator->get(ik_constraints[i].constraint_weight.tail<3>().data(), true);
+
+    // COM
     ik_constraints[i].targetPos = gg->getCog();
     ik_constraints[i].targetOmega = ref_angular_momentum;
     hoge = hoge * 0.85 + ref_angular_momentum * 0.15;

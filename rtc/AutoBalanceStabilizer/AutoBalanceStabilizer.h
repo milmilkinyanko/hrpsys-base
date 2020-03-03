@@ -28,8 +28,6 @@
 #include <hrpModel/Link.h>
 #include <hrpModel/Body.h>
 
-#include "interpolator.h"
-#include "../TorqueFilter/IIRFilter.h"
 #include "Utility.h"
 #include "FullbodyInverseKinematicsSolver.h"
 #include "GaitGenerator.h"
@@ -46,6 +44,9 @@
 // </rtc-template>
 
 using namespace RTC;
+
+class interpolator;
+class IIRFilter;
 
 class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 {
@@ -244,6 +245,16 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     size_t max_ik_iteration = 5;
     std::vector<hrp::IKConstraint> ik_constraints;
     std::unique_ptr<hrp::FullbodyInverseKinematicsSolver> fik;
+
+    bool interpolating_to_flywheel = false;
+    hrp::dvector default_q_weights;
+    hrp::dvector flywheel_q_weights;
+    std::unique_ptr<interpolator> q_weights_interpolator;
+
+    hrp::Vector3 default_momentum_weights;
+    hrp::Vector3 flywheel_momentum_weights;
+    std::unique_ptr<interpolator> momentum_weights_interpolator;
+
 
     inline bool DEBUGP() { return (m_debugLevel == 1 && loop % 200 == 0) || m_debugLevel > 1; }
     bool loadModel(hrp::BodyPtr body, const string& model_path);
