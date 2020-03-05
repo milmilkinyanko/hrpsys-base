@@ -23,10 +23,10 @@ add_library(StateEstimator SHARED StateEstimator.cpp)
 target_link_libraries(StateEstimator PRIVATE ${libs} LinkConstraint)
 
 add_library(GaitGenerator SHARED GaitGenerator.cpp RefZMPGenerator.cpp LimbTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
-target_link_libraries(GaitGenerator PRIVATE ${libs} LinkConstraint)
+target_link_libraries(GaitGenerator PRIVATE ${libs} EigenUtil LinkConstraint)
 
 add_library(Stabilizer SHARED Integrator.cpp TwoDofController.cpp Stabilizer.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp)
-target_link_libraries(Stabilizer PRIVATE ${libs})
+target_link_libraries(Stabilizer PRIVATE ${libs} EigenUtil)
 
 add_executable(AutoBalanceStabilizerComp AutoBalanceStabilizerComp.cpp ${comp_sources})
 target_link_libraries(AutoBalanceStabilizerComp PRIVATE ${abst_libs} ${libs})

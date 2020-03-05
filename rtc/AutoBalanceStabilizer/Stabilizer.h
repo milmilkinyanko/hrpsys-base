@@ -115,6 +115,27 @@ class Stabilizer
         ikp.sensor_name = sensor_name;
         ikp.localp = localp;
         ikp.localR = localR;
+
+        if (ee_name.find("leg") == std::string::npos) { // Arm default
+            ikp.eefm_ee_forcemoment_distribution_weight = hrp::dvector6::Zero();
+        } else { // Leg default
+            for (size_t i = 0; i < 3; i++) {
+                ikp.eefm_ee_forcemoment_distribution_weight[i]     = 1.0; // Force
+                ikp.eefm_ee_forcemoment_distribution_weight[i + 3] = 1e-2; // Moment
+            }
+        }
+
+        for (hrp::Link* root = m_robot->link(ikp.target_name);
+             !root->isRoot();
+             root = root->parent) {
+            ikp.max_limb_length += root->b.norm();
+            ikp.parent_name = root->name;
+        }
+
+        // Set low pass filter (50 [Hz])
+        ikp.target_ee_diff_p_filter = std::make_shared<FirstOrderLowPassFilter<hrp::Vector3>>(50.0, dt, hrp::Vector3::Zero());
+        ikp.target_ee_diff_r_filter = std::make_shared<FirstOrderLowPassFilter<hrp::Vector3>>(50.0, dt, hrp::Vector3::Zero());
+
         stikp.push_back(ikp);
     }
 
@@ -139,55 +160,58 @@ class Stabilizer
 
     // Stabilizer Parameters
     struct STIKParam {
-        STIKParam()
-            : eefm_rot_damping_gain(hrp::Vector3(20*5, 20*5, 1e5)),
-              eefm_rot_time_const(hrp::Vector3(1.5, 1.5, 1.5)),
-              eefm_rot_compensation_limit(0.17453), // 10 [deg]
-              eefm_swing_rot_spring_gain(hrp::Vector3(0.0, 0.0, 0.0)),
-              eefm_swing_rot_time_const(hrp::Vector3(1.5, 1.5, 1.5)),
-              eefm_pos_damping_gain(hrp::Vector3(3500*10, 3500*10, 3500)),
-              eefm_pos_time_const_support(hrp::Vector3(1.5, 1.5, 1.5)),
-              eefm_pos_compensation_limit(0.025),
-              eefm_swing_pos_spring_gain(hrp::Vector3(0.0, 0.0, 0.0)),
-              eefm_swing_pos_time_const(hrp::Vector3(1.5, 1.5, 1.5)),
-              eefm_ee_moment_limit(hrp::Vector3(1e4, 1e4, 1e4)), // Default limit [Nm] is too large. Same as no limit.
-              support_time(0.0),
-              // For swing end-effector modification
-              target_ee_diff_p(hrp::Vector3::Zero()),
-              target_ee_diff_r(hrp::Matrix33::Identity()),
-              d_rpy_swing(hrp::Vector3::Zero()),
-              d_pos_swing(hrp::Vector3::Zero()),
-              prev_d_pos_swing(hrp::Vector3::Zero()),
-              prev_d_rpy_swing(hrp::Vector3::Zero()),
-              // IK param
-              avoid_gain(0.001),
-              reference_gain(0.01),
-              max_limb_length(0.0),
-              limb_length_margin(0.13),
-              ik_loop_count(3)
-        {}
         std::string ee_name; // Name of ee (e.g., rleg, lleg, ...)
         std::string target_name; // Name of end link
         std::string ee_base; // temporary
         std::string sensor_name; // Name of force sensor in the limb
         std::string parent_name; // Name of parent ling in the limb
-        hrp::Vector3 localp; // Position of ee in end link frame (^{l}p_e = R_l^T (p_e - p_l))
-        hrp::Vector3 localCOPPos = hrp::Vector3::Zero(); // Position offset of reference COP in end link frame (^{l}p_{cop} = R_l^T (p_{cop} - p_l) - ^{l}p_e)
-        hrp::Matrix33 localR; // Rotation of ee in end link frame (^{l}R_e = R_l^T R_e)
+
+        hrp::Vector3  localp      = hrp::Vector3::Zero(); // Position of ee in end link frame (^{l}p_e = R_l^T (p_e - p_l))
+        hrp::Vector3  localCOPPos = hrp::Vector3::Zero(); // Position offset of reference COP in end link frame (^{l}p_{cop} = R_l^T (p_{cop} - p_l) - ^{l}p_e)
+        hrp::Matrix33 localR      = hrp::Matrix33::Identity(); // Rotation of ee in end link frame (^{l}R_e = R_l^T R_e)
+
         // For eefm
-        hrp::Vector3 d_foot_pos, ee_d_foot_pos, d_foot_rpy, ee_d_foot_rpy;
-        hrp::Vector3 eefm_pos_damping_gain, eefm_pos_time_const_support, eefm_rot_damping_gain, eefm_rot_time_const, eefm_swing_rot_spring_gain, eefm_swing_pos_spring_gain, eefm_swing_rot_time_const, eefm_swing_pos_time_const, eefm_ee_moment_limit;
-        double eefm_pos_compensation_limit, eefm_rot_compensation_limit;
-        hrp::Vector3 ref_force, ref_moment;
-        hrp::dvector6 eefm_ee_forcemoment_distribution_weight;
-        double swing_support_gain, support_time;
+        hrp::Vector3 d_foot_pos                  = hrp::Vector3::Zero();
+        hrp::Vector3 ee_d_foot_pos               = hrp::Vector3::Zero();
+        hrp::Vector3 eefm_pos_damping_gain       = hrp::Vector3(3500*10, 3500*10, 3500);
+        hrp::Vector3 eefm_pos_time_const_support = hrp::Vector3(1.5, 1.5, 1.5);
+        hrp::Vector3 eefm_swing_pos_spring_gain  = hrp::Vector3(0.0, 0.0, 0.0);
+        hrp::Vector3 eefm_swing_pos_time_const   = hrp::Vector3(1.5, 1.5, 1.5);
+        double       eefm_pos_compensation_limit = 0.025;
+
+        hrp::Vector3 d_foot_rpy                  = hrp::Vector3::Zero();
+        hrp::Vector3 ee_d_foot_rpy               = hrp::Vector3::Zero();
+        hrp::Vector3 eefm_rot_damping_gain       = hrp::Vector3(20*5, 20*5, 1e5);
+        hrp::Vector3 eefm_rot_time_const         = hrp::Vector3(1.5, 1.5, 1.5);
+        hrp::Vector3 eefm_swing_rot_spring_gain  = hrp::Vector3(0.0, 0.0, 0.0);
+        hrp::Vector3 eefm_swing_rot_time_const   = hrp::Vector3(1.5, 1.5, 1.5);
+        hrp::Vector3 eefm_ee_moment_limit        = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
+        double       eefm_rot_compensation_limit = rad2deg(10);
+
+        hrp::dvector6 eefm_ee_forcemoment_distribution_weight = hrp::dvector6::Zero();
+
+        hrp::Vector3 ref_force  = hrp::Vector3::Zero();
+        hrp::Vector3 ref_moment = hrp::Vector3::Zero();
+        double swing_support_gain = 1.0;
+        double support_time = 0.0;
+
         // For swing ee modification
-        std::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3>> target_ee_diff_p_filter, target_ee_diff_r_filter; // TODO: unique?
-        hrp::Vector3 target_ee_diff_p, d_pos_swing, d_rpy_swing, prev_d_pos_swing, prev_d_rpy_swing;
-        hrp::Matrix33 target_ee_diff_r;
+        hrp::Vector3  target_ee_diff_p = hrp::Vector3::Zero();
+        hrp::Matrix33 target_ee_diff_r = hrp::Matrix33::Identity();
+        hrp::Vector3  d_pos_swing      = hrp::Vector3::Zero();
+        hrp::Vector3  prev_d_pos_swing = hrp::Vector3::Zero();
+        hrp::Vector3  d_rpy_swing      = hrp::Vector3::Zero();
+        hrp::Vector3  prev_d_rpy_swing = hrp::Vector3::Zero();
+        // TODO: unique?
+        std::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3>> target_ee_diff_p_filter;
+        std::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3>> target_ee_diff_r_filter;
+
         // IK parameter
-        double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
-        size_t ik_loop_count;
+        double avoid_gain         = 0.001;
+        double reference_gain     = 0.01;
+        double max_limb_length    = 0.0;
+        double limb_length_margin = 0.13;
+        size_t ik_loop_count      = 3;
     };
 
     enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
@@ -197,40 +221,81 @@ class Stabilizer
     const std::string comp_name;
     const double dt;
     unsigned int loop = 0;
-    double gravitational_acceleration = 9.80665; // [m/s^2]
+    double g_acc = 9.80665; // [m/s^2]
     double total_mass;
 
+    // Port data for AutoBalanceStabilizer
+    int emergency_signal = 0;
+    hrp::Vector3 diff_foot_origin_ext_moment = hrp::Vector3::Zero();
+
     // TODO: 整理
-    int transition_count;
+    int transition_count = 0;
     double transition_time = 2.0;
+    hrp::dvector transition_joint_q, qorg, qrefv;
     // std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
     std::vector<std::shared_ptr<hrp::JointPathEx>> jpe_v;
-    hrp::dvector transition_joint_q, qorg, qrefv;
     std::vector<STIKParam> stikp;
     std::map<std::string, size_t> contact_states_index_map;
-    std::vector<bool> ref_contact_states, prev_ref_contact_states, act_contact_states, is_ik_enable, is_feedback_control_enable, is_zmp_calc_enable;
+    std::vector<bool> ref_contact_states, prev_ref_contact_states, act_contact_states;
+    std::vector<bool> is_ik_enable, is_feedback_control_enable, is_zmp_calc_enable;
     std::vector<double> toe_heel_ratio; // TODO: delete
-    int m_is_falling_counter;
+    int m_is_falling_counter = 0;
     std::vector<int> m_will_fall_counter;
     size_t is_air_counter = 0;
     size_t detection_count_to_mode_air = 0;
-    bool is_legged_robot, on_ground, is_seq_interpolating, initial_cp_too_large_error, use_limb_stretch_avoidance, use_zmp_truncation;
-    bool is_walking, is_estop_while_walking;
-    hrp::Vector3 current_root_p, target_root_p;
+
+    bool is_legged_robot = false;
+    bool on_ground = false;
+    bool is_seq_interpolating = false; // TODO
+    bool initial_cp_too_large_error = true;
+    bool use_limb_stretch_avoidance = false;
+    bool use_zmp_truncation = false;
+    bool is_walking = false;
+    bool is_estop_while_walking = false;
+
+    hrp::Vector3 current_root_p = hrp::Vector3::Zero();
+    hrp::Vector3 target_root_p  = hrp::Vector3::Zero();
     hrp::Matrix33 current_root_R, target_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot, act_Rs;
     std::vector <hrp::Vector3> target_ee_p, rel_ee_pos, act_ee_p, projected_normal, act_force, ref_force, ref_moment;
     std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R;
     std::vector<std::string> rel_ee_name;
     rats::coordinates target_foot_midcoords;
-    hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
-    hrp::Vector3 act_zmp, act_cog, act_cogvel, act_cp, rel_act_zmp, rel_act_cp, prev_act_cog, act_base_rpy, current_base_rpy, current_base_pos, sbp_cog_offset, cp_offset, diff_cp;
-    hrp::Vector3 foot_origin_offset[2]; // TODO: delete
+
+    hrp::Vector3 ref_zmp      = hrp::Vector3::Zero();
+    hrp::Vector3 prev_ref_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 act_zmp      = hrp::Vector3::Zero();
+    hrp::Vector3 rel_act_zmp  = hrp::Vector3::Zero();
+
+    hrp::Vector3 ref_cog      = hrp::Vector3::Zero();
+    hrp::Vector3 prev_ref_cog = hrp::Vector3::Zero();
+    hrp::Vector3 act_cog      = hrp::Vector3::Zero();
+    hrp::Vector3 prev_act_cog = hrp::Vector3::Zero();
+
+    hrp::Vector3 ref_cogvel = hrp::Vector3::Zero();
+    hrp::Vector3 act_cogvel = hrp::Vector3::Zero();
+
+    hrp::Vector3 ref_cp     = hrp::Vector3::Zero();
+    hrp::Vector3 rel_ref_cp = hrp::Vector3::Zero();
+    hrp::Vector3 act_cp     = hrp::Vector3::Zero();
+    hrp::Vector3 rel_act_cp = hrp::Vector3::Zero();
+    hrp::Vector3 cp_offset  = hrp::Vector3::Zero();
+
+    hrp::Vector3 act_base_rpy = hrp::Vector3::Zero();
+    hrp::Vector3 sbp_cog_offset = hrp::Vector3::Zero();
+
+    std::array<hrp::Vector3, 2> foot_origin_offset{{hrp::Vector3::Zero(), hrp::Vector3::Zero()}}; // TODO: delete
     std::vector<double> prev_act_force_z;
-    double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
+    double zmp_origin_off;
+    double transition_smooth_gain;
+    double d_pos_z_root;
+    double limb_stretch_avoidance_time_const = 1.5;
+    std::array<double, 2> limb_stretch_avoidance_vlimit; // TODO: 2脚のみ
+    std::array<double, 2> root_rot_compensation_limit{{deg2rad(90.0), deg2rad(90.0)}};
     std::unique_ptr<FirstOrderLowPassFilter<hrp::Vector3>> act_cogvel_filter;
+    // TODO: Paramという構造体にまとめて、Serviceはここに含めない
     OpenHRP::AutoBalanceStabilizerService::STAlgorithm st_algorithm = OpenHRP::AutoBalanceStabilizerService::EEFM;
     std::unique_ptr<SimpleZMPDistributor> szd;
-    std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
+    std::vector<std::vector<Eigen::Vector2d>> support_polygon_vertices, margined_support_polygon_vertices;
     std::vector<hrp::Vector3> contact_cop_info;
     std::vector<hrp::dvector6> wrenches;
     std::vector<double> control_swing_support_time;
@@ -263,22 +328,25 @@ class Stabilizer
     std::vector<double> eefm_swing_damping_force_thre{3, 300};
     std::vector<double> eefm_swing_damping_moment_thre{3, 15};
 
-    hrp::Vector3 new_refzmp, rel_cog, ref_zmp_aux, diff_foot_origin_ext_moment;
-    hrp::Vector3 pos_ctrl;
-    hrp::Vector3 ref_total_force, ref_total_moment;
+    hrp::Vector3 new_refzmp = hrp::Vector3::Zero();
+    hrp::Vector3 rel_cog = hrp::Vector3::Zero();
+    hrp::Vector3 ref_zmp_aux = hrp::Vector3::Zero();
+
+    hrp::Vector3 pos_ctrl = hrp::Vector3::Zero();
+    hrp::Vector3 ref_total_force = hrp::Vector3::Zero();
+    hrp::Vector3 ref_total_moment = hrp::Vector3::Zero();
 
     // Total foot moment around the foot origin coords (relative to foot origin coords)
     hrp::Vector3 ref_total_foot_origin_moment, act_total_foot_origin_moment;
     double cop_check_margin = 20.0 * 1e-3; // [m]
-    double contact_decision_threshold;
+    double contact_decision_threshold = 50; // [N]
     std::vector<double> cp_check_margin{4, 30 * 1e-3}; // [m]
     std::vector<double> tilt_margin{2, hrp::deg2rad(30)};
 
     // Emergency
-    bool is_emergency;
-    bool reset_emergency_flag;
-    bool whether_send_emergency_signal; // temporary variable to send emergency signal
-    int emergency_signal;
+    bool is_emergency = false;
+    bool reset_emergency_flag = false;
+    bool whether_send_emergency_signal = false; // temporary variable to send emergency signal
     OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode = OpenHRP::AutoBalanceStabilizerService::NO_CHECK;
 };
 

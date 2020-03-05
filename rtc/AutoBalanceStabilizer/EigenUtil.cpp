@@ -19,4 +19,12 @@ Eigen::Matrix3d slerpMat(const Eigen::Ref<Eigen::Matrix3d>& start,
     return start_quat.slerp(ratio, goal_quat).toRotationMatrix();
 }
 
+Eigen::Matrix3d normalizeMatProduct(const Eigen::Matrix3d& m1, const Eigen::Matrix3d& m2)
+{
+    const Eigen::Quaternion<double> q1(m1);
+    const Eigen::Quaternion<double> q2(m2);
+    const Eigen::Quaternion<double> q3 = (q1 * q2).normalized();
+    return q3.toRotationMatrix();
+}
+
 }

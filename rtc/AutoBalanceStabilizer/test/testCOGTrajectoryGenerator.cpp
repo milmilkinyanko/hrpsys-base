@@ -10,6 +10,8 @@
 #include <fstream>
 #include "../COGTrajectoryGenerator.h"
 
+#include <hrpUtil/MatrixSolvers.h> // Debug
+
 #include <chrono>
 
 namespace
@@ -299,6 +301,37 @@ void testExtendedMatrixRunning()
     }
 }
 
+// Debug
+void testPseudoInverse()
+{
+    Eigen::MatrixXd A(3, 2);
+    // A << 2, 1,
+    //     3, 5,
+    //     -1, 3;
+    A << 2, 1,
+        3, 1.5,
+        -1, -0.5;
+    Eigen::Vector3d b;
+    b << 3, 7, 1;
+
+    Eigen::MatrixXd A_inv = Eigen::MatrixXd::Zero(A.cols(), A.rows());
+    hrp::calcPseudoInverse(A, A_inv);
+    std::cerr << "A_inv:\n" << A_inv << std::endl;
+    const Eigen::Vector2d x_pseudo = A_inv * b;
+    const Eigen::Vector2d x_pivqr = A.fullPivHouseholderQr().solve(b);
+    const Eigen::Vector2d x_qr = A.householderQr().solve(b);
+    const Eigen::Vector2d x_pivlu = A.fullPivLu().solve(b);
+    const Eigen::Vector2d x_jacobi = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+    const Eigen::Vector2d x_bdc = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+    std::cerr << "x_pseudo:\n" << x_pseudo << std::endl << std::endl;
+    std::cerr << "x_pivqr:\n" << x_pivqr << std::endl << std::endl;
+    std::cerr << "x_qr:\n" << x_qr << std::endl << std::endl;
+    std::cerr << "x_pivlu:\n" << x_pivlu << std::endl << std::endl;
+    std::cerr << "x_jacobi:\n" << x_jacobi << std::endl << std::endl;
+    std::cerr << "x_bdc:\n" << x_bdc << std::endl << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     std::vector<std::string> arg_strs;
@@ -316,42 +349,43 @@ int main(int argc, char **argv)
 
     // testPreviewController(cog_list, time_list);
     // testFootGuidedRunning();
-    testExtendedMatrixRunning();
+    // testExtendedMatrixRunning();
+    testPseudoInverse();
 
-    const std::string fname("/tmp/testCOGTrajectoryGenerator.dat");
-    std::ofstream ofs(fname);
+    // const std::string fname("/tmp/testCOGTrajectoryGenerator.dat");
+    // std::ofstream ofs(fname);
 
-    for (size_t i = 0; i < cog_list.size(); ++i) {
-        ofs << time_list[i] << " "
-            << cog_list[i][0] << " " << cog_list[i][1] << " " << cog_list[i][2] << " "
-            << cogvel_list[i][0] << " " << cogvel_list[i][1] << " " << cogvel_list[i][2] << " "
-            << cogacc_list[i][0] << " " << cogacc_list[i][1] << " " << cogacc_list[i][2] << " "
-            << std::endl;
-    }
+    // for (size_t i = 0; i < cog_list.size(); ++i) {
+    //     ofs << time_list[i] << " "
+    //         << cog_list[i][0] << " " << cog_list[i][1] << " " << cog_list[i][2] << " "
+    //         << cogvel_list[i][0] << " " << cogvel_list[i][1] << " " << cogvel_list[i][2] << " "
+    //         << cogacc_list[i][0] << " " << cogacc_list[i][1] << " " << cogacc_list[i][2] << " "
+    //         << std::endl;
+    // }
 
-    ofs.close();
+    // ofs.close();
 
-    if (use_gnuplot) {
-        FILE* gp;
-        gp = popen("gnuplot", "w");
+    // if (use_gnuplot) {
+    //     FILE* gp;
+    //     gp = popen("gnuplot", "w");
 
-        fprintf(gp, "set multiplot layout 3, 1\n");
-        fprintf(gp, "set xlabel \"time [s]\"\n");
-        fprintf(gp, "set ylabel \"COG [m]\"\n");
-        fprintf(gp, "set title \"COG X\"\n");
-        fprintf(gp, "plot \"%s\" using 1:2 with lines title \"Cog X\"\n", fname.c_str());
-        fprintf(gp, "set title \"COG Y\"\n");
-        fprintf(gp, "plot \"%s\" using 1:3 with lines title \"Cog Y\"\n", fname.c_str());
-        fprintf(gp, "set title \"COG Z\"\n");
-        fprintf(gp, "plot \"%s\" using 1:4 with lines title \"Cog Z\"\n", fname.c_str());
-        fprintf(gp, "unset multiplot\n");
-        fflush(gp);
+    //     fprintf(gp, "set multiplot layout 3, 1\n");
+    //     fprintf(gp, "set xlabel \"time [s]\"\n");
+    //     fprintf(gp, "set ylabel \"COG [m]\"\n");
+    //     fprintf(gp, "set title \"COG X\"\n");
+    //     fprintf(gp, "plot \"%s\" using 1:2 with lines title \"Cog X\"\n", fname.c_str());
+    //     fprintf(gp, "set title \"COG Y\"\n");
+    //     fprintf(gp, "plot \"%s\" using 1:3 with lines title \"Cog Y\"\n", fname.c_str());
+    //     fprintf(gp, "set title \"COG Z\"\n");
+    //     fprintf(gp, "plot \"%s\" using 1:4 with lines title \"Cog Z\"\n", fname.c_str());
+    //     fprintf(gp, "unset multiplot\n");
+    //     fflush(gp);
 
-        std::cerr << "Type some character to finish this test: " << std::flush;
-        double tmp;
-        std::cin >> tmp;
-        pclose(gp);
-    }
+    //     std::cerr << "Type some character to finish this test: " << std::flush;
+    //     double tmp;
+    //     std::cin >> tmp;
+    //     pclose(gp);
+    // }
 
     return 0;
 }

@@ -40,6 +40,9 @@ Eigen::Matrix3d slerpMat(const Eigen::Ref<Eigen::Matrix3d>& start,
                          const Eigen::Ref<Eigen::Matrix3d>& goal,
                          const double ratio);
 
+// matrix product using quaternion normalization
+Eigen::Matrix3d normalizeMatProduct(const Eigen::Matrix3d& m1, const Eigen::Matrix3d& m2);
+
 }
 
 #endif // EIGENUTIL_H

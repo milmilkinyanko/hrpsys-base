@@ -1,6 +1,7 @@
 /* -*- coding:utf-8-unix; mode:c++; -*- */
 
 #include "ZMPDistributor.h"
+#include <hrpUtil/Eigen3d.h>
 /* samples */
 #include <stdio.h>
 #include <cstdio>
@@ -12,7 +13,7 @@ class testZMPDistributor
 protected:
     double dt; // [s]
     double total_fz; // [N]
-    SimpleZMPDistributor* szd;
+    hrp::SimpleZMPDistributor* szd;
     bool use_gnuplot;
     enum {EEFM, EEFMQP, EEFMQP2, EEFMQPCOP, EEFMQPCOP2} distribution_algorithm;
     size_t sleep_msec;
@@ -192,7 +193,7 @@ public:
     std::vector<std::string> arg_strs;
     testZMPDistributor(const double _dt) : dt(_dt), distribution_algorithm(EEFMQP), use_gnuplot(true), sleep_msec(100)
     {
-        szd = new SimpleZMPDistributor(_dt);
+        szd = new hrp::SimpleZMPDistributor(_dt);
     };
     virtual ~testZMPDistributor()
     {

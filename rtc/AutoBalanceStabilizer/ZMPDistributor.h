@@ -13,25 +13,21 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
-#include <hrpModel/Body.h>
-#include "../ImpedanceController/JointPathEx.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include <hrpUtil/MatrixSolvers.h>
+#include <hrpUtil/EigenTypes.h>
 
 #ifdef USE_QPOASES
 #include <qpOASES.hpp>
 using namespace qpOASES;
 #endif
 
+namespace hrp {
+
 class FootSupportPolygon
 {
-    std::vector<std::vector<Eigen::Vector2d> > foot_vertices; // RLEG, LLEG
+    std::vector<std::vector<Eigen::Vector2d>> foot_vertices; // RLEG, LLEG
 public:
-    FootSupportPolygon () {};
-    bool inside_foot (size_t idx)
-    {
-        return true;
-    };
     Eigen::Vector2d get_foot_vertex (const size_t foot_idx, const size_t vtx_idx)
     {
         return foot_vertices[foot_idx][vtx_idx];
@@ -48,11 +44,9 @@ public:
             }
             std::cerr << ((i==foot_vertices.size()-1)?"[m]":"[m], ");
         }
-        std::cerr << std::endl;;
+        std::cerr << std::endl;
     }
 };
-
-//
 
 class SimpleZMPDistributor
 {
@@ -757,15 +751,13 @@ public:
 
     // Solve A * x = b => x = W A^T (A W A^T)-1 b
     // => x = W^{1/2} Pinv(A W^{1/2}) b
-    void calcWeightedLinearEquation(hrp::dvector& ret, const hrp::dmatrix& A, const hrp::dmatrix& W, const hrp::dvector& b)
+    void calcWeightedLinearEquation(hrp::dvector& ret, const hrp::dmatrix& A, const hrp::dvector& W, const hrp::dvector& b)
     {
-        hrp::dmatrix W2 = hrp::dmatrix::Zero(W.rows(), W.cols());
-        for (size_t i = 0; i < W.rows(); i++) W2(i,i) = std::sqrt(W(i,i));
-        hrp::dmatrix Aw = A*W2;
+        hrp::dvector W_sqrt = W.cwiseSqrt();
+        hrp::dmatrix Aw = A * W_sqrt.asDiagonal();
         hrp::dmatrix Aw_inv = hrp::dmatrix::Zero(A.cols(), A.rows());
         hrp::calcPseudoInverse(Aw, Aw_inv);
-        ret = W2 * Aw_inv * b;
-        //ret = W2 * Aw.colPivHouseholderQr().solve(b);
+        ret = W_sqrt.asDiagonal() * Aw_inv * b;
     };
 
     void distributeZMPToForceMomentsPseudoInverse (std::vector<hrp::Vector3>& ref_foot_force, std::vector<hrp::Vector3>& ref_foot_moment,
@@ -796,7 +788,7 @@ public:
         {
             size_t total_wrench_dim = 5;
             //size_t total_wrench_dim = 3;
-            hrp::dmatrix Wmat = hrp::dmatrix::Identity(state_dim/2, state_dim/2);
+            hrp::dvector Wvec = hrp::dvector::Ones(state_dim/2);
             hrp::dmatrix Gmat = hrp::dmatrix::Zero(total_wrench_dim, state_dim/2);
             for (size_t j = 0; j < ee_num; j++) {
                 if (total_wrench_dim == 3) {
@@ -818,17 +810,15 @@ public:
             }
             for (size_t j = 0; j < ee_num; j++) {
                 for (size_t i = 0; i < 3; i++) {
-                    if (i != 2 && ee_num == 2)
-                        Wmat(i+j*3, i+j*3) = 0;
-                    else
-                        Wmat(i+j*3, i+j*3) = Wmat(i+j*3, i+j*3) * limb_gains[j];
+                    if (i != 2 && ee_num == 2) Wvec(i+j*3) = 0;
+                    else Wvec(i+j*3) *= limb_gains[j];
                 }
             }
             if (printp) {
-                std::cerr << "[" << print_str << "]   Wmat(diag) = [";
+                std::cerr << "[" << print_str << "]   Wmat (diag) = [";
                 for (size_t j = 0; j < ee_num; j++) {
                     for (size_t i = 0; i < 3; i++) {
-                        std::cerr << Wmat(i+j*3, i+j*3) << " ";
+                        std::cerr << Wvec(i+j*3) << " ";
                     }
                 }
                 std::cerr << "]" << std::endl;
@@ -836,15 +826,15 @@ public:
             hrp::dvector ret(state_dim/2);
             hrp::dvector total_wrench = hrp::dvector::Zero(total_wrench_dim);
             total_wrench(total_wrench_dim-3) = total_fz;
-            calcWeightedLinearEquation(ret, Gmat, Wmat, total_wrench);
+            calcWeightedLinearEquation(ret, Gmat, Wvec, total_wrench);
             for (size_t fidx = 0; fidx < ee_num; fidx++) {
                 ref_foot_force[fidx] = hrp::Vector3(ret(3*fidx), ret(3*fidx+1), ret(3*fidx+2));
                 ref_foot_moment[fidx] = hrp::Vector3::Zero();
             }
             // std::cerr << "GmatRef" << std::endl;
             // std::cerr << Gmat << std::endl;
-            // std::cerr << "WmatRef" << std::endl;
-            // std::cerr << Wmat << std::endl;
+            // std::cerr << "Wvec" << std::endl;
+            // std::cerr << Wvec << std::endl;
             // std::cerr << "ret" << std::endl;
             // std::cerr << ret << std::endl;
         }
@@ -919,27 +909,23 @@ public:
         }
 
         // Calc weighting matrix
-        hrp::dmatrix Wmat = hrp::dmatrix::Zero(state_dim, state_dim);
+        hrp::dmatrix Wvec = hrp::dvector::Zero(state_dim);
         for (size_t j = 0; j < ee_num; j++) {
             for (size_t i = 0; i < 3; i++) {
-                Wmat(i+j*6, i+j*6) = fz_alpha_vector[j] * limb_gains[j];
-                Wmat(i+j*6+3, i+j*6+3) = (1.0/norm_moment_weight) * fz_alpha_vector[j] * limb_gains[j];
+                Wvec(i+j*6) = fz_alpha_vector[j] * limb_gains[j];
+                Wvec(i+j*6+3) = (1.0/norm_moment_weight) * fz_alpha_vector[j] * limb_gains[j];
                 // Set local Y moment
                 //   If toeheel_ratio is 0, toe and heel contact and local Y moment should be 0.
-                if (i == 1) {
-                    Wmat(i+j*6+3, i+j*6+3) = toeheel_ratio[j] * Wmat(i+j*6+3, i+j*6+3);
-                }
+                if (i == 1) Wvec(i+j*6+3) *= toeheel_ratio[j];
                 // In actual swing phase, X/Y momoment should be 0.
-                if (!is_contact_list.empty()) {
-                  if (!is_contact_list[j]) Wmat(i+j*6+3, i+j*6+3) = 0;
-                }
+                if (!is_contact_list.empty() && !is_contact_list[j]) Wvec(i+j*6+3) = 0;
             }
         }
         if (printp) {
             std::cerr << "[" << print_str << "]   newWmat(diag) = [";
             for (size_t j = 0; j < ee_num; j++) {
                 for (size_t i = 0; i < 6; i++) {
-                    std::cerr << Wmat(i+j*6, i+j*6) << " ";
+                    std::cerr << Wvec(i+j*6) << " ";
                 }
             }
             std::cerr << "]" << std::endl;
@@ -948,12 +934,12 @@ public:
         // std::cerr << total_wrench << std::endl;
         // std::cerr << "Gmat" << std::endl;
         // std::cerr << Gmat << std::endl;
-        // std::cerr << "Wmat" << std::endl;
-        // std::cerr << Wmat << std::endl;
+        // std::cerr << "Wvec" << std::endl;
+        // std::cerr << Wvec << std::endl;
 
         // Solve
         hrp::dvector ret(state_dim);
-        calcWeightedLinearEquation(ret, Gmat, Wmat, total_wrench);
+        calcWeightedLinearEquation(ret, Gmat, Wvec, total_wrench);
 
         // Extract force and moment with converting local frame -> absolute frame (ret is local frame)
         for (size_t fidx = 0; fidx < ee_num; fidx++) {
@@ -1021,7 +1007,7 @@ public:
         }
 #endif
 
-        hrp::dmatrix Wmat = hrp::dmatrix::Zero(state_dim, state_dim);
+        hrp::dmatrix Wvec = hrp::dvector::Zero(state_dim);
         hrp::dmatrix Gmat = hrp::dmatrix::Zero(6, state_dim);
         for (size_t j = 0; j < ee_num; j++) {
             for (size_t k = 0; k < 6; k++) Gmat(k,6*j+k) = 1.0;
@@ -1039,24 +1025,24 @@ public:
         }
         for (size_t j = 0; j < ee_num; j++) {
             for (size_t i = 0; i < 3; i++) {
-                Wmat(i+j*6, i+j*6) = ee_forcemoment_distribution_weight[j][i] * fz_alpha_vector[j] * limb_gains[j];
+                Wvec(i+j*6) = ee_forcemoment_distribution_weight[j][i] * fz_alpha_vector[j] * limb_gains[j];
                 //double norm_moment_weight = 1e2;
-                //Wmat(i+j*6+3, i+j*6+3) = ee_forcemoment_distribution_weight[j][i+3] * (1.0/norm_moment_weight) * fz_alpha_vector[j] * limb_gains[j];
-                Wmat(i+j*6+3, i+j*6+3) = ee_forcemoment_distribution_weight[j][i+3] * fz_alpha_vector[j] * limb_gains[j];
+                //Wvec(i+j*6+3) = ee_forcemoment_distribution_weight[j][i+3] * (1.0/norm_moment_weight) * fz_alpha_vector[j] * limb_gains[j];
+                Wvec(i+j*6+3) = ee_forcemoment_distribution_weight[j][i+3] * fz_alpha_vector[j] * limb_gains[j];
             }
         }
         if (printp) {
             std::cerr << "[" << print_str << "]   newWmat(diag) = [";
             for (size_t j = 0; j < ee_num; j++) {
                 for (size_t i = 0; i < 6; i++) {
-                    std::cerr << Wmat(i+j*6, i+j*6) << " ";
+                    std::cerr << Wvec(i+j*6) << " ";
                 }
             }
             std::cerr << std::endl;
             // std::cerr << "[" << print_str << "]   Gmat";
             // std::cerr << Gmat << std::endl;
-            // std::cerr << "Wmat" << std::endl;
-            // std::cerr << Wmat << std::endl;
+            // std::cerr << "Wvec" << std::endl;
+            // std::cerr << Wvec << std::endl;
         }
 
         hrp::dvector ret(state_dim);
@@ -1072,7 +1058,7 @@ public:
             hrp::dmatrix selected_Gmat = hrp::dmatrix::Zero(selection_matrix.rows(), Gmat.cols());
             selected_total_wrench = selection_matrix * total_wrench;
             selected_Gmat = selection_matrix * Gmat;
-            calcWeightedLinearEquation(ret, selected_Gmat, Wmat, selected_total_wrench);
+            calcWeightedLinearEquation(ret, selected_Gmat, Wvec, selected_total_wrench);
         }
 
         if (printp) {
@@ -1144,5 +1130,7 @@ public:
     }
   };
 };
+
+}
 
 #endif // ZMP_DISTRIBUTOR_H
