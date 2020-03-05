@@ -1193,15 +1193,16 @@ void AutoBalanceStabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabili
 
 void AutoBalanceStabilizer::startStabilizer(void)
 {
-    // st->startStabilizer();
-    gg->startRunning(m_dt);
+    st->startStabilizer();
+    // gg->startRunning(m_dt);
 }
 
 void AutoBalanceStabilizer::stopStabilizer(void)
 {
     // st->stopStabilizer();
     // gg->startJumping(m_dt);
-    gg->startRunJumpDemo(m_dt);
+    gg->startRunning(m_dt);
+    // gg->startRunJumpDemo(m_dt);
 }
 
 void AutoBalanceStabilizer::waitABCTransition()

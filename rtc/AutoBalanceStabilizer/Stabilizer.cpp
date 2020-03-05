@@ -867,8 +867,8 @@ bool Stabilizer::calcIfCPisOutside()
 
         if (is_cp_outside) {
             if (initial_cp_too_large_error || loop % static_cast<int>(0.2/dt) == 0 ) { // once per 0.2[s]
-                std::cerr << "[" << comp_name << "] ["
-                          << "] CP too large error " << "[" << act_cp(0) << "," << act_cp(1) << "] [m]" << std::endl;
+                std::cerr << "[" << comp_name << "] "
+                          << "CP too large error " << "[" << act_cp(0) << "," << act_cp(1) << "] [m]" << std::endl;
             }
             initial_cp_too_large_error = false;
         } else {
