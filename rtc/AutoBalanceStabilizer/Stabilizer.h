@@ -70,6 +70,10 @@ class Stabilizer
     void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
     void syncToSt();
     void syncToIdle();
+    /**
+     * @fn
+     * @return being on ground or not
+     */
     bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
     void moveBasePosRotForBodyRPYControl ();
     void calcSwingSupportLimbGain();

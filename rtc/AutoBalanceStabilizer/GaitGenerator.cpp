@@ -81,10 +81,10 @@ void GaitGenerator::resetGaitGenerator(const hrp::BodyPtr& _robot,
     root_coord.linear() = _robot->rootLink()->R;
 
     prev_ref_cog = _robot->calcCM();
-    std::cerr << "prev_ref_cog: " << prev_ref_cog.transpose() << std::endl;
 
     zmp_gen.reset(new RefZMPGenerator(_dt, preview_window, constraints_list[0]));
     resetCOGTrajectoryGenerator(prev_ref_cog, _dt);
+    ref_zmp = zmp_gen->getCurrentRefZMP();
     ref_zmp_goals.push_back(std::make_pair(constraints_list[0].calcCOPFromConstraints(), constraints_list[0].start_count));
 }
 

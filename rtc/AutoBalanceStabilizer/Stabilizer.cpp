@@ -179,6 +179,10 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     // m_COPInfo ?
     // Act: rpy, wrenches,
 
+    // 1. Copy variables from AutoBalancer
+    // 2. transition
+    // 3.
+
     ref_contact_states = abc_param.ref_contact_states;
     // toe_heel_ratio = abc_param.toe_heel_ratio;
     control_swing_support_time = abc_param.control_swing_support_time;
@@ -188,31 +192,28 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     // Reference world frame =>
     // update internal robot model
 
-    // TODO: transition_count のif文が多すぎる
     if (transition_count == 0) {
         transition_smooth_gain = 1.0;
+        qrefv = abc_param.q_ref;
     } else {
         const double max_transition_count = calcMaxTransitionCount();
         transition_smooth_gain = 1 / (1 + exp(-9.19 * (((max_transition_count - std::fabs(transition_count)) / max_transition_count) - 0.5))); // TODO: 意味がわからない
-    }
 
-    if (transition_count > 0) {
-        copyJointAnglesToRobotModel(m_robot, calcInteriorPoint(transition_joint_q, abc_param.q_ref, transition_smooth_gain));
-    } else {
-        copyJointAnglesToRobotModel(m_robot, abc_param.q_ref);
-    }
+        if (transition_count > 0) {
+            qrefv = calcInteriorPoint(transition_joint_q, abc_param.q_ref, transition_smooth_gain);
 
-    if (transition_count < 0) {
-        transition_count++;
-    } else if (transition_count > 0) {
-        if (transition_count == 1) {
-            std::cerr << "[" << comp_name << "] [" << "] Move to MODE_IDLE" << std::endl;
-            reset_emergency_flag = true;
+            if (transition_count == 1) {
+                std::cerr << "[" << comp_name << "] [" << "] Move to MODE_IDLE" << std::endl;
+                reset_emergency_flag = true;
+            }
+            --transition_count;
+        } else {
+            ++transition_count;
+            qrefv = abc_param.q_ref;
         }
-        transition_count--;
     }
 
-    copyJointAnglesFromRobotModel(qrefv, m_robot);
+    copyJointAnglesToRobotModel(m_robot, qrefv);
 
     target_root_p = abc_param.base_pos_ref;
     target_root_R = hrp::rotFromRpy(abc_param.base_rpy_ref);
@@ -220,7 +221,6 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     m_robot->rootLink()->R = target_root_R;
     m_robot->calcForwardKinematics();
 
-    std::cerr << "abc ref zmp: " << abc_param.zmp_ref.transpose() << std::endl;
     ref_zmp = target_root_R * abc_param.zmp_ref + target_root_p; // base frame -> world frame
     if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         // apply inverse system
@@ -237,7 +237,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     ref_total_force = hrp::Vector3::Zero();
     ref_total_moment = hrp::Vector3::Zero(); // Total moment around reference ZMP tmp
     ref_total_foot_origin_moment = hrp::Vector3::Zero();
-    for (size_t i = 0; i < stikp.size(); i++) {
+    for (size_t i = 0; i < stikp.size(); ++i) {
         // TODO: なぜかyは0
         // const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
         const hrp::Vector3 limb_cop_offset = hrp::Vector3::Zero(); // TODO: tmp
@@ -255,7 +255,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
 #endif
 
         if (is_feedback_control_enable[i]) {
-            ref_total_foot_origin_moment += (target_ee_p[i]-foot_origin_pos).cross(ref_force[i]) + ref_moment[i];
+            ref_total_foot_origin_moment += (target_ee_p[i] - foot_origin_pos).cross(ref_force[i]) + ref_moment[i];
         }
     }
     // <= Reference world frame
@@ -271,7 +271,9 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
                   << std::endl;
     }
 
-    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
+    if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::TPCC) {
+        ref_cogvel = (ref_cog - prev_ref_cog) / dt;
+    } else {
         // Reference foot_origin frame =>
         // initialize for new_refzmp
         new_refzmp = ref_zmp;
@@ -307,9 +309,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         rel_ref_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_ref_cp) - m_robot->rootLink()->p);
         sbp_cog_offset = foot_origin_rot.transpose() * sbp_cog_offset;
         // <= Reference foot_origin frame
-    } else {
-        ref_cogvel = (ref_cog - prev_ref_cog) / dt;
-    } // st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM
+    }
 
     prev_ref_cog = ref_cog;
     // Calc swing support limb gain param
@@ -389,7 +389,8 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
         // capture point
         act_cp = act_cog + act_cogvel / std::sqrt(g_acc / (act_cog - act_zmp)(2));
-        std::cerr << "act_cog: " << act_cog.transpose() << ", act_cogvel: " << act_cogvel.transpose() << ", act_cp: " << act_cp.transpose() << ", act_zmp: " << act_zmp.transpose() << ", g_acc: " << g_acc << ", : " << g_acc / (act_cog - act_zmp)(2) << std::endl;
+        // Debug
+        // std::cerr << "act_cog: " << act_cog.transpose() << ", act_cogvel: " << act_cogvel.transpose() << ", act_cp: " << act_cp.transpose() << ", act_zmp: " << act_zmp.transpose() << ", g_acc: " << g_acc << ", : " << g_acc / (act_cog - act_zmp)(2) << std::endl;
         rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
         rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
         // <= Actual foot_origin frame
@@ -686,7 +687,7 @@ void Stabilizer::storeCurrentStates()
     copyJointAnglesFromRobotModel(qorg, m_robot);
 }
 
-void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot)
+void Stabilizer::calcFootOriginCoords(hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot)
 {
     // member variable : ref_contact_states, m_robot, stikp
     rats::coordinates leg_c[2];
@@ -1095,7 +1096,7 @@ void Stabilizer::calcEEForceMomentControl()
 
         hrp::Vector3 foot_origin_pos;
         hrp::Matrix33 foot_origin_rot;
-        calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
+        calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
         // Calculate foot_origin_coords-relative ee pos and rot
         // Subtract them from target_ee_diff_xx
         for (size_t i = 0; i < stikp.size(); i++) {

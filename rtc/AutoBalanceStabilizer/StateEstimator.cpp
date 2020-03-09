@@ -91,11 +91,12 @@ hrp::Matrix33 calcCOPRotationFromRobotState(const hrp::BodyPtr& act_robot,
 {
     Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
     double sum_weight = 0;
+    constexpr double EPS = 1e-6;
 
     for (const LinkConstraint& constraint : constraints) {
         const double weight = constraint.getCOPWeight();
         if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget() ||
-            weight == 0 /* to avoid zero division */) continue;
+            weight < EPS /* to avoid zero division */) continue;
         sum_weight += weight;
 
         const hrp::Link* const target = act_robot->link(constraint.getLinkId());

@@ -143,10 +143,11 @@ hrp::Matrix33 ConstraintsWithCount::calcCOPRotationFromConstraints(const LinkCon
 {
     Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
     double sum_weight = 0;
+    constexpr double EPS = 1e-6;
 
     for (const LinkConstraint& constraint : constraints) {
         const double weight = constraint.getCOPWeight();
-        if (constraint.getConstraintType() >= type_thre || weight == 0 /* to avoid zero division */) continue;
+        if (constraint.getConstraintType() >= type_thre || weight < EPS /* to avoid zero division */) continue;
         sum_weight += weight;
         const Eigen::Quaternion<double> contact_quat(constraint.targetRot());
         cop_quat = cop_quat.slerp(weight / sum_weight, contact_quat);

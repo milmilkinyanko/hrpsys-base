@@ -20,8 +20,6 @@ RefZMPGenerator::RefZMPGenerator(const double _dt, const size_t list_size,
     const hrp::Vector3 init_zmp = calcRefZMP(init_constraints);
     refzmp_list.resize(list_size, init_zmp);
 
-    std::cerr << "init_zmp: " << init_zmp.transpose() << std::endl;
-
     zmp_interpolator = std::make_unique<interpolator>(3, _dt, interpolator::LINEAR);
     zmp_interpolator->setName("RefZMPGenerator zmp_interpolator");
     zmp_interpolator->set(init_zmp.data());
