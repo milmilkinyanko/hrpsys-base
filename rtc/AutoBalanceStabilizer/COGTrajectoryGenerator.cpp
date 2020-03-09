@@ -467,22 +467,21 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
     const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
     const double flight_time = 2 * take_off_z_vel / g_acc;
 
-    const hrp::Vector3 target_cp = landing_point + target_cp_offset;
+    const hrp::Vector2 target_cp = landing_point.head<2>() + target_cp_offset.head<2>();
     const double rel_cur_time = (cur_count - start_count) * dt;
     const double rel_land_time = (landing_count - start_count) * dt;
 
-    const hrp::Vector3 cp = cog + cog_vel / omega;
+    const hrp::Vector2 cp = cog.head<2>() + cog_vel.head<2>() / omega; // TODO: calcCP() ?
     const double omega_T = omega * flight_time;
-    hrp::Vector3 c_1 = hrp::Vector3::Zero();
     hrp::Vector3 ref_zmp = support_point;
-    hrp::Vector3 input_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 input_zmp = ref_zmp;
 
-    hrp::Vector3 A_t;
-    hrp::Vector3 Atau_dAtauT;
+    hrp::Vector2 A_t;
+    hrp::Vector2 Atau_dAtauT;
 
     if (ref_zmp_type == FIX) {
-        A_t         = support_point;
-        Atau_dAtauT = support_point;
+        A_t         = support_point.head<2>();
+        Atau_dAtauT = support_point.head<2>();
         ref_zmp     = support_point;
     } else if (ref_zmp_type == CUBIC) {
         const double tau = supporting_count * dt;
@@ -491,10 +490,10 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
         const double omega2 = omega * omega;
         const double omega3 = omega2 * omega;
 
-        hrp::Vector3 a_var = hrp::Vector3::Zero();
-        hrp::Vector3 b_var = hrp::Vector3::Zero();
-        hrp::Vector3 c_var = hrp::Vector3::Zero();
-        hrp::Vector3 d_var = hrp::Vector3::Zero();
+        hrp::Vector2 a_var = hrp::Vector2::Zero();
+        hrp::Vector2 b_var = hrp::Vector2::Zero();
+        hrp::Vector2 c_var = hrp::Vector2::Zero();
+        hrp::Vector2 d_var = hrp::Vector2::Zero();
 
         {
             Eigen::Matrix<double, 6, 6> A;
@@ -507,21 +506,21 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
                 6 * tau / omega2, 2 / omega2, 0, 0, std::exp(omega * tau), std::exp(-omega * tau);
 
             const auto A_lu = A.partialPivLu();
-            for (size_t i = 0; i < 2; ++i) {
+            for (size_t i = 0; i < 1; ++i) {
                 Eigen::Matrix<double, 6, 1> B;
                 B <<
-                    support_point[i] + start_zmp_offset[i],
-                    support_point[i] + end_zmp_offset[i],
-                    support_point[i],
-                    target_cp[i] - (support_point[i] + end_zmp_offset[i]),
+                    support_point(i) + start_zmp_offset(i),
+                    support_point(i) + end_zmp_offset(i),
+                    support_point(i),
+                    target_cp(i) - (support_point(i) + end_zmp_offset(i)),
                     0,
                     0;
                 const Eigen::Matrix<double, 6, 1> ans = A_lu.solve(B);
 
-                a_var[i] = ans[0];
-                b_var[i] = ans[1];
-                c_var[i] = ans[2];
-                d_var[i] = ans[3];
+                a_var(i) = ans(0);
+                b_var(i) = ans(1);
+                c_var(i) = ans(2);
+                d_var(i) = ans(3);
             }
         }
 
@@ -532,7 +531,7 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
         Atau_dAtauT = (c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau2 + 2 * tau / omega + 2 / omega2)) * flight_time;
         Atau_dAtauT += calcA(supporting_time);
 
-        ref_zmp = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
+        ref_zmp.head<2>() = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
     }
 
     {
@@ -542,10 +541,10 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
         const double omega2 = omega * omega;
 
         const double C_t = -2 * flight_time * time_to_flight * omega2 / (omega_T + 2) - 2 * flight_time * flight_time * omega2 / ((omega_T + 2) * (omega_T + 1)) - std::exp(2 * omega * time_to_land) - (omega_T - 1) * std::exp(2 * omega_T) / (omega_T + 1);
-        const hrp::Vector3 D_t = cp - A_t - (landing_point - Atau_dAtauT) / (omega_T + 1) * std::exp(-omega * time_to_flight);
-        const hrp::Vector3 omega2_lambda = -(2 * omega2 * flight_time / (omega_T + 2) + 2 * std::exp(2 * omega * time_to_land)) * D_t / C_t;
+        const hrp::Vector2 D_t = cp - A_t - (landing_point.head<2>() - Atau_dAtauT) / (omega_T + 1) * std::exp(-omega * time_to_flight);
+        const hrp::Vector2 omega2_lambda = -(2 * omega2 * flight_time / (omega_T + 2) + 2 * std::exp(2 * omega * time_to_land)) * D_t / C_t;
 
-        input_zmp = ref_zmp + omega2_lambda;
+        input_zmp.head<2>() = ref_zmp.head<2>() + omega2_lambda;
     }
 
     // hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
@@ -636,7 +635,9 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     // std::cerr << "ref_zmp: " << ref_zmp.transpose() << std::endl;
     // std::cerr << "c1: " << C1.transpose() << std::endl;
 
-    const hrp::Vector3 input_cmp = ref_zmp + C1;
+    hrp::Vector3 input_cmp = ref_zmp;
+    input_cmp.head<2>() += C1.head<2>();
+
     cog_acc.head<2>() = (omega * omega * (cog - input_cmp)).head<2>();
     cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
     cog_vel.head<2>() += cog_acc.head<2>() * dt;
