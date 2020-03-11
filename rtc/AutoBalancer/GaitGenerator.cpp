@@ -877,14 +877,14 @@ namespace rats
           // minus and x
           for (size_t i = 0; i < 1; i++) {
               if (sum_d_footstep_minus(i) < - sum_d_footstep_thre(i) &&
-                  footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(i) < footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i) - 1e-3) {
+                  footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(i) < footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i) - footstep_check_delta(i)) {
                   footstep_hist_max(i) = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos(i);
                   sum_d_footstep_minus(i) = 0.0;
                   is_stuck = false;
               }
           }
       }
-      if (lcg.get_footstep_index() > 0 &&
+      if (lcg.get_footstep_index() > 5 &&
           lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (default_double_support_ratio_after)) &&
           lcg.get_lcg_count() < static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * (1.0 - default_double_support_ratio_before))
           ) {
