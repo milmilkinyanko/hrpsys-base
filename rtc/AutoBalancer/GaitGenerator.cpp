@@ -749,11 +749,11 @@ namespace rats
       overwrite_refzmp_queue(overwrite_footstep_nodes_list);
       overwrite_footstep_nodes_list.clear();
     }
-    // modify footsteps based on diff_cp
-    if(modify_footsteps) modify_footsteps_for_recovery();
 
-    if (is_preview) update_preview_controller(solved);
-    else { // foot guided
+    if (is_preview) {
+      if(modify_footsteps) modify_footsteps_for_recovery(); // modify footsteps based on diff_cp
+      update_preview_controller(solved);
+    } else { // foot guided
       if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1 && lcg.get_footstep_index() > 0) {
         leg_type cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
         lr_region[cur_leg] = false;
@@ -845,7 +845,7 @@ namespace rats
         fxy(i) = prev_fxy(i) + tmp_gain * (des_fxy(i) - prev_fxy(i));
       }
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
-      if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+      if (use_act_states && modify_footsteps && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
         is_emergency_step = false;
         default_step_time = orig_default_step_time;
