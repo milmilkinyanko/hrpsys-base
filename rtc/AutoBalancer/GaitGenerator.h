@@ -749,7 +749,7 @@ namespace rats
       bool use_toe_joint, use_toe_heel_auto_set;
       toe_heel_type current_src_toe_heel_type, current_dst_toe_heel_type;
       std::vector<bool> act_contact_states;
-      bool is_touch_ground;
+      bool is_touch_ground, use_act_states;
       int touch_ground_count;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
@@ -779,7 +779,7 @@ namespace rats
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), default_orbit_type(CYCLOID),
           rdtg(), cdtg(),
-          thp(),
+          thp(), use_act_states(true),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
           current_src_toe_heel_type(SOLE), current_dst_toe_heel_type(SOLE)
@@ -888,6 +888,7 @@ namespace rats
           act_contact_states[i] = _act_contact_states[i];
         }
       };
+      void set_use_act_states (const bool _use_act_states) { use_act_states = _use_act_states; };
       void reset(const size_t _one_step_count, const size_t _next_one_step_count,
                  const std::vector<step_node>& _swing_leg_dst_steps,
                  const std::vector<step_node>& _swing_leg_src_steps,
@@ -1709,6 +1710,7 @@ namespace rats
     }
     void set_sum_d_footstep_thre (const hrp::Vector3& _thre) { sum_d_footstep_thre = _thre; };
     void set_footstep_check_delta (const hrp::Vector3& _delta) { footstep_check_delta = _delta; };
+    void set_use_act_states() { lcg.set_use_act_states(use_act_states); };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {

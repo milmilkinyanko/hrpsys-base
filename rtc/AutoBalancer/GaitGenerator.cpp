@@ -288,7 +288,7 @@ namespace rats
         is_touch_ground = false;
         touch_ground_count = 0;
       }
-      if (touch_ground_count > static_cast<int>((_default_double_support_ratio_before+_default_double_support_ratio_after)/dt)) is_touch_ground = true;
+      if (touch_ground_count > static_cast<int>((_default_double_support_ratio_before+_default_double_support_ratio_after)/dt) || !use_act_states) is_touch_ground = true;
       switch (default_orbit_type) {
       case SHUFFLING:
         ret.pos = swing_ratio*it1->worldcoords.pos + (1-swing_ratio)*it2->worldcoords.pos;
