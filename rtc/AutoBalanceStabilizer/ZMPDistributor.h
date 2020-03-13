@@ -909,7 +909,7 @@ public:
         }
 
         // Calc weighting matrix
-        hrp::dmatrix Wvec = hrp::dvector::Zero(state_dim);
+        hrp::dvector Wvec = hrp::dvector::Zero(state_dim);
         for (size_t j = 0; j < ee_num; j++) {
             for (size_t i = 0; i < 3; i++) {
                 Wvec(i+j*6) = fz_alpha_vector[j] * limb_gains[j];
@@ -1007,22 +1007,22 @@ public:
         }
 #endif
 
-        hrp::dmatrix Wvec = hrp::dvector::Zero(state_dim);
+        hrp::dvector Wvec = hrp::dvector::Zero(state_dim);
         hrp::dmatrix Gmat = hrp::dmatrix::Zero(6, state_dim);
         for (size_t j = 0; j < ee_num; j++) {
-            for (size_t k = 0; k < 6; k++) Gmat(k,6*j+k) = 1.0;
+            for (size_t k = 0; k < 6; k++) Gmat(k, 6*j+k) = 1.0;
         }
-        for (size_t i = 0; i < 6; i++) {
-            for (size_t j = 0; j < ee_num; j++) {
-                if ( i == 3 ) { // Nx
-                    Gmat(i,6*j+1) = -(cop_pos[j](2) - new_refzmp(2));
-                    Gmat(i,6*j+2) = (cop_pos[j](1) - new_refzmp(1));
-                } else if ( i == 4 ) { // Ny
-                    Gmat(i,6*j) = (cop_pos[j](2) - new_refzmp(2));
-                    Gmat(i,6*j+2) = -(cop_pos[j](0) - new_refzmp(0));
-                }
-            }
+
+        for (size_t j = 0; j < ee_num; j++) {
+            // Nx
+            Gmat(3, 6*j+1) = -(cop_pos[j](2) - new_refzmp(2));
+            Gmat(3, 6*j+2) = (cop_pos[j](1) - new_refzmp(1));
+
+            // Ny
+            Gmat(4, 6*j) = (cop_pos[j](2) - new_refzmp(2));
+            Gmat(4, 6*j+2) = -(cop_pos[j](0) - new_refzmp(0));
         }
+
         for (size_t j = 0; j < ee_num; j++) {
             for (size_t i = 0; i < 3; i++) {
                 Wvec(i+j*6) = ee_forcemoment_distribution_weight[j][i] * fz_alpha_vector[j] * limb_gains[j];
@@ -1031,6 +1031,7 @@ public:
                 Wvec(i+j*6+3) = ee_forcemoment_distribution_weight[j][i+3] * fz_alpha_vector[j] * limb_gains[j];
             }
         }
+
         if (printp) {
             std::cerr << "[" << print_str << "]   newWmat(diag) = [";
             for (size_t j = 0; j < ee_num; j++) {
