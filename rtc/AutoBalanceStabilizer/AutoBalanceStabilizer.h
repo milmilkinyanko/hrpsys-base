@@ -236,6 +236,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     double m_dt;
     unsigned int m_debugLevel = 0;
     size_t loop = 0;
+    double g_acc = 9.80665;
 
     // Fullbody Inverse Kinematics Solver
     hrp::dvector q_prev_ik;
@@ -307,7 +308,9 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     void startABCparam(const ::OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);
     void stopABCparam();
     void waitABCTransition();
+    void calcOutputRefForcesFromRefZmp();
 
+    // For service
     bool startWalking ();
     void stopWalking ();
     // static balance point offsetting

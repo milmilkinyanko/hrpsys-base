@@ -352,6 +352,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // std::cerr << "moment: " << fik->getComMomentum().transpose() << std::endl;
     }
 
+    calcOutputRefForcesFromRefZmp();
     storeRobotStatesForIK();
 
     // - ST
@@ -969,7 +970,7 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     default_momentum_weights = hrp::Vector3(1, 1, 1e-2);
     flywheel_momentum_weights = hrp::Vector3(1, 1, 1e-2);
     momentum_weights_interpolator->set(default_momentum_weights.data());
-    const hrp::Vector3 com_weight = hrp::Vector3::Ones();
+    const hrp::Vector3 com_weight = hrp::Vector3(1, 1, 1);
     ik_constraints[i].constraint_weight.head<3>() = com_weight;
     ik_constraints[i].constraint_weight.tail<3>() = default_momentum_weights;
 }
@@ -1062,48 +1063,130 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
 //     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 // }
 
-// // TODO: rename, refactor
-// void AutoBalanceStabilizer::fixLegToCoords(const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot)
+// TODO: Move to GaitGenerator
+void AutoBalanceStabilizer::calcOutputRefForcesFromRefZmp()
+{
+    // TODO : need to be updated for multicontact and other walking
+    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    double alpha = (ref_zmp - cur_constraints.constraints[1].targetPos()).norm() / ((cur_constraints.constraints[0].targetPos() - ref_zmp).norm() + (cur_constraints.constraints[1].targetPos() - ref_zmp).norm());
+    alpha = hrp::clamp(alpha, 0.0, 1.0);
+
+    // if (DEBUGP) {
+    //     std::cerr << "[" << m_profile.instance_name << "] alpha:" << alpha << std::endl;
+    // }
+
+    const double mg = m_robot->totalMass() * g_acc;
+    ref_wrenches_for_st[0](2) = alpha * mg;
+    ref_wrenches_for_st[1](2) = (1 - alpha) * mg;
+
+    // if (use_force == MODE_REF_FORCE_WITH_FOOT || use_force == MODE_REF_FORCE_RFU_EXT_MOMENT) { // TODO : use other use_force mode. This should be depends on Stabilizer distribution mode.
+    //     distributeReferenceZMPToWrenches(ref_zmp);
+    // }
+
+    // prev_ref_zmp = ref_zmp; // TODO: ここじゃない
+}
+
+// void AutoBalanceStabilizer::distributeReferenceZMPToWrenches (const hrp::Vector3& _ref_zmp)
 // {
-//     // get current foot mid pos + rot
-//     std::vector<coordinates> foot_coords;
-//     for (size_t i = 0; i < leg_names.size(); i++) {
+//     // apply inverse system
+//     // TODO : fix 0.055 (zmp delay)
+//     const hrp::Vector3 modified_ref_zmp = _ref_zmp + 0.055 * (_ref_zmp - prev_ref_zmp) / m_dt;
+
+//     // TODO: Assume that constraints[0] and constraints[1] are legs
+
+//     // std::vector<hrp::Vector3> cop_pos;
+//     // std::vector<double> limb_gains;
+//     // for (size_t i = 0 ; i < leg_names.size(); i++) {
+//     //     ABCIKparam& tmpikp = ikp[leg_names[i]];
+//     //     cop_pos.push_back(tmpikp.target_p0 + tmpikp.target_r0 * tmpikp.localR * default_zmp_offsets[i]);
+//     //     limb_gains.push_back(m_contactStates.data[contact_states_index_map[leg_names[i]]] ? 1.0 : 0.0);
+//     // }
+//     const size_t ee_num = 2; // TODO
+//     const size_t state_dim = 6 * ee_num;
+//     constexpr size_t total_wrench_dim = 5;
+
+//     // size_t total_fz = m_robot->totalMass() * gg->get_gravitational_acceleration();
+//     size_t total_fz = m_ref_force[0].data[2]+m_ref_force[1].data[2];
+//     //size_t total_wrench_dim = 3;
+//     hrp::dmatrix Wmat = hrp::dmatrix::Identity(state_dim/2, state_dim/2);
+//     hrp::dmatrix Gmat = hrp::dmatrix::Zero(total_wrench_dim, state_dim/2);
+//     // Set Gmat
+//     //   Fill Fz
+//     for (size_t j = 0; j < ee_num; j++) {
+//         if (total_wrench_dim == 3) {
+//             Gmat(0,3*j+2) = 1.0;
+//         } else {
+//             for (size_t k = 0; k < 3; k++) Gmat(k,3*j+k) = 1.0;
+//         }
+//     }
+//     //   Fill Nx and Ny
+//     for (size_t i = 0; i < total_wrench_dim; i++) {
+//         for (size_t j = 0; j < ee_num; j++) {
+//             if ( i == total_wrench_dim-2 ) { // Nx
+//                 Gmat(i,3*j+1) = -(cop_pos[j](2) - modified_ref_zmp(2));
+//                 Gmat(i,3*j+2) = (cop_pos[j](1) - modified_ref_zmp(1));
+//             } else if ( i == total_wrench_dim-1 ) { // Ny
+//                 Gmat(i,3*j) = (cop_pos[j](2) - modified_ref_zmp(2));
+//                 Gmat(i,3*j+2) = -(cop_pos[j](0) - modified_ref_zmp(0));
+//             }
+//         }
+//     }
+//     // Set Wmat
+//     for (size_t j = 0; j < ee_num; j++) {
+//         for (size_t i = 0; i < 3; i++) {
+//             if (ee_num == 2)
+//                 Wmat(i+j*3, i+j*3) = Wmat(i+j*3, i+j*3) * limb_gains[j] * (i==2? 1.0 : 0.01);
+//             else
+//                 Wmat(i+j*3, i+j*3) = Wmat(i+j*3, i+j*3) * limb_gains[j];
+//         }
+//     }
+//     // Ret is wrench around cop_pos
+//     //   f_cop = f_ee
+//     //   n_ee = (cop_pos - ee_pos) x f_cop + n_cop
+//     hrp::dvector ret(state_dim/2);
+//     hrp::dvector total_wrench = hrp::dvector::Zero(total_wrench_dim);
+//     total_wrench(total_wrench_dim-5) = m_ref_force[0].data[0]+m_ref_force[1].data[0];
+//     total_wrench(total_wrench_dim-4) = m_ref_force[0].data[1]+m_ref_force[1].data[1];
+//     total_wrench(total_wrench_dim-3) = total_fz;
+//     calcWeightedLinearEquation(ret, Gmat, Wmat, total_wrench);
+//     if (DEBUGP) {
+//         std::cerr << "[" << m_profile.instance_name << "] distributeReferenceZMPToWrenches" << std::endl;
+//     }
+//     for (size_t i = 0 ; i < leg_names.size(); i++) {
+//         size_t fidx = contact_states_index_map[leg_names[i]];
 //         ABCIKparam& tmpikp = ikp[leg_names[i]];
-//         if (leg_names[i].find("leg") != std::string::npos) foot_coords.push_back(coordinates((tmpikp.target_link->p + tmpikp.target_link->R * tmpikp.localPos),
-//                                                                                              (tmpikp.target_link->R * tmpikp.localR)));
+//         hrp::Vector3 f_ee(ret(3*i), ret(3*i+1), ret(3*i+2));
+//         //hrp::Vector3 tmp_ee_pos = tmpikp.target_p0 + tmpikp.target_r0 * tmpikp.localPos;
+//         hrp::Vector3 tmp_ee_pos = tmpikp.target_p0;
+//         hrp::Vector3 n_ee = (cop_pos[i]-tmp_ee_pos).cross(f_ee); // n_cop = 0
+//         m_force[fidx].data[0] = f_ee(0);
+//         m_force[fidx].data[1] = f_ee(1);
+//         m_force[fidx].data[2] = f_ee(2);
+//         m_force[fidx].data[3] = n_ee(0);
+//         m_force[fidx].data[4] = n_ee(1);
+//         m_force[fidx].data[5] = n_ee(2);
+//         if (DEBUGP) {
+//             std::cerr << "[" << m_profile.instance_name << "]   "
+//                       << "ref_force  [" << leg_names[i] << "] " << f_ee.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N], "
+//                       << "ref_moment [" << leg_names[i] << "] " << n_ee.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[Nm]" << std::endl;
+//         }
 //     }
-//     coordinates current_foot_mid_coords;
-//     multi_mid_coords(current_foot_mid_coords, foot_coords);
-
-//     hrp::Vector3 current_foot_mid_pos = current_foot_mid_coords.pos;
-//     hrp::Matrix33 current_foot_mid_rot = current_foot_mid_coords.rot;
-
-//     // fix root pos + rot to fix "coords" = "current_foot_mid_xx"
-//     hrp::Matrix33 tmpR (fix_rot * current_foot_mid_rot.transpose());
-//     m_robot->rootLink()->p = fix_pos + tmpR * (m_robot->rootLink()->p - current_foot_mid_pos);
-//     rats::rotm3times(m_robot->rootLink()->R, tmpR, m_robot->rootLink()->R);
-//     m_robot->calcForwardKinematics();
-// }
-
-// // TODO: rename or delete
-// void AutoBalanceStabilizer::fixLegToCoords2 (coordinates& tmp_fix_coords)
-// {
-//     // Tempolarily modify tmp_fix_coords
-//     // This will be removed after seq outputs adequate waistRPY discussed in https://github.com/fkanehiro/hrpsys-base/issues/272
-//     // Snap input tmp_fix_coords to XY plan projection.
-//     {
-//       const hrp::Vector3 ex = hrp::Vector3::UnitX();
-//       const hrp::Vector3 ez = hrp::Vector3::UnitZ();
-//       hrp::Vector3 xv1(tmp_fix_coords.rot * ex);
-//       xv1(2) = 0.0;
-//       xv1.normalize();
-//       const hrp::Vector3 yv1(ez.cross(xv1));
-//       // TODO: 整理
-//       tmp_fix_coords.rot(0,0) = xv1(0); tmp_fix_coords.rot(1,0) = xv1(1); tmp_fix_coords.rot(2,0) = xv1(2);
-//       tmp_fix_coords.rot(0,1) = yv1(0); tmp_fix_coords.rot(1,1) = yv1(1); tmp_fix_coords.rot(2,1) = yv1(2);
-//       tmp_fix_coords.rot(0,2) = ez(0);  tmp_fix_coords.rot(1,2) = ez(1);  tmp_fix_coords.rot(2,2) = ez(2);
+//     if (DEBUGP) {
+//         std::cerr << "[" << m_profile.instance_name << "]   Gmat = " << Gmat.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N,Nm]" << std::endl;
+//         std::cerr << "[" << m_profile.instance_name << "]   total_wrench = " << total_wrench.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N,Nm]" << std::endl;
+//         hrp::dvector tmp(total_wrench.size());
+//         tmp = Gmat*ret;
+//         std::cerr << "[" << m_profile.instance_name << "]   Gmat*ret = " << tmp.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N,Nm]" << std::endl;
+//         std::cerr << "[" << m_profile.instance_name << "]   (Gmat*ret-total_wrench) = " << (tmp-total_wrench).format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N,Nm]" << std::endl;
+//         std::cerr << "[" << m_profile.instance_name << "]   ret = " << ret.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N,Nm]" << std::endl;
+//         std::cerr << "[" << m_profile.instance_name << "]   Wmat(diag) = [";
+//         for (size_t j = 0; j < ee_num; j++) {
+//             for (size_t i = 0; i < 3; i++) {
+//                 std::cerr << Wmat(i+j*3, i+j*3) << " ";
+//             }
+//         }
+//         std::cerr << "]" << std::endl;
 //     }
-//     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 // }
 
 void AutoBalanceStabilizer::adjustCOPCoordToTarget()

@@ -41,6 +41,7 @@ class GaitGenerator
     Eigen::Isometry3d root_coord = Eigen::Isometry3d::Identity();
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
+
     LocomotionMode locomotion_mode = WALK;
     WalkingMode walking_mode = FOOT_GUIDED_WALK;
     RunningMode running_mode = FOOT_GUIDED_RUN;
