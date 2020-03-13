@@ -1129,6 +1129,7 @@ namespace rats
     std::vector<std::vector<std::vector<hrp::Vector2> > > steppable_region;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
+    boost::shared_ptr<interpolator> double_support_zmp_interpolator;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
@@ -1201,6 +1202,8 @@ namespace rats
         cp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(1e6, _dt, hrp::Vector3::Zero()));
         fx_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.1, _dt, hrp::Vector3::Zero()));
         zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
+        double_support_zmp_interpolator = boost::shared_ptr<interpolator>(new interpolator(1, dt, interpolator::HOFFARBIB));
+        double_support_zmp_interpolator->setName("GaitGenerator double_support_zmp_interpolator");
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
