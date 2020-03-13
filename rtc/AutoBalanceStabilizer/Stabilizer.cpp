@@ -71,6 +71,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
     ref_contact_states        .resize(ee_num, true);
     prev_ref_contact_states   .resize(ee_num, true);
     act_contact_states        .resize(ee_num, false);
+    prev_act_contact_states   .resize(ee_num, false);
     toe_heel_ratio            .resize(ee_num, 1.0);
     contact_cop_info          .resize(ee_num, hrp::Vector3::Zero());
     wrenches                  .resize(ee_num, hrp::dvector6::Zero());
@@ -125,7 +126,6 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
     // なぜreserve, push_back, clear?
     rel_ee_pos.reserve(ee_num);
     rel_ee_rot.reserve(ee_num);
-    rel_ee_name.reserve(ee_num);
 
     if (!m_robot->sensor<hrp::RateGyroSensor>("gyrometer")) {
         std::cerr << "[" << comp_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
@@ -350,7 +350,6 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
     // cog
     act_cog = m_robot->calcCM();
     // zmp
-    std::cerr << "foot_origin_pos: " << foot_origin_pos(2) << ", zmp_origin_off: " << zmp_origin_off << std::endl;
     if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
         on_ground = calcZMP(act_zmp, zmp_origin_off + foot_origin_pos(2));
     } else {
@@ -371,11 +370,22 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
         act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
         //act_cogvel = foot_origin_rot.transpose() * act_cogvel;
+
         if (ref_contact_states != prev_ref_contact_states) {
             act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;
         } else {
-            act_cogvel = (act_cog - prev_act_cog)/dt;
+            if (act_contact_states[contact_states_index_map["rleg"]] || act_contact_states[contact_states_index_map["lleg"]]) { // on ground
+                act_cogvel = (act_cog - prev_act_cog) / dt;
+            } else if (prev_act_contact_states[contact_states_index_map["rleg"]] || prev_act_contact_states[contact_states_index_map["lleg"]]) { // take off
+                jump_time_count = 1;
+                jump_initial_velocity = act_cogvel(2);
+                act_cogvel(2) = jump_initial_velocity - g_acc * jump_time_count * dt;
+            } else { // jumping
+                ++jump_time_count;
+                act_cogvel(2) = jump_initial_velocity - g_acc * jump_time_count * dt;
+            }
         }
+
         prev_act_foot_origin_rot = foot_origin_rot;
         act_cogvel = act_cogvel_filter->passFilter(act_cogvel);
         prev_act_cog = act_cog;
@@ -433,40 +443,51 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                       << "[mm]" << std::endl;
         }
 
-        // TODO: reserve stikp.size() or resize
-        std::vector<std::string> ee_name;
-        // distribute new ZMP into foot force & moment
-        std::vector<hrp::Vector3> tmp_ref_force, tmp_ref_moment;
-        std::vector<double> limb_gains;
-        std::vector<hrp::dvector6> ee_forcemoment_distribution_weight;
-        std::vector<double> tmp_toe_heel_ratio;
         if (control_mode == MODE_ST) {
-            std::vector<hrp::Vector3> ee_pos, cop_pos;
+            // distribute new ZMP into foot force & moment
+            std::vector<std::string>   ee_name;
+            std::vector<hrp::Vector3>  tmp_ref_force;
+            std::vector<hrp::Vector3>  tmp_ref_moment;
+            std::vector<double>        limb_gains;
+            std::vector<hrp::dvector6> ee_forcemoment_distribution_weight;
+            std::vector<double>        tmp_toe_heel_ratio;
+            std::vector<hrp::Vector3>  ee_pos;
+            std::vector<hrp::Vector3>  cop_pos;
             std::vector<hrp::Matrix33> ee_rot;
-            std::vector<bool> is_contact_list; // TODO: delete
-            is_contact_list.reserve(stikp.size());
-            for (size_t i = 0; i < stikp.size(); i++) {
+            std::vector<bool>          is_contact_list; // TODO: delete
+            double                     total_ref_fz = 0;
+
+            const size_t stikp_size = stikp.size();
+            ee_name                           .reserve(stikp_size);
+            tmp_ref_force                     .reserve(stikp_size);
+            tmp_ref_moment                    .reserve(stikp_size);
+            limb_gains                        .reserve(stikp_size);
+            ee_forcemoment_distribution_weight.reserve(stikp_size);
+            tmp_toe_heel_ratio                .reserve(stikp_size);
+            ee_pos                            .reserve(stikp_size);
+            cop_pos                           .reserve(stikp_size);
+            ee_rot                            .reserve(stikp_size);
+            is_contact_list                   .reserve(stikp_size);
+
+            for (size_t i = 0; i < stikp_size; i++) {
                 if (!is_feedback_control_enable[i]) continue;
 
                 const STIKParam& ikp = stikp[i];
-                const hrp::Link* target = m_robot->link(ikp.target_name);
-                ee_name.push_back(ikp.ee_name);
-                ee_pos.push_back(target->p + target->R * ikp.localp);
-                cop_pos.push_back(target->p + target->R * ikp.localCOPPos);
-                ee_rot.push_back(target->R * ikp.localR);
-                limb_gains.push_back(ikp.swing_support_gain);
-                tmp_ref_force.push_back(hrp::Vector3(foot_origin_rot * ref_force[i]));
-                tmp_ref_moment.push_back(hrp::Vector3(foot_origin_rot * ref_moment[i]));
-                rel_ee_pos.push_back(foot_origin_rot.transpose() * (ee_pos.back() - foot_origin_pos));
-                rel_ee_rot.push_back(foot_origin_rot.transpose() * ee_rot.back());
-                rel_ee_name.push_back(ee_name.back());
-                is_contact_list.push_back(act_contact_states[i]);
-                // std::cerr << ee_forcemoment_distribution_weight[i] << std::endl;
-                ee_forcemoment_distribution_weight.push_back(hrp::dvector6::Zero(6,1));
-                for (size_t j = 0; j < 6; j++) {
-                    ee_forcemoment_distribution_weight[i][j] = ikp.eefm_ee_forcemoment_distribution_weight[j];
-                }
-                tmp_toe_heel_ratio.push_back(toe_heel_ratio[i]);
+                const hrp::Link* const target = m_robot->link(ikp.target_name);
+                ee_name                           .push_back(ikp.ee_name);
+                ee_pos                            .push_back(target->p + target->R * ikp.localp);
+                cop_pos                           .push_back(target->p + target->R * ikp.localCOPPos);
+                ee_rot                            .push_back(target->R * ikp.localR);
+                limb_gains                        .push_back(ikp.swing_support_gain);
+                tmp_ref_force                     .push_back(foot_origin_rot * ref_force[i]);
+                tmp_ref_moment                    .push_back(foot_origin_rot * ref_moment[i]);
+                rel_ee_pos                        .push_back(foot_origin_rot.transpose() * (ee_pos.back() - foot_origin_pos));
+                rel_ee_rot                        .push_back(foot_origin_rot.transpose() * ee_rot.back());
+                is_contact_list                   .push_back(act_contact_states[i]);
+                ee_forcemoment_distribution_weight.push_back(ikp.eefm_ee_forcemoment_distribution_weight);
+                tmp_toe_heel_ratio                .push_back(toe_heel_ratio[i]);
+
+                total_ref_fz += tmp_ref_force.back()(2);
             }
 
             // All state variables are foot_origin coords relative
@@ -490,8 +511,9 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 Eigen::Vector2d new_refzmp_xy(new_refzmp.head(2));
                 szd->get_vertices(support_polygon_vertices);
                 szd->calc_convex_hull(support_polygon_vertices, ref_contact_states, ee_pos, ee_rot);
-                if (!szd->is_inside_support_polygon(new_refzmp_xy, hrp::Vector3::Zero(), true, comp_name))
+                if (!szd->is_inside_support_polygon(new_refzmp_xy, hrp::Vector3::Zero(), true, comp_name)) {
                     new_refzmp.head(2) = new_refzmp_xy;
+                }
             }
 
             // Distribute ZMP into each EE force/moment at each COP
@@ -500,20 +522,20 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
                                                  ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                                  new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                 g_acc * total_mass, dt,
+                                                 total_ref_fz, dt,
                                                  DEBUGP(loop), comp_name);
             } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQP) {
                 szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
                                                    ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
                                                    new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                   g_acc * total_mass, dt,
+                                                   total_ref_fz, dt,
                                                    DEBUGP(loop), comp_name,
                                                    (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP));
             } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP) {
                 szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
                                                               ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
                                                               new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                              g_acc * total_mass, dt,
+                                                              total_ref_fz, dt,
                                                               DEBUGP(loop), comp_name,
                                                               (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP), is_contact_list);
             } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2) {
@@ -522,36 +544,39 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                                                                new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                                foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
                                                                ee_forcemoment_distribution_weight,
-                                                               g_acc * total_mass, dt,
+                                                               total_ref_fz, dt,
                                                                DEBUGP(loop), comp_name);
             }
 
             // for debug output
             new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
-        }
 
-        // foot modif
-        if (control_mode == MODE_ST) {
-            hrp::Vector3 f_diff(hrp::Vector3::Zero());
+            // foot modif
+            hrp::Vector3 f_diff = hrp::Vector3::Zero();
             std::vector<bool> large_swing_f_diff(3, false);
             // moment control
             act_total_foot_origin_moment = hrp::Vector3::Zero();
-            for (size_t i = 0; i < stikp.size(); i++) {
+
+            for (size_t i = 0; i < stikp_size; i++) {
                 if (!is_feedback_control_enable[i]) continue;
+
                 STIKParam& ikp = stikp[i];
                 std::vector<bool> large_swing_m_diff(3, false);
-                hrp::Sensor* sensor = m_robot->sensor<hrp::ForceSensor>(ikp.sensor_name);
-                hrp::Link* target = m_robot->link(ikp.target_name);
+                const hrp::Sensor* const sensor = m_robot->sensor<hrp::ForceSensor>(ikp.sensor_name);
+                const hrp::Link* const target = m_robot->link(ikp.target_name);
+
                 // Convert moment at COP => moment at ee
                 const size_t idx = contact_states_index_map[ikp.ee_name];
                 ikp.ref_moment = tmp_ref_moment[idx] + ((target->R * ikp.localCOPPos + target->p) - (target->R * ikp.localp + target->p)).cross(tmp_ref_force[idx]);
                 ikp.ref_force = tmp_ref_force[idx];
+
                 // Actual world frame =>
                 hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * wrenches[i].head<3>();
                 const hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * wrenches[i].tail<3>();
                 //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
                 hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
                 // <= Actual world frame
+
                 // Convert force & moment as foot origin coords relative
                 ikp.ref_moment = foot_origin_rot.transpose() * ikp.ref_moment;
                 ikp.ref_force = foot_origin_rot.transpose() * ikp.ref_force;
@@ -563,6 +588,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                     if ((!ref_contact_states[i] || !act_contact_states[i]) && fabs(ikp.ref_force(j) - sensor_force(j)) > eefm_swing_damping_force_thre[j]) large_swing_f_diff[j] = true;
                     if ((!ref_contact_states[i] || !act_contact_states[i]) && fabs(ikp.ref_moment(j) - ee_moment(j)) > eefm_swing_damping_moment_thre[j]) large_swing_m_diff[j] = true;
                 }
+
                 // Moment limitation
                 const hrp::Matrix33 ee_R(target->R * ikp.localR);
                 ikp.ref_moment = ee_R * clamp((ee_R.transpose() * ikp.ref_moment), ikp.eefm_ee_moment_limit);
@@ -570,19 +596,33 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 // d_foot_rpy and d_foot_pos is (actual) foot origin coords relative value because these use foot origin coords relative force & moment
                 { // Rot
                     //   Basically Equation (16) and (17) in the paper [1]
-                    hrp::Vector3 damping_gain; // TODO: rename
+                    hrp::Vector3 rot_damping_gain; // TODO: rename
                     for (size_t j = 0; j < 3; ++j) {
-                        if (!eefm_use_swing_damping || !large_swing_m_diff[j]) damping_gain(j) = (1 - transition_smooth_gain) * ikp.eefm_rot_damping_gain(j) * 10 + transition_smooth_gain * ikp.eefm_rot_damping_gain(j);
-                        else damping_gain(j) = (1 - transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
+                        rot_damping_gain(j) = (!eefm_use_swing_damping || !large_swing_m_diff[j]) ? ikp.eefm_rot_damping_gain(j) : eefm_swing_rot_damping_gain(j);
                     }
-                    ikp.d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.d_foot_rpy, damping_gain, ikp.eefm_rot_time_const);
+                    rot_damping_gain = (1 - transition_smooth_gain) * rot_damping_gain * 10 + transition_smooth_gain * rot_damping_gain;
+
+                    if (!ref_contact_states[i] && !act_contact_states[i]) {
+                        ikp.d_foot_rpy = calcDampingControl(ikp.d_foot_rpy, ikp.eefm_rot_time_const);
+                    } else {
+                        ikp.d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.d_foot_rpy, rot_damping_gain, ikp.eefm_rot_time_const);
+                    }
+
                     ikp.d_foot_rpy = clamp(ikp.d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
                 }
+
                 if (!eefm_use_force_difference_control) { // Pos
-                    const hrp::Vector3 damping_gain = (1 - transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain; // TODO: rename
-                    ikp.d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.d_foot_pos, damping_gain, ikp.eefm_pos_time_const_support);
+                    const hrp::Vector3 pos_damping_gain = (1 - transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain; // TODO: rename
+
+                    if (!ref_contact_states[i] && !act_contact_states[i]) {
+                        ikp.d_foot_pos = calcDampingControl(ikp.d_foot_pos, ikp.eefm_pos_time_const_support);
+                    } else {
+                        ikp.d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.d_foot_pos, pos_damping_gain, ikp.eefm_pos_time_const_support);
+                    }
+
                     ikp.d_foot_pos = clamp(ikp.d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
                 }
+
                 // Actual ee frame =>
                 ikp.ee_d_foot_rpy = ee_R.transpose() * (foot_origin_rot * ikp.d_foot_rpy);
                 // tilt Check : only flat plane is supported
@@ -677,6 +717,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         m_robot->calcForwardKinematics();
     }
     prev_ref_contact_states = ref_contact_states;
+    prev_act_contact_states = act_contact_states;
     if (control_mode != MODE_ST) d_pos_z_root = 0.0;
 }
 
@@ -930,7 +971,6 @@ void Stabilizer::calcStateForEmergencySignal()
 
     rel_ee_pos.clear();
     rel_ee_rot.clear();
-    rel_ee_name.clear();
 }
 
 void Stabilizer::moveBasePosRotForBodyRPYControl ()

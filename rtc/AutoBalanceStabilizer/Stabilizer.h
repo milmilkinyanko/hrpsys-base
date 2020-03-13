@@ -240,7 +240,7 @@ class Stabilizer
     std::vector<std::shared_ptr<hrp::JointPathEx>> jpe_v;
     std::vector<STIKParam> stikp;
     std::map<std::string, size_t> contact_states_index_map;
-    std::vector<bool> ref_contact_states, prev_ref_contact_states, act_contact_states;
+    std::vector<bool> ref_contact_states, prev_ref_contact_states, act_contact_states, prev_act_contact_states;
     std::vector<bool> is_ik_enable, is_feedback_control_enable, is_zmp_calc_enable;
     std::vector<double> toe_heel_ratio; // TODO: delete
     int m_is_falling_counter = 0;
@@ -352,6 +352,10 @@ class Stabilizer
     bool reset_emergency_flag = false;
     bool whether_send_emergency_signal = false; // temporary variable to send emergency signal
     OpenHRP::AutoBalanceStabilizerService::EmergencyCheckMode emergency_check_mode = OpenHRP::AutoBalanceStabilizerService::NO_CHECK;
+
+    // Jump
+    size_t jump_time_count = 0;
+    double jump_initial_velocity = 0;
 };
 
 }
