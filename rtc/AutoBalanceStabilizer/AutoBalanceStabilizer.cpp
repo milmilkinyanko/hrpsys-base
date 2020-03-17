@@ -456,7 +456,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, ref_zmp_base_frame,
                      gg->getCog(), gg->getCogVel(), gg->getCogAcc(),
                      ref_angular_momentum, sbp_cog_offset,
-                     kf_acc_ref, st->getStabilizerLogData());
+                     kf_acc_ref, st->getStabilizerPortData());
 
     return RTC::RTC_OK;
 }
@@ -629,11 +629,11 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
                                              const hrp::Vector3& ref_momentum,
                                              const hrp::Vector3& sbp_cog_offset,
                                              const hrp::Vector3& acc_ref,
-                                             const hrp::stabilizerLogData& st_log_data)
+                                             const hrp::stabilizerPortData& st_port_data)
 {
     const unsigned int qRef_length = m_qRef.data.length();
     for (unsigned int i = 0; i < qRef_length; i++) {
-        m_qRef.data[i] = m_robot->joint(i)->q;
+        m_qRef.data[i] = st_port_data.joint_angles(i);
     }
     if (m_qRef.data.length() != 0) m_qOut.write();
 
@@ -744,27 +744,27 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
 
     // Data from Stabilizer
     m_originNewRefZmp.tm = m_qRef.tm;
-    m_originNewRefZmp.data.x = st_log_data.new_ref_zmp(0);
-    m_originNewRefZmp.data.y = st_log_data.new_ref_zmp(1);
-    m_originNewRefZmp.data.z = st_log_data.new_ref_zmp(2);
+    m_originNewRefZmp.data.x = st_port_data.new_ref_zmp(0);
+    m_originNewRefZmp.data.y = st_port_data.new_ref_zmp(1);
+    m_originNewRefZmp.data.z = st_port_data.new_ref_zmp(2);
     m_originNewRefZmpOut.write();
 
     m_originActZmp.tm = m_qRef.tm;
-    m_originActZmp.data.x = st_log_data.rel_act_zmp(0);
-    m_originActZmp.data.y = st_log_data.rel_act_zmp(1);
-    m_originActZmp.data.z = st_log_data.rel_act_zmp(2);
+    m_originActZmp.data.x = st_port_data.rel_act_zmp(0);
+    m_originActZmp.data.y = st_port_data.rel_act_zmp(1);
+    m_originActZmp.data.z = st_port_data.rel_act_zmp(2);
     m_originActZmpOut.write();
 
     m_footOriginRefCog.tm = m_qRef.tm;
-    m_footOriginRefCog.data.x = st_log_data.origin_ref_cog(0);
-    m_footOriginRefCog.data.y = st_log_data.origin_ref_cog(1);
-    m_footOriginRefCog.data.z = st_log_data.origin_ref_cog(2);
+    m_footOriginRefCog.data.x = st_port_data.origin_ref_cog(0);
+    m_footOriginRefCog.data.y = st_port_data.origin_ref_cog(1);
+    m_footOriginRefCog.data.z = st_port_data.origin_ref_cog(2);
     m_footOriginRefCogOut.write();
 
     m_footOriginActCog.tm = m_qRef.tm;
-    m_footOriginActCog.data.x = st_log_data.origin_act_cog(0);
-    m_footOriginActCog.data.y = st_log_data.origin_act_cog(1);
-    m_footOriginActCog.data.z = st_log_data.origin_act_cog(2);
+    m_footOriginActCog.data.x = st_port_data.origin_act_cog(0);
+    m_footOriginActCog.data.y = st_port_data.origin_act_cog(1);
+    m_footOriginActCog.data.z = st_port_data.origin_act_cog(2);
     m_footOriginActCogOut.write();
 
     {

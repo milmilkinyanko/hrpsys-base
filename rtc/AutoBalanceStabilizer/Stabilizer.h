@@ -45,8 +45,10 @@ struct paramsFromSensors
     std::vector<hrp::dvector6> wrenches;
 };
 
-struct stabilizerLogData
+struct stabilizerPortData
 {
+    hrp::dvector joint_angles;
+    hrp::dvector joint_torques;
     hrp::Vector3 new_ref_zmp;
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
@@ -98,6 +100,8 @@ class Stabilizer
     hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
                                      const hrp::Vector3& DD, const hrp::Vector3& TT);
     void calcDiffFootOriginExtMoment ();
+    void calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
+    void calcTorque(const hrp::Matrix33& rot);
 
     bool isContact (const size_t idx) // 0 = right, 1 = left
     {
@@ -143,9 +147,17 @@ class Stabilizer
         stikp.push_back(ikp);
     }
 
-    stabilizerLogData getStabilizerLogData() const
+    stabilizerPortData getStabilizerPortData() const
     {
-        return stabilizerLogData{new_refzmp, ref_cog, act_cog};
+        const size_t num_joints = m_robot->numJoints();
+        hrp::dvector joint_angles(num_joints);
+        hrp::dvector joint_torques(num_joints);
+        for (size_t i = 0; i < num_joints; ++i) {
+            joint_angles(i)  = m_robot->joint(i)->q;
+            joint_torques(i) = m_robot->joint(i)->u;
+        }
+
+        return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog};
     }
 
     hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }

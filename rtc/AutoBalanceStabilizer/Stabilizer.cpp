@@ -30,8 +30,7 @@ inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 =
 namespace hrp {
 
 Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt)
-    : //m_robot(boost::make_shared<hrp::Body>(*_robot)), // TODO: copy constructor
-      m_robot(_robot),
+    : m_robot(boost::make_shared<hrp::Body>(*_robot)),
       comp_name(_comp_name),
       dt(_dt)
 {
@@ -700,6 +699,9 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         }
     } // st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC
 
+    calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot);// foot origin relative => Actual world frame
+    calcTorque(foot_origin_rot);
+
     copyJointAnglesToRobotModel(m_robot, qrefv);
     m_robot->rootLink()->p = target_root_p;
     m_robot->rootLink()->R = target_root_R;
@@ -723,9 +725,33 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
 void Stabilizer::storeCurrentStates()
 {
+    hrp::dvector cur_q;
+    copyJointAnglesFromRobotModel(cur_q, m_robot);
+    const hrp::Vector3  prev_root_p = current_root_p;
+    const hrp::Matrix33 prev_root_R = current_root_R;
+    const hrp::Vector3  prev_root_v = m_robot->rootLink()->v;
+    const hrp::Vector3  prev_root_w = m_robot->rootLink()->w;
     current_root_p = m_robot->rootLink()->p;
     current_root_R = m_robot->rootLink()->R;
-    copyJointAnglesFromRobotModel(qorg, m_robot);
+
+    const size_t num_joints = m_robot->numJoints();
+    for (size_t i = 0; i < num_joints; ++i) {
+        const double prev_dq = m_robot->joint(i)->dq;
+        m_robot->joint(i)->dq  = (cur_q[i] - qorg[i]) / dt;
+        m_robot->joint(i)->ddq = (m_robot->joint(i)->dq - prev_dq) / dt;
+    }
+
+    m_robot->rootLink()->v = (current_root_p - prev_root_p) / dt;
+    const Eigen::AngleAxis<double> dR_aa(prev_root_R.transpose() * current_root_R);
+    m_robot->rootLink()->w = (std::fabs(dR_aa.angle()) < 1e-6) ? hrp::Vector3::Zero() :
+        hrp::Vector3(prev_root_R * ((dR_aa.angle() / dt) * dR_aa.axis()));
+    m_robot->rootLink()->dv = hrp::Vector3(0, 0, g_acc) + (m_robot->rootLink()->v - prev_root_v) / dt;
+    m_robot->rootLink()->dw = (m_robot->rootLink()->w - prev_root_w) / dt;
+
+    m_robot->rootLink()->vo = m_robot->rootLink()->v - m_robot->rootLink()->w.cross(m_robot->rootLink()->p);
+    m_robot->rootLink()->dvo = m_robot->rootLink()->dv - m_robot->rootLink()->dw.cross(m_robot->rootLink()->p) - m_robot->rootLink()->w.cross(m_robot->rootLink()->v);
+
+    qorg = cur_q;
 }
 
 void Stabilizer::calcFootOriginCoords(hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot)
@@ -1309,6 +1335,53 @@ void Stabilizer::calcDiffFootOriginExtMoment()
                   << "[mm], " << "diff ext_moment = "
                   << diff_foot_origin_ext_moment.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"))
                   << "[mm]" << std::endl;
+    }
+}
+
+void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot)
+{
+    // cog and zmp must be in the same coords with stikp.ref_forece
+    hrp::Vector3 total_force = hrp::Vector3::Zero();
+    for (size_t j = 0; j < stikp.size(); ++j) {
+        total_force(2) += stikp[j].ref_force(2); // only fz
+    }
+
+    total_force.head<2>() = (cog.head<2>() - zmp.head<2>()) * total_force(2) / (cog(2) - zmp(2)); // overwrite fxy
+    constexpr double EPS = 1e-6;
+    if (total_force(2) < EPS) return;
+
+    for (STIKParam& ikp : stikp) {
+        ikp.ref_force.head<2>() += (rot.transpose() * total_force).head<2>() * ikp.ref_force(2) / total_force(2);
+    }
+}
+
+void Stabilizer::calcTorque(const hrp::Matrix33& rot)
+{
+    m_robot->calcForwardKinematics(true, true);
+
+    hrp::Vector3 root_f;
+    hrp::Vector3 root_tau;
+    m_robot->calcInverseDynamics(m_robot->rootLink(), root_f, root_tau);
+
+    if (control_mode == MODE_ST) {
+        for (const STIKParam& ikp : stikp) {
+            hrp::Link* target = m_robot->link(ikp.target_name);
+            hrp::JointPathEx jm(m_robot, m_robot->rootLink(), target, dt);
+            const hrp::dmatrix JJ = jm.Jacobian();
+
+            hrp::dvector6 ft;
+            ft << rot * ikp.ref_force, rot * ikp.ref_moment;
+            const hrp::dvector tq_from_extft = JJ.transpose() * ft; // size: jm.numJoints()
+
+            const size_t jm_num_joints = jm.numJoints();
+            for (size_t i = 0; i < jm_num_joints; i++) jm.joint(i)->u -= tq_from_extft(i);
+        }
+    }
+
+    const size_t num_joints = m_robot->numJoints();
+    for (size_t i = 0; i < num_joints; ++i) {
+        m_robot->joint(i)->u *= transition_smooth_gain;
+        // prev_dqv[i] = m_robot->joint(i)->dq;
     }
 }
 

@@ -274,7 +274,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
                                  const hrp::Vector3& ref_momentum,
                                  const hrp::Vector3& sbp_cog_offset,
                                  const hrp::Vector3& acc_ref,
-                                 const hrp::stabilizerLogData& st_log_data);
+                                 const hrp::stabilizerPortData& st_port_data);
     // -- Functions for OpenRTM port --
 
     void updateBodyParams();
