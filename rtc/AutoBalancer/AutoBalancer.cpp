@@ -2308,6 +2308,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_emergency_step_time(i_param.emergency_step_time);
   gg->use_act_states = st->use_act_states = i_param.use_act_states;
   gg->set_use_act_states();
+  gg->is_interpolate_zmp_in_double = i_param.is_interpolate_zmp_in_double;
   gg->zmp_delay_time_const = i_param.zmp_delay_time_const;
   gg->overwritable_max_time = i_param.overwritable_max_time;
   gg->fg_zmp_cutoff_freq = i_param.fg_zmp_cutoff_freq;
@@ -2421,6 +2422,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
     i_param.emergency_step_time[i] = gg->get_emergency_step_time(i);
   }
   i_param.use_act_states = gg->use_act_states;
+  i_param.is_interpolate_zmp_in_double = gg->is_interpolate_zmp_in_double;
   i_param.zmp_delay_time_const = gg->zmp_delay_time_const;
   i_param.overwritable_max_time = gg->overwritable_max_time;
   i_param.fg_zmp_cutoff_freq = gg->fg_zmp_cutoff_freq;

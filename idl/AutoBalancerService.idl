@@ -334,6 +334,7 @@ module OpenHRP
       double fg_cp_cutoff_freq;
       DblArray3 sum_d_footstep_thre;
       DblArray3 footstep_check_delta;
+      boolean is_interpolate_zmp_in_double;
     };
 
     /**

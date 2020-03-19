@@ -1163,7 +1163,7 @@ namespace rats
         else {
           if (zmp_delay_time_const+dt >= (fg_step_count * double_support_ratio * dt)) {
             ad_ref_zmp = fg_goal_ref_zmp;
-          } else {
+          } else if (zmp_delay_time_const != 0.0) {
             hrp::Vector3 a = (fg_goal_ref_zmp - fg_start_ref_zmp) / (fg_step_count * double_support_ratio * dt);
             hrp::Vector3 b = fg_start_ref_zmp;
             ad_ref_zmp = a * (zmp_delay_time_const+dt) + b;
@@ -1175,7 +1175,7 @@ namespace rats
     // calc zmp
     foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // interpolate zmp when double support phase
-    if (use_act_states) {
+    if (use_act_states && is_interpolate_zmp_in_double) {
       if (is_double_support_phase) {
         double tmp_ratio = 0.0;
         if (double_support_zmp_interpolator->isEmpty()) {
