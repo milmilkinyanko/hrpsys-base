@@ -45,6 +45,8 @@ Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name
 
     act_cogvel_filter = std::make_unique<FirstOrderLowPassFilter<hrp::Vector3>>(4.0, dt, hrp::Vector3::Zero()); // 4.0 Hz ?
 
+    servo_pgains.resize(num_joints, 100);
+    servo_dgains.resize(num_joints, 100);
     szd = std::make_unique<SimpleZMPDistributor>(dt);
 }
 
@@ -89,20 +91,27 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
         // To zmp calculation, hands are disabled and feet are enabled, by default
         is_zmp_calc_enable.push_back(is_ee_leg);
 
-        jpe_v.push_back(std::make_shared<hrp::JointPathEx>(m_robot,
-                                                           m_robot->link(stikp[i].ee_base),
-                                                           m_robot->link(stikp[i].target_name),
-                                                           dt, false, comp_name));
+        const auto jpe = std::make_shared<hrp::JointPathEx>(m_robot,
+                                                            m_robot->link(stikp[i].ee_base),
+                                                            m_robot->link(stikp[i].target_name),
+                                                            dt, false, comp_name);
+
+        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+
         // Fix for toe joint
-        const size_t num_joints = jpe_v.back()->numJoints();
+        const size_t num_joints = jpe->numJoints();
         if (is_ee_leg && num_joints == 7) { // leg and has 7dof joint (6dof leg +1dof toe)
             std::vector<double> optw;
             optw.resize(num_joints, 1.0);
             optw.back() = 0.0;
-            jpe_v.back()->setOptionalWeightVector(optw);
+            jpe->setOptionalWeightVector(optw);
         }
 
         contact_states_index_map.emplace(stikp[i].ee_name, i);
+        jpe_v.push_back(jpe);
     }
 
     {
@@ -699,7 +708,8 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         }
     } // st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC
 
-    calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot);// foot origin relative => Actual world frame
+    if (joint_control_mode == JOINT_TORQUE && control_mode == MODE_ST) setSwingSupportJointServoGains();
+    calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot); // foot origin relative => Actual world fraem
     calcTorque(foot_origin_rot);
 
     copyJointAnglesToRobotModel(m_robot, qrefv);
@@ -1338,6 +1348,44 @@ void Stabilizer::calcDiffFootOriginExtMoment()
     }
 }
 
+void Stabilizer::setSwingSupportJointServoGains()
+{
+    static double tmp_landing2support_transition_time = landing2support_transition_time;
+    const size_t stikp_size = stikp.size();
+    for (size_t i = 0; i < stikp_size; i++) {
+        STIKParam& ikp = stikp[i];
+        const auto& jpe = jpe_v[i];
+        if (ikp.contact_phase == SWING_PHASE && !ref_contact_states[i] && control_swing_support_time[i] < swing2landing_transition_time + landing_phase_time) { // SWING -> LANDING
+            ikp.contact_phase = LANDING_PHASE;
+            ikp.phase_time = 0;
+            for (size_t j = 0, joint_num = ikp.support_pgain.size(); j < joint_num; ++j) {
+                // TODO: あまりservice使いたくない
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_pgain(j),swing2landing_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_dgain(j),swing2landing_transition_time);
+            }
+        }
+
+        if (ikp.contact_phase == LANDING_PHASE && act_contact_states[i] && ref_contact_states[i] && ikp.phase_time > swing2landing_transition_time) { // LANDING -> SUPPORT
+            ikp.contact_phase = SUPPORT_PHASE;
+            ikp.phase_time = 0;
+            tmp_landing2support_transition_time = std::min(landing2support_transition_time, control_swing_support_time[i]);
+            for (size_t j = 0, joint_num = ikp.support_pgain.size(); j < joint_num; ++j) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_pgain(j),tmp_landing2support_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),tmp_landing2support_transition_time);
+            }
+        }
+
+        // if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time) { // SUPPORT -> SWING
+        if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time
+            // && ( (ref_contact_states[i] && control_swing_support_time[i] < 0.2) || !ref_contact_states[i] )) { // SUPPORT -> SWING
+            && !ref_contact_states[i] ) { // SUPPORT -> SWING
+            ikp.contact_phase = SWING_PHASE;
+            ikp.phase_time = 0;
+        }
+        ikp.phase_time += dt;
+    }
+}
+
 void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot)
 {
     // cog and zmp must be in the same coords with stikp.ref_forece
@@ -1352,6 +1400,13 @@ void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& 
 
     for (STIKParam& ikp : stikp) {
         ikp.ref_force.head<2>() += (rot.transpose() * total_force).head<2>() * ikp.ref_force(2) / total_force(2);
+
+        constexpr double rate_during_landing = 0.1;
+        constexpr double wrench_transition_time = 0.15;
+        if (ikp.contact_phase == LANDING_PHASE) ikp.ref_moment *= rate_during_landing;
+        else if (ikp.contact_phase == SUPPORT_PHASE) {
+            ikp.ref_moment *= rate_during_landing + (1 - rate_during_landing) * std::min(1.0, ikp.phase_time / wrench_transition_time);
+        }
     }
 }
 

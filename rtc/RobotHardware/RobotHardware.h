@@ -113,8 +113,8 @@ class RobotHardware
  protected:
   // Configuration variable declaration
   // <rtc-template block="config_declare">
-  int m_isDemoMode;  
-  
+  int m_isDemoMode;
+
   // </rtc-template>
 
   // DataInPort declaration
@@ -140,7 +140,23 @@ class RobotHardware
   */
   TimedDoubleSeq m_tauRef;
   InPort<TimedDoubleSeq> m_tauRefIn;
-  
+  /**
+     \brief array of proportional gains
+  */
+  TimedDoubleSeq m_pgain;
+  InPort<TimedDoubleSeq> m_pgainIn;
+  /**
+     \brief array of derivative gains
+  */
+  TimedDoubleSeq m_dgain;
+  InPort<TimedDoubleSeq> m_dgainIn;
+
+  /**
+     \brief gain transition time
+  */
+  TimedDouble m_gainTransitionTime;
+  InPort<TimedDouble> m_gainTransitionTimeIn;
+
   // </rtc-template>
 
   /**
@@ -199,18 +215,18 @@ class RobotHardware
   // CORBA Port declaration
   // <rtc-template block="corbaport_declare">
   RTC::CorbaPort m_RobotHardwareServicePort;
-  
+
   // </rtc-template>
 
   // Service declaration
   // <rtc-template block="service_declare">
   RobotHardwareService_impl m_service0;
-  
+
   // </rtc-template>
 
   // Consumer declaration
   // <rtc-template block="consumer_declare">
-  
+
   // </rtc-template>
 
   robot *robot_ptr(void) { return m_robot.get(); };

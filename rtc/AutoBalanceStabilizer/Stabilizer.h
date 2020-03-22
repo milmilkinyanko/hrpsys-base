@@ -100,6 +100,7 @@ class Stabilizer
     hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
                                      const hrp::Vector3& DD, const hrp::Vector3& TT);
     void calcDiffFootOriginExtMoment ();
+    void setSwingSupportJointServoGains();
     void calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
     void calcTorque(const hrp::Matrix33& rot);
 
@@ -169,6 +170,10 @@ class Stabilizer
     std::pair<bool, int> getEmergencySignal() const { return std::make_pair(whether_send_emergency_signal, emergency_signal); }
 
   private:
+    enum CONTROL_MODE {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
+    enum CONTACT_PHASE {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
+    enum JOINT_CONTROL_MODE {JOINT_POSITION, JOINT_TORQUE} joint_control_mode = JOINT_POSITION;
+
     bool calcIfCOPisOutside();
     bool calcIfCPisOutside();
     bool calcFalling();
@@ -228,9 +233,15 @@ class Stabilizer
         double max_limb_length    = 0.0;
         double limb_length_margin = 0.13;
         size_t ik_loop_count      = 3;
-    };
 
-    enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
+        // For jump
+        CONTACT_PHASE contact_phase = SUPPORT_PHASE;
+        double phase_time = 0;
+        hrp::dvector support_pgain;
+        hrp::dvector support_dgain;
+        hrp::dvector landing_pgain;
+        hrp::dvector landing_dgain;
+    };
 
     hrp::BodyPtr m_robot;
     std::mutex m_mutex;
@@ -368,6 +379,13 @@ class Stabilizer
     // Jump
     size_t jump_time_count = 0;
     double jump_initial_velocity = 0;
+    double swing2landing_transition_time = 0.05;
+    double landing_phase_time = 0.1;
+    double landing2support_transition_time = 0.5;
+
+    // Servo gain
+    std::vector<double> servo_pgains;
+    std::vector<double> servo_dgains;
 };
 
 }

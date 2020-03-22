@@ -32,11 +32,8 @@ robot::~robot()
 
 bool robot::init()
 {
-    int i;
-    gain_counter.resize(numJoints());
-    for (unsigned i=0; i<numJoints(); i++){
-	gain_counter[i] = GAIN_COUNT;
-    }
+    gain_counter.resize(numJoints(), GAIN_COUNT);
+    max_gain_counts.resize(numJoints(), GAIN_COUNT);
 
     inertia_calib_counter = force_calib_counter = -1;
 
@@ -59,7 +56,7 @@ bool robot::init()
         tqpgain[i] = tqdgain[i] = 0.0;
         old_tqpgain[i] = old_tqdgain[i] = 0.0;
         default_tqpgain[i] = default_tqdgain[i] = 0.0;
-    } 
+    }
     loadGain();
     for (unsigned int i=0; i<numJoints(); i++){
         pgain[i] = default_pgain[i];
@@ -181,7 +178,7 @@ bool robot::loadGain()
 void robot::startInertiaSensorCalibration()
 {
     std::cerr << "[RobotHardware] startInertiaSensorCalibration..." << std::endl;
-    if (numSensors(Sensor::ACCELERATION)==0 
+    if (numSensors(Sensor::ACCELERATION)==0
         && numSensors(Sensor::RATE_GYRO)==0)  return;
 
     if (isBusy()) return;
@@ -249,7 +246,7 @@ void robot::calibrateInertiaSensorOneStep()
             for (int i=0; i<3; i++)
                 gyro_sum[j][i] += rate[i];
         }
-        
+
         for (unsigned int j=0; j<numSensors(Sensor::ACCELERATION); j++){
             double acc[3];
             read_accelerometer(j, acc);
@@ -327,12 +324,12 @@ void robot::calibrateForceSensorOneStep()
 void robot::gain_control(int i)
 {
     double new_pgain=0,new_dgain=0,new_tqpgain=0,new_tqdgain=0;
-    if (gain_counter[i] < GAIN_COUNT){
+    if (gain_counter[i] < max_gain_counts[i]){
         gain_counter[i]++;
-        new_pgain = (pgain[i]-old_pgain[i])*gain_counter[i]/GAIN_COUNT + old_pgain[i];
-        new_dgain = (dgain[i]-old_dgain[i])*gain_counter[i]/GAIN_COUNT + old_dgain[i];
-        new_tqpgain = (tqpgain[i]-old_tqpgain[i])*gain_counter[i]/GAIN_COUNT + old_tqpgain[i];
-        new_tqdgain = (tqdgain[i]-old_tqdgain[i])*gain_counter[i]/GAIN_COUNT + old_tqdgain[i];
+        new_pgain = (pgain[i]-old_pgain[i])*gain_counter[i]/max_gain_counts[i] + old_pgain[i];
+        new_dgain = (dgain[i]-old_dgain[i])*gain_counter[i]/max_gain_counts[i] + old_dgain[i];
+        new_tqpgain = (tqpgain[i]-old_tqpgain[i])*gain_counter[i]/max_gain_counts[i] + old_tqpgain[i];
+        new_tqdgain = (tqdgain[i]-old_tqdgain[i])*gain_counter[i]/max_gain_counts[i] + old_tqdgain[i];
         write_pgain(i, new_pgain);
         write_dgain(i, new_dgain);
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
@@ -354,7 +351,7 @@ void robot::oneStep()
     calibrateForceSensorOneStep();
     gain_control();
     if (m_calibRequested){
-        ::initializeJointAngle(m_calibJointName.c_str(), 
+        ::initializeJointAngle(m_calibJointName.c_str(),
                                m_calibOptions.c_str());
         m_calibRequested = false;
         sem_post(&wait_sem);
@@ -390,7 +387,7 @@ bool robot::servo(const char *jname, bool turnon)
 bool robot::servo(int jid, bool turnon)
 {
     if (jid == JID_INVALID || jid >= (int)numJoints()) return false;
-    
+
     int com = OFF;
 
     if (turnon) {
@@ -436,7 +433,7 @@ bool robot::power(const char *jname, bool turnon)
 bool robot::power(int jid, bool turnon)
 {
     if (jid == JID_INVALID || jid >= (int)numJoints()) return false;
-  
+
     int com = OFF;
 
     if (turnon) {
@@ -464,7 +461,7 @@ bool robot::power(int jid, bool turnon)
                 write_servo(i, com);
                 write_power_command(i, com);
             }
-        } else       
+        } else
             for (unsigned int i=0; i<numJoints(); i++)
                 write_power_command(i, com);
     } else {
@@ -491,12 +488,12 @@ bool robot::isBusy() const
         return true;
 
     for (unsigned int i=0; i<numJoints(); i++) {
-        if (gain_counter[i] < GAIN_COUNT) {
+        if (gain_counter[i] < max_gain_counts[i]) {
             return true;
         }
     }
 
-    return false; 
+    return false;
 }
 
 void robot::readJointAngles(double *o_angles)
@@ -632,20 +629,20 @@ bool robot::checkJointCommands(const double *i_commands)
             double v = (command - command_old)/m_dt;
             if (fabs(v) > joint(i)->uvlimit){
                 std::cerr << time_string()
-                          << ": joint command velocity limit over: joint = " 
+                          << ": joint command velocity limit over: joint = "
 		          << joint(i)->name
-		          << ", vlimit = " << joint(i)->uvlimit/M_PI*180 
-                          << "[deg/s], v = " 
+		          << ", vlimit = " << joint(i)->uvlimit/M_PI*180
+                          << "[deg/s], v = "
 		          << v/M_PI*180 << "[deg/s]" << std::endl;
                 return true;
             }
             double a = (v - m_velocityOld[i])/m_dt;
             if (m_accLimit && fabs(a) > m_accLimit){
                 std::cerr << time_string()
-                          << ": joint command acceleration limit over: joint = " 
+                          << ": joint command acceleration limit over: joint = "
 		          << joint(i)->name
-		          << ", alimit = " << m_accLimit/M_PI*180 
-                          << "[deg/s^2], v = " 
+		          << ", alimit = " << m_accLimit/M_PI*180
+                          << "[deg/s^2], v = "
 		          << a/M_PI*180 << "[deg/s^2]" << std::endl;
                 return true;
             }
@@ -665,9 +662,9 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
             read_command_angle(i, &command);
             if (fabs(angle-command) > m_servoErrorLimit[i]){
                 std::cerr << time_string()
-                          << ": servo error limit over: joint = " 
+                          << ": servo error limit over: joint = "
 		          << joint(i)->name
-		          << ", qRef = " << command/M_PI*180 << "[deg], q = " 
+		          << ", qRef = " << command/M_PI*180 << "[deg], q = "
 		          << angle/M_PI*180 << "[deg]" << std::endl;
                 o_reason = EMG_SERVO_ERROR;
                 o_id = i;
@@ -685,7 +682,7 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
             o_id = m_rLegForceSensorId;
             return true;
         }
-    } 
+    }
     if (m_lLegForceSensorId >= 0){
         double force[6];
         read_force_sensor(m_lLegForceSensorId, force);
@@ -695,7 +692,7 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
             o_id = m_lLegForceSensorId;
             return true;
         }
-    } 
+    }
     int alarm;
     for (unsigned int i=0; i<numJoints(); i++){
         if (!read_servo_alarm(i, &alarm)) continue;
@@ -729,58 +726,99 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
     return false;
 }
 
-bool robot::setServoGainPercentage(const char *i_jname, double i_percentage)
+bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, bool change_p, bool change_d, double transition_time)
 {
-    if ( i_percentage < 0 || 100 < i_percentage ) {
-        std::cerr << "[RobotHardware] Invalid percentage " <<  i_percentage << "[%] for setServoGainPercentage. Percentage should be in (0, 100)[%]." << std::endl;
-        return false;
+    std::vector<double> vi_percentage(numJoints(), i_percentage);
+    return setServoGainPercentage(i_jname, &vi_percentage.front(), change_p, change_d, transition_time);
+}
+
+bool robot::setServoGainPercentage(const char *i_jname, double *i_percentage, bool change_p, bool change_d, double transition_time)
+{
+    if (!change_p && !change_d) return false;
+    const size_t percentage_size = sizeof(i_percentage) / sizeof(i_percentage[0]);
+
+    for (size_t i = 0; i < percentage_size; ++i) {
+        if (i_percentage[i] < 0 || 100 < i_percentage[i]) {
+            std::cerr << "[RobotHardware] Invalid percentage " <<  i_percentage[i] << "[%] for setServoGainPercentage. Percentage should be in (0, 100)[%]." << std::endl;
+            return false;
+        }
     }
+
+    const int max_count = (transition_time < m_dt + 1e-6) ? GAIN_COUNT : transition_time / m_dt;
     Link *l = NULL;
     if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0){
+        if (numJoints() != percentage_size) {
+            std::cerr << "[RobotHardware] Size of i_percentage must be same as numJoints" << std::endl;
+            return false;
+        }
+
+        std::cerr << "[RobotHardware] setServoGainPercentage ";
         for (unsigned int i=0; i<numJoints(); i++){
             if (!read_pgain(i, &old_pgain[i])) old_pgain[i] = pgain[i];
-            pgain[i] = default_pgain[i] * i_percentage/100.0;
+            if (change_p) pgain[i] = default_pgain[i] * i_percentage[i] / 100.0;
+
             if (!read_dgain(i, &old_dgain[i])) old_dgain[i] = dgain[i];
-            dgain[i] = default_dgain[i] * i_percentage/100.0;
+            if (change_d) dgain[i] = default_dgain[i] * i_percentage[i] / 100.0;
+
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(i, &old_tqpgain[i])) old_tqpgain[i] = tqpgain[i];
             if (!read_torque_dgain(i, &old_tqdgain[i])) old_tqdgain[i] = tqdgain[i];
 #endif
             gain_counter[i] = 0;
+            max_gain_counts[i] = max_count;
+
+            std::cerr << i_percentage[i] << " ";
         }
-        std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage << "[%] for all joints" << std::endl;
-    }else if ((l = link(i_jname))){
+        std::cerr << "[%] for all joints" << std::endl;
+    } else if ((l = link(i_jname))) {
         if (!read_pgain(l->jointId, &old_pgain[l->jointId])) old_pgain[l->jointId] = pgain[l->jointId];
-        pgain[l->jointId] = default_pgain[l->jointId] * i_percentage/100.0;
+        if (change_p) pgain[l->jointId] = default_pgain[l->jointId] * i_percentage[0] / 100.0;
+
         if (!read_dgain(l->jointId, &old_dgain[l->jointId])) old_dgain[l->jointId] = dgain[l->jointId];
-        dgain[l->jointId] = default_dgain[l->jointId] * i_percentage/100.0;
+        if (change_d) dgain[l->jointId] = default_dgain[l->jointId] * i_percentage[0] / 100.0;
+
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
         if (!read_torque_pgain(l->jointId, &old_tqpgain[l->jointId])) old_tqpgain[l->jointId] = tqpgain[l->jointId];
         if (!read_torque_dgain(l->jointId, &old_tqdgain[l->jointId])) old_tqdgain[l->jointId] = tqdgain[l->jointId];
 #endif
         gain_counter[l->jointId] = 0;
-        std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage << "[%] for " << i_jname << std::endl;
-    }else{
+        max_gain_counts[l->jointId] = max_count;
+        std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage[0] << "[%] for " << i_jname << std::endl;
+    } else {
         char *s = (char *)i_jname; while(*s) {*s=toupper(*s);s++;}
         const std::vector<int> jgroup = m_jointGroups[i_jname];
-        if (jgroup.size()==0) return false;
-        for (unsigned int i=0; i<jgroup.size(); i++){
+        const size_t jgroup_size = jgroup.size();
+
+        if (jgroup_size == 0) return false;
+        if (jgroup_size != percentage_size) {
+            std::cerr << "[RobotHardware] Size of i_percentage must be same as jgroup.size()" << std::endl;
+            return false;
+        }
+
+        for (unsigned int i = 0; i < jgroup_size; i++) {
+            std::cerr << "[RobotHardware] setServoGainPercentage ";
+
             if (!read_pgain(jgroup[i], &old_pgain[jgroup[i]])) old_pgain[jgroup[i]] = pgain[jgroup[i]];
-            pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage/100.0;
+            if (change_p) pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage[0] / 100.0;
+
             if (!read_dgain(jgroup[i], &old_dgain[jgroup[i]])) old_dgain[jgroup[i]] = dgain[jgroup[i]];
-            dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage/100.0;
+            if (change_d) dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage[0] / 100.0;
+
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(jgroup[i], &old_tqpgain[jgroup[i]])) old_tqpgain[jgroup[i]] = tqpgain[jgroup[i]];
             if (!read_torque_dgain(jgroup[i], &old_tqdgain[jgroup[i]])) old_tqdgain[jgroup[i]] = tqdgain[jgroup[i]];
 #endif
             gain_counter[jgroup[i]] = 0;
+            max_gain_counts[jgroup[i]] = 0;
+
+            std::cerr << i_percentage[i] << " ";
         }
-        std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage << "[%] for " << i_jname << std::endl;
+        std::cerr << "[%] for all joints" << std::endl;
     }
     return true;
 }
 
-bool robot::setServoTorqueGainPercentage(const char *i_jname, double i_percentage)
+bool robot::setServoTorqueGainPercentage(const char *i_jname, double i_percentage, bool change_p, bool change_d)
 {
     if ( i_percentage < 0 && 100 < i_percentage ) {
         std::cerr << "[RobotHardware] Invalid percentage " <<  i_percentage << "[%] for setServoTorqueGainPercentage. Percentage should be in (0, 100)[%]." << std::endl;
@@ -791,9 +829,9 @@ bool robot::setServoTorqueGainPercentage(const char *i_jname, double i_percentag
         for (int i=0; i<numJoints(); i++){
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(i, &old_tqpgain[i])) old_tqpgain[i] = tqpgain[i];
-            tqpgain[i] = default_tqpgain[i] * i_percentage/100.0;
+            if (change_p) tqpgain[i] = default_tqpgain[i] * i_percentage/100.0;
             if (!read_torque_dgain(i, &old_tqdgain[i])) old_tqdgain[i] = tqdgain[i];
-            tqdgain[i] = default_tqdgain[i] * i_percentage/100.0;
+            if (change_d) tqdgain[i] = default_tqdgain[i] * i_percentage/100.0;
 #endif
             if (!read_pgain(i, &old_pgain[i])) old_pgain[i] = pgain[i];
             if (!read_dgain(i, &old_dgain[i])) old_dgain[i] = dgain[i];
@@ -803,9 +841,9 @@ bool robot::setServoTorqueGainPercentage(const char *i_jname, double i_percentag
     }else if ((l = link(i_jname))){
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
         if (!read_torque_pgain(l->jointId, &old_tqpgain[l->jointId])) old_tqpgain[l->jointId] = tqpgain[l->jointId];
-        tqpgain[l->jointId] = default_tqpgain[l->jointId] * i_percentage/100.0;
+        if (change_p) tqpgain[l->jointId] = default_tqpgain[l->jointId] * i_percentage/100.0;
         if (!read_torque_dgain(l->jointId, &old_tqdgain[l->jointId])) old_tqdgain[l->jointId] = tqdgain[l->jointId];
-        tqdgain[l->jointId] = default_tqdgain[l->jointId] * i_percentage/100.0;
+        if (change_d) tqdgain[l->jointId] = default_tqdgain[l->jointId] * i_percentage/100.0;
 #endif
         if (!read_pgain(l->jointId, &old_pgain[l->jointId])) old_pgain[l->jointId] = pgain[l->jointId];
         if (!read_dgain(l->jointId, &old_dgain[l->jointId])) old_dgain[l->jointId] = dgain[l->jointId];
@@ -818,9 +856,9 @@ bool robot::setServoTorqueGainPercentage(const char *i_jname, double i_percentag
         for (unsigned int i=0; i<jgroup.size(); i++){
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(jgroup[i], &old_tqpgain[jgroup[i]])) old_tqpgain[jgroup[i]] = tqpgain[jgroup[i]];
-            tqpgain[jgroup[i]] = default_tqpgain[jgroup[i]] * i_percentage/100.0;
+            if (change_p) tqpgain[jgroup[i]] = default_tqpgain[jgroup[i]] * i_percentage/100.0;
             if (!read_torque_dgain(jgroup[i], &old_tqdgain[jgroup[i]])) old_tqdgain[jgroup[i]] = tqdgain[jgroup[i]];
-            tqdgain[jgroup[i]] = default_tqdgain[jgroup[i]] * i_percentage/100.0;
+            if (change_d) tqdgain[jgroup[i]] = default_tqdgain[jgroup[i]] * i_percentage/100.0;
 #endif
             if (!read_pgain(jgroup[i], &old_pgain[jgroup[i]])) old_pgain[jgroup[i]] = pgain[jgroup[i]];
             if (!read_dgain(jgroup[i], &old_dgain[jgroup[i]])) old_dgain[jgroup[i]] = dgain[jgroup[i]];
@@ -872,14 +910,14 @@ void robot::setProperty(const char *i_key, const char *i_value)
     if (isKnownKey) std::cout << i_key << ": " << i_value << std::endl;
 }
 
-bool robot::names2ids(const std::vector<std::string> &i_names, 
+bool robot::names2ids(const std::vector<std::string> &i_names,
                             std::vector<int> &o_ids)
-{ 
+{
     bool ret = true;
     for (unsigned int i=0; i<i_names.size(); i++){
         Link *l = link(i_names[i].c_str());
         if (!l){
-            std::cout << "joint named [" << i_names[i] << "] not found" 
+            std::cout << "joint named [" << i_names[i] << "] not found"
                       << std::endl;
             ret = false;
         }else{
@@ -946,7 +984,7 @@ bool robot::readDigitalOutput(char *o_dout)
     return read_digital_output(o_dout);
 }
 
-void robot::readBatteryState(unsigned int i_rank, double &voltage, 
+void robot::readBatteryState(unsigned int i_rank, double &voltage,
                              double &current, double &soc)
 {
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 2

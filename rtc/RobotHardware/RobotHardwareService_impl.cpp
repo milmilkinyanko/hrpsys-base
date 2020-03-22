@@ -5,11 +5,11 @@
 using namespace OpenHRP;
 using namespace hrp;
 
-RobotHardwareService_impl::RobotHardwareService_impl() : m_robot(boost::shared_ptr<robot>()) 
+RobotHardwareService_impl::RobotHardwareService_impl() : m_robot(boost::shared_ptr<robot>())
 {
 }
 
-RobotHardwareService_impl::~RobotHardwareService_impl() 
+RobotHardwareService_impl::~RobotHardwareService_impl()
 {
 }
 
@@ -84,7 +84,7 @@ void RobotHardwareService_impl::getStatus2(OpenHRP::RobotHardwareService::RobotS
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 2
     rs->batteries.length(m_robot->numBatteries());
     for(unsigned int i=0; i<rs->batteries.length(); i++){
-        m_robot->readBatteryState(i, 
+        m_robot->readBatteryState(i,
                                   rs->batteries[i].voltage,
                                   rs->batteries[i].current,
                                   rs->batteries[i].soc);
@@ -123,12 +123,32 @@ void RobotHardwareService_impl::initializeJointAngle(const char* name, const cha
 
 void RobotHardwareService_impl::setServoGainPercentage(const char *jname, double percentage)
 {
-    m_robot->setServoGainPercentage(jname, percentage);
+    m_robot->setServoGainPercentage(jname, percentage, true, true);
+}
+
+void RobotHardwareService_impl::setServoPGainPercentage(const char *jname, double percentage)
+{
+    m_robot->setServoGainPercentage(jname, percentage, true, false);
+}
+
+void RobotHardwareService_impl::setServoDGainPercentage(const char *jname, double percentage)
+{
+    m_robot->setServoGainPercentage(jname, percentage, false, true);
 }
 
 void RobotHardwareService_impl::setServoTorqueGainPercentage(const char *jname, double percentage)
 {
     m_robot->setServoTorqueGainPercentage(jname, percentage);
+}
+
+void RobotHardwareService_impl::setServoTorquePGainPercentage(const char *jname, double percentage)
+{
+    m_robot->setServoTorqueGainPercentage(jname, percentage, true, false);
+}
+
+void RobotHardwareService_impl::setServoTorqueDGainPercentage(const char *jname, double percentage)
+{
+    m_robot->setServoTorqueGainPercentage(jname, percentage, false, true);
 }
 
 void RobotHardwareService_impl::setServoErrorLimit(const char *jname, double limit)

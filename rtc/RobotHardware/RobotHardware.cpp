@@ -51,6 +51,9 @@ RobotHardware::RobotHardware(RTC::Manager* manager)
     m_dqRefIn("dqRef", m_dqRef),
     m_ddqRefIn("ddqRef", m_ddqRef),
     m_tauRefIn("tauRef", m_tauRef),
+    m_pgainIn("pgain", m_pgain),
+    m_dgainIn("dgain", m_dgain),
+    m_gainTransitionTimeIn("gainTransitionTime", m_gainTransitionTime),
     m_qOut("q", m_q),
     m_dqOut("dq", m_dq),
     m_tauOut("tau", m_tau),
@@ -74,11 +77,14 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
 {
   // Registration: InPort/OutPort/Service
   // <rtc-template block="registration">
-  
+
   addInPort("qRef", m_qRefIn);
   addInPort("dqRef", m_dqRefIn);
   addInPort("ddqRef", m_ddqRefIn);
   addInPort("tauRef", m_tauRefIn);
+  addInPort("pgain", m_pgainIn);
+  addInPort("dgain", m_dgainIn);
+  addInPort("gainTransitionTime", m_gainTransitionTimeIn);
 
   addOutPort("q", m_qOut);
   addOutPort("dq", m_dqOut);
@@ -91,17 +97,20 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
 
   // Set service provider to Ports
     m_RobotHardwareServicePort.registerProvider("service0", "RobotHardwareService", m_service0);
-  
+
   // Set service consumers to Ports
-  
+
   // Set CORBA Service Ports
   addPort(m_RobotHardwareServicePort);
-  
+
   // </rtc-template>
 
   RTC::Properties& prop = getProperties();
   double dt = 0.0;
   coil::stringTo(dt, prop["dt"].c_str());
+  // int periodic_rate = 0;
+  // coil::stringTo(periodic_rate, prop["exec_cxt.periodic.rate"].c_str());
+  // dt = 1.0 / periodic_rate;
   if (!dt) {
       std::cerr << m_profile.instance_name << ": joint command velocity check is disabled" << std::endl;
   }
@@ -116,7 +125,7 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   }
   nameServer = nameServer.substr(0, comPos);
   RTC::CorbaNaming naming(rtcManager.getORB(), nameServer.c_str());
-  if (!loadBodyFromModelLoader(m_robot, prop["model"].c_str(), 
+  if (!loadBodyFromModelLoader(m_robot, prop["model"].c_str(),
                                CosNaming::NamingContext::_duplicate(naming.getRootContext())
           )){
       if (prop["model"] == ""){
@@ -129,22 +138,25 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   std::vector<std::string> keys = prop.propertyNames();
   for (unsigned int i=0; i<keys.size(); i++){
       m_robot->setProperty(keys[i].c_str(), prop[keys[i]].c_str());
-  } 
+  }
   std::cout << "dof = " << m_robot->numJoints() << std::endl;
   if (!m_robot->init()) return RTC::RTC_ERROR;
 
   m_service0.setRobot(m_robot);
 
-  m_q.data.length(m_robot->numJoints());
-  m_dq.data.length(m_robot->numJoints());
-  m_tau.data.length(m_robot->numJoints());
-  m_ctau.data.length(m_robot->numJoints());
-  m_pdtau.data.length(m_robot->numJoints());
-  m_servoState.data.length(m_robot->numJoints());
-  m_qRef.data.length(m_robot->numJoints());
-  m_dqRef.data.length(m_robot->numJoints());
-  m_ddqRef.data.length(m_robot->numJoints());
-  m_tauRef.data.length(m_robot->numJoints());
+  const size_t num_joints = m_robot->numJoints();
+  m_q.data.length(num_joints);
+  m_dq.data.length(num_joints);
+  m_tau.data.length(num_joints);
+  m_ctau.data.length(num_joints);
+  m_pdtau.data.length(num_joints);
+  m_servoState.data.length(num_joints);
+  m_qRef.data.length(num_joints);
+  m_dqRef.data.length(num_joints);
+  m_ddqRef.data.length(num_joints);
+  m_tauRef.data.length(num_joints);
+  m_pgain.data.length(num_joints);
+  m_dgain.data.length(num_joints);
 
   int ngyro = m_robot->numSensors(Sensor::RATE_GYRO);
   std::cout << "the number of gyros = " << ngyro << std::endl;
@@ -182,7 +194,7 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
 
   // <rtc-template block="bind_config">
   // Bind variables and configuration variable
-  bindParameter("isDemoMode", m_isDemoMode, "0");  
+  bindParameter("isDemoMode", m_isDemoMode, "0");
   bindParameter("servoErrorLimit", m_robot->m_servoErrorLimit, ",");
   bindParameter("fzLimitRatio", m_robot->m_fzLimitRatio, "2");
   bindParameter("jointAccelerationLimit", m_robot->m_accLimit, "0");
@@ -248,12 +260,12 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
               m_emergencySignalOut.write();
           }
       }
-  }    
+  }
 
   if (m_qRefIn.isNew()){
       m_qRefIn.read();
       //std::cout << "RobotHardware: qRef[21] = " << m_qRef.data[21] << std::endl;
-      if (!m_isDemoMode 
+      if (!m_isDemoMode
           && m_robot->checkJointCommands(m_qRef.data.get_buffer())){
           m_robot->servo("all", false);
           m_emergencySignal.data = robot::EMG_SERVO_ERROR;
@@ -281,11 +293,23 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
       // output to iob
       m_robot->writeTorqueCommands(m_tauRef.data.get_buffer());
   }
+  if (m_gainTransitionTimeIn.isNew()) {
+      m_gainTransitionTimeIn.read();
+
+      if (m_pgainIn.isNew()) {
+          m_pgainIn.read();
+          m_robot->setServoGainPercentage("all", m_pgain.data.get_buffer(), true, false, m_gainTransitionTime.data);
+      }
+      if (m_dgainIn.isNew()) {
+          m_dgainIn.read();
+          m_robot->setServoGainPercentage("all", m_dgain.data.get_buffer(), false, true, m_gainTransitionTime.data);
+      }
+  }
 
   // read from iob
-  m_robot->readJointAngles(m_q.data.get_buffer());  
+  m_robot->readJointAngles(m_q.data.get_buffer());
   m_q.tm = tm;
-  m_robot->readJointVelocities(m_dq.data.get_buffer());  
+  m_robot->readJointVelocities(m_dq.data.get_buffer());
   m_dq.tm = tm;
   m_robot->readJointTorques(m_tau.data.get_buffer());
   m_tau.tm = tm;
@@ -315,7 +339,7 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
       m_robot->readForceSensor(i, m_force[i].data.get_buffer());
       m_force[i].tm = tm;
   }
-  
+
   for (unsigned int i=0; i<m_servoState.data.length(); i++){
       size_t len = m_robot->lengthOfExtraServoState(i)+1;
       m_servoState.data[i].length(len);
@@ -337,7 +361,7 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
 
   getStatus2(m_rstate2.data);
   m_rstate2.tm = tm;
-  
+
   m_robot->oneStep();
 
   m_qOut.write();
@@ -416,14 +440,14 @@ void getStatus(boost::shared_ptr<robot> robot, T& rstate)
 
   robot->readPowerStatus(rstate.voltage, rstate.current);
 }
- 
+
 void RobotHardware::getStatus2(OpenHRP::RobotHardwareService::RobotState2 &rstate2)
 {
   getStatus(m_robot, rstate2);
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 2
   rstate2.batteries.length(m_robot->numBatteries());
   for(unsigned int i=0; i<rstate2.batteries.length(); i++){
-      m_robot->readBatteryState(i, 
+      m_robot->readBatteryState(i,
                                 rstate2.batteries[i].voltage,
                                 rstate2.batteries[i].current,
                                 rstate2.batteries[i].soc);
@@ -484,5 +508,3 @@ extern "C"
   }
 
 };
-
-

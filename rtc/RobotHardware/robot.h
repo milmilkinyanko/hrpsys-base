@@ -7,7 +7,7 @@
 #include "hrpsys/io/iob.h"
 
 /**
-   \brief 
+   \brief
  */
 class robot : public hrp::Body
 {
@@ -31,28 +31,28 @@ public:
     /**
        \brief turn on/off joint servo
        \param jid joint id of the joint
-       \param turnon true to turn on joint servo, false otherwise 
+       \param turnon true to turn on joint servo, false otherwise
      */
     bool servo(int jid, bool turnon);
 
     /**
        \brief turn on/off joint servo
        \param jname name of the joint
-       \param turnon true to turn on joint servo, false otherwise 
+       \param turnon true to turn on joint servo, false otherwise
      */
     bool servo(const char *jname, bool turnon);
 
     /**
        \brief turn on/off power for joint servo
        \param jid joint id of the joint
-       \param turnon true to turn on power, false otherwise 
+       \param turnon true to turn on power, false otherwise
      */
     bool power(int jid, bool turnon);
 
     /**
        \brief turn on/off power for joint servo
        \param jname name of the joint
-       \param turnon true to turn on power, false otherwise 
+       \param turnon true to turn on power, false otherwise
      */
     bool power(const char *jname, bool turnon);
 
@@ -62,7 +62,7 @@ public:
     void removeForceSensorOffset();
 
     /**
-       \brief load PD gains 
+       \brief load PD gains
        \param fname name of the file where gains are stored
        \return true if gains are loaded successufully, false otherwise
      */
@@ -272,9 +272,21 @@ public:
        \brief set the parcentage to the default servo gain
        \param name joint name, part name or "all"
        \param percentage to joint servo gain[0-100]
-       \return true if set successfully, false otherwise 
+       \param change_p if change proportional gain
+       \param change_d if change derivative gain
+       \return true if set successfully, false otherwise
      */
-    bool setServoGainPercentage(const char *i_jname, double i_percentage);
+    bool setServoGainPercentage(const char *i_jname, double i_percentage, bool change_p = true, bool change_d = true, double transition_time = 0);
+
+    /**
+       \brief set the parcentage to the default servo gain
+       \param name joint name, part name or "all"
+       \param percentage to joint servo gain[0-100]
+       \param change_p if change proportional gain
+       \param change_d if change derivative gain
+       \return true if set successfully, false otherwise
+     */
+    bool setServoGainPercentage(const char *i_jname, double *i_percentage, bool change_p = true, bool change_d = true, double transition_time = 0);
 
     /**
        \brief set the parcentage to the default servo torque gain
@@ -282,13 +294,13 @@ public:
        \param percentage to joint servo gain[0-100]
        \return true if set successfully, false otherwise
      */
-    bool setServoTorqueGainPercentage(const char *i_jname, double i_percentage);
+    bool setServoTorqueGainPercentage(const char *i_jname, double i_percentage, bool change_p = true, bool change_d = true);
 
     /**
        \brief set servo error limit value for specific joint or joint group
        \param i_jname joint name or joint group name
        \param i_limit new limit value[rad]
-       \return true if set successfully, false otherwise 
+       \return true if set successfully, false otherwise
      */
     bool setServoErrorLimit(const char *i_jname, double i_limit);
 
@@ -324,7 +336,7 @@ public:
 
     void setProperty(const char *key, const char *value);
     bool addJointGroup(const char *gname, const std::vector<std::string>& jnames);
-    std::vector<double> m_servoErrorLimit;  
+    std::vector<double> m_servoErrorLimit;
     double m_fzLimitRatio;
     double m_maxZmpError;
     double m_accLimit;
@@ -353,7 +365,7 @@ public:
        \brief set control mode of joint
        \param name joint name, part name or "all"
        \param mode control mode name
-       \return true if set successfully, false otherwise 
+       \return true if set successfully, false otherwise
      */
     bool setJointControlMode(const char *i_jname, joint_control_mode mode);
 private:
@@ -373,7 +385,7 @@ private:
      */
     bool isBusy() const;
 
-    bool names2ids(const std::vector<std::string> &i_names, 
+    bool names2ids(const std::vector<std::string> &i_names,
                    std::vector<int> &o_ids);
 
     void gain_control();
@@ -381,6 +393,7 @@ private:
 
     int inertia_calib_counter, force_calib_counter;
     std::vector<double> gain_counter;
+    std::vector<int> max_gain_counts;
 
     std::vector< boost::array<double,3> > gyro_sum;
     std::vector< boost::array<double,3> > accel_sum;

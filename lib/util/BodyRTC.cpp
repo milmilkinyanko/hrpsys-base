@@ -82,14 +82,14 @@ RTC::ReturnCode_t BodyRTC::setup(){
     return RTC::RTC_OK;
 }
 
-void parsePortConfig(const std::string &config, 
+void parsePortConfig(const std::string &config,
                      std::string &name, std::string &type,
                      std::vector<std::string> &elements)
 {
-    std::string::size_type colon = 0, start=0; 
+    std::string::size_type colon = 0, start=0;
     colon = config.find(':', start);
     if (colon == std::string::npos){
-        std::cerr << "can't find the first separator in [" << config << "]" 
+        std::cerr << "can't find the first separator in [" << config << "]"
                   << std::endl;
         return;
     }
@@ -180,7 +180,7 @@ void BodyRTC::createInPort(const std::string &config)
                                      new AbsTransformInPortHandler(this, name.c_str(), l));
                 return;
             }
-            std::cerr << "can't find a link(or a sensor)(" << elements[0] << ")" 
+            std::cerr << "can't find a link(or a sensor)(" << elements[0] << ")"
                       << std::endl;
         }
     }else if(type == "ABS_VELOCITY"){
@@ -198,7 +198,7 @@ void BodyRTC::createInPort(const std::string &config)
     }else if(type == "FRAME_RATE"){
         VisionSensor *s = this->sensor<VisionSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
@@ -206,7 +206,7 @@ void BodyRTC::createInPort(const std::string &config)
     }else if(type == "LIGHT_SWITCH"){
         Light *l = this->light(elements[0]);
         if (!l){
-            std::cerr << "can't find a light(" << elements[0] << ")" 
+            std::cerr << "can't find a light(" << elements[0] << ")"
                       << std::endl;
             return;
         }
@@ -247,7 +247,7 @@ void BodyRTC::createOutPort(const std::string &config)
         }
     }else if(type == "ABS_TRANSFORM"){
         if (elements.size()!=1){
-            std::cerr << "link name is not specified for port " << name 
+            std::cerr << "link name is not specified for port " << name
                       << std::endl;
             return;
         }
@@ -268,7 +268,7 @@ void BodyRTC::createOutPort(const std::string &config)
                 new AbsTransformOutPortHandler(this, name.c_str(), s));
             return;
         }
-        std::cerr << "can't find a link(or a sensor)(" << elements[0] << ")" 
+        std::cerr << "can't find a link(or a sensor)(" << elements[0] << ")"
                   << std::endl;
     }else if(type == "ABS_VELOCITY"){
         if (elements.size()!=1){
@@ -281,7 +281,7 @@ void BodyRTC::createOutPort(const std::string &config)
             m_outports.push_back(
                 new AbsVelocityOutPortHandler(this, name.c_str(), l));
         }else{
-            std::cerr << "can't find a link(" << elements[0] << ")" 
+            std::cerr << "can't find a link(" << elements[0] << ")"
                       << std::endl;
         }
     }else if(type == "ABS_ACCELERATION"){
@@ -295,23 +295,23 @@ void BodyRTC::createOutPort(const std::string &config)
             m_outports.push_back(
                 new AbsAccelerationOutPortHandler(this, name.c_str(), l));
         }else{
-            std::cerr << "can't find a link(" << elements[0] << ")" 
+            std::cerr << "can't find a link(" << elements[0] << ")"
                       << std::endl;
         }
     }else if(type == "FORCE_SENSOR"){
         if (elements.size()!=1){
-            std::cerr << "sensor name is not specified for port" << name 
+            std::cerr << "sensor name is not specified for port" << name
                       << std::endl;
             return;
         }
         ForceSensor *s = this->sensor<ForceSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
         m_outports.push_back(new ForceSensorPortHandler(this, name.c_str(),s));
-                                                        
+
     }else if(type == "RATE_GYRO_SENSOR"){
         if (elements.size()!=1){
             std::cerr << "sensor name is not specified for port " << name
@@ -320,7 +320,7 @@ void BodyRTC::createOutPort(const std::string &config)
         }
         RateGyroSensor *s = this->sensor<RateGyroSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
@@ -334,26 +334,26 @@ void BodyRTC::createOutPort(const std::string &config)
         }
         AccelSensor *s = this->sensor<AccelSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
         m_outports.push_back(new AccelSensorPortHandler(this, name.c_str(),s));
-                                                        
+
     }else if(type == "RANGE_SENSOR"){
         if (elements.size()!=1){
-            std::cerr << "sensor name is not specified for port " << name 
+            std::cerr << "sensor name is not specified for port " << name
                       << std::endl;
             return;
         }
         RangeSensor *s = this->sensor<RangeSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
         m_outports.push_back(new RangeSensorPortHandler(this, name.c_str(),s));
-                                                        
+
     }else if(type == "VISION_SENSOR"){
         if (elements.size()!=1){
             std::cerr << "sensor name is not specified for port " << name
@@ -362,7 +362,7 @@ void BodyRTC::createOutPort(const std::string &config)
         }
         VisionSensor *s = this->sensor<VisionSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
@@ -375,7 +375,7 @@ void BodyRTC::createOutPort(const std::string &config)
         }
         VisionSensor *s = this->sensor<VisionSensor>(elements[0]);
         if (!s){
-            std::cerr << "can't find a sensor(" << elements[0] << ")" 
+            std::cerr << "can't find a sensor(" << elements[0] << ")"
                       << std::endl;
             return;
         }
@@ -664,7 +664,15 @@ CORBA::Boolean RobotHardwareServicePort::servo(const char* jname, OpenHRP::Robot
 }
 void RobotHardwareServicePort::setServoGainPercentage(const char *jname, double limit) {
 }
+void RobotHardwareServicePort::setServoPGainPercentage(const char *jname, double limit) {
+}
+void RobotHardwareServicePort::setServoDGainPercentage(const char *jname, double limit) {
+}
 void RobotHardwareServicePort::setServoTorqueGainPercentage(const char *jname, double limit) {
+}
+void RobotHardwareServicePort::setServoTorquePGainPercentage(const char *jname, double limit) {
+}
+void RobotHardwareServicePort::setServoTorqueDGainPercentage(const char *jname, double limit) {
 }
 void RobotHardwareServicePort::setServoErrorLimit(const char *jname, double limit) {
     m_robot->setServoErrorLimit(jname, limit);

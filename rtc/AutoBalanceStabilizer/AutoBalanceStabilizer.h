@@ -169,8 +169,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // DataOutPort declaration
     // <rtc-template block="outport_declare">
     OutPort<TimedDoubleSeq> m_qOut;
-    // TimedDoubleSeq m_tau;
-    // OutPort<TimedDoubleSeq> m_tauOut;
+    TimedDoubleSeq m_tau;
+    OutPort<TimedDoubleSeq> m_tauOut;
     OutPort<TimedPoint3D> m_basePosOut;
     OutPort<TimedOrientation3D> m_baseRpyOut;
     TimedPose3D m_basePose;

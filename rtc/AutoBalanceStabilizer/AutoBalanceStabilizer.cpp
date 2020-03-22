@@ -74,6 +74,7 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
 
       m_qOut("q", m_qRef),
+      m_tauOut("tau", m_tau),
       m_basePosOut("basePosOut", m_basePos),
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_basePoseOut("basePoseOut", m_basePose),
@@ -280,6 +281,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         const size_t num_joints = m_robot->numJoints();
         m_qCurrent.data.length(num_joints);
         m_qRef.data.length(num_joints);
+        m_tau.data.length(num_joints);
         m_baseTform.data.length(12);
 
         q_prev_ik = hrp::dvector::Zero(num_joints);
@@ -634,8 +636,13 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     const unsigned int qRef_length = m_qRef.data.length();
     for (unsigned int i = 0; i < qRef_length; i++) {
         m_qRef.data[i] = st_port_data.joint_angles(i);
+        m_tau.data[i]  = st_port_data.joint_torques(i);
     }
-    if (m_qRef.data.length() != 0) m_qOut.write();
+    m_tau.tm = m_qRef.tm;
+    if (qRef_length != 0) {
+        m_qOut.write();
+        m_tauOut.write();
+    }
 
     m_basePos.tm     = m_qRef.tm;
     m_basePos.data.x = base_pos(0);

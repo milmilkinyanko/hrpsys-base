@@ -42,8 +42,8 @@ module OpenHRP
       DblSequence		torque; ///< joint torques[Nm]
       /**
        * @brief servo statuses(32bit+extra states)
-       * 
-       * 0: calib status ( 1 => done )\n 
+       *
+       * 0: calib status ( 1 => done )\n
        * 1: servo status ( 1 => on )\n
        * 2: power status ( 1 => supplied )\n
        * 3-18: servo alarms (see @ref iob.h)\n
@@ -51,12 +51,12 @@ module OpenHRP
        * 24-31: driver temperature (deg)
        */
       LongSequenceSequence		servoState;
-      
+
       sequence<DblSequence6>	force;    ///< forces[N] and torques[Nm]
       sequence<DblSequence3>	rateGyro; ///< angular velocities[rad/s]
       sequence<DblSequence3>	accel;    ///< accelerations[m/(s^2)]
       double			voltage;  ///< voltage of power supply[V]
-      double			current;  ///< current[A] 
+      double			current;  ///< current[A]
     };
 
     /**
@@ -93,6 +93,20 @@ module OpenHRP
     void setServoGainPercentage(in string name, in double percentage);
 
     /**
+     * @brief set the parcentage to the default servo propotional gain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoPGainPercentage(in string name, in double percentage);
+
+    /**
+     * @brief set the parcentage to the default servo derivative gain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoDGainPercentage(in string name, in double percentage);
+
+    /**
      * @brief set the maximum joint servo error angle
      * @param name joint name, part name or "all"
      * @param limit the maximum joint servo error angle[rad]
@@ -119,7 +133,7 @@ module OpenHRP
     /**
      * @brief add definition of joint group
      * @param gname name of the joint group
-     * @param jnames list of joint name 
+     * @param jnames list of joint name
      * @return true if the group is added successfully, false otherwise
      */
     boolean addJointGroup(in string gname, in StrSequence jnames);
@@ -170,7 +184,7 @@ module OpenHRP
     struct BatteryState
     {
       double			voltage;  ///< voltage of power supply[V]
-      double			current;  ///< current[A] 
+      double			current;  ///< current[A]
       double                    soc;  	  ///< state of charge[%]
     };
     /**
@@ -183,8 +197,8 @@ module OpenHRP
       DblSequence		torque; ///< joint torques[Nm]
       /**
        * @brief servo statuses(32bit+extra states)
-       * 
-       * 0: calib status ( 1 => done )\n 
+       *
+       * 0: calib status ( 1 => done )\n
        * 1: servo status ( 1 => on )\n
        * 2: power status ( 1 => supplied )\n
        * 3-18: servo alarms (see @ref iob.h)\n
@@ -192,13 +206,13 @@ module OpenHRP
        * 24-31: driver temperature (deg)
        */
       LongSequenceSequence		servoState;
-      
+
       sequence<DblSequence6>	force;    ///< forces[N] and torques[Nm]
       sequence<DblSequence3>	rateGyro; ///< angular velocities[rad/s]
       sequence<DblSequence3>	accel;    ///< accelerations[m/(s^2)]
       sequence<BatteryState>    batteries;///< battery states
       double			voltage;  ///< voltage of power supply[V]
-      double			current;  ///< current[A] 
+      double			current;  ///< current[A]
       sequence<double>	        temperature; ///< temperatures
     };
 
@@ -253,6 +267,20 @@ module OpenHRP
      * @param percentage to joint servo gain[0-100]
      */
     void setServoTorqueGainPercentage(in string name, in double percentage);
+
+    /**
+     * @brief set the parcentage to the default servo propotional gain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoTorquePGainPercentage(in string name, in double percentage);
+
+    /**
+     * @brief set the parcentage to the default servo derivative gain
+     * @param name joint name, part name or "all"
+     * @param percentage to joint servo gain[0-100]
+     */
+    void setServoTorqueDGainPercentage(in string name, in double percentage);
 
     enum JointControlMode {FREE, POSITION, TORQUE, VELOCITY, POSITION_TORQUE};
     /**
