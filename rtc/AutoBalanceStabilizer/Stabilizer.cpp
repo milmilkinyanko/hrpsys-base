@@ -47,6 +47,7 @@ Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name
 
     servo_pgains.resize(num_joints, 100);
     servo_dgains.resize(num_joints, 100);
+    gains_transition_times.resize(num_joints, 2.0);
     szd = std::make_unique<SimpleZMPDistributor>(dt);
 }
 
@@ -1351,27 +1352,34 @@ void Stabilizer::calcDiffFootOriginExtMoment()
 void Stabilizer::setSwingSupportJointServoGains()
 {
     static double tmp_landing2support_transition_time = landing2support_transition_time;
+    change_servo_gains = false;
+
     const size_t stikp_size = stikp.size();
     for (size_t i = 0; i < stikp_size; i++) {
         STIKParam& ikp = stikp[i];
         const auto& jpe = jpe_v[i];
         if (ikp.contact_phase == SWING_PHASE && !ref_contact_states[i] && control_swing_support_time[i] < swing2landing_transition_time + landing_phase_time) { // SWING -> LANDING
+            change_servo_gains = true;
             ikp.contact_phase = LANDING_PHASE;
             ikp.phase_time = 0;
             for (size_t j = 0, joint_num = ikp.support_pgain.size(); j < joint_num; ++j) {
-                // TODO: あまりservice使いたくない
-                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_pgain(j),swing2landing_transition_time);
-                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_dgain(j),swing2landing_transition_time);
+                const int joint_id = jpe->joint(j)->jointId;
+                servo_pgains[joint_id] = ikp.landing_pgain(j);
+                servo_dgains[joint_id] = ikp.landing_dgain(j);
+                gains_transition_times[joint_id] = swing2landing_transition_time;
             }
         }
 
         if (ikp.contact_phase == LANDING_PHASE && act_contact_states[i] && ref_contact_states[i] && ikp.phase_time > swing2landing_transition_time) { // LANDING -> SUPPORT
+            change_servo_gains = true;
             ikp.contact_phase = SUPPORT_PHASE;
             ikp.phase_time = 0;
             tmp_landing2support_transition_time = std::min(landing2support_transition_time, control_swing_support_time[i]);
             for (size_t j = 0, joint_num = ikp.support_pgain.size(); j < joint_num; ++j) {
-                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_pgain(j),tmp_landing2support_transition_time);
-                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),tmp_landing2support_transition_time);
+                const int joint_id = jpe->joint(j)->jointId;
+                servo_pgains[joint_id] = ikp.support_pgain(j);
+                servo_dgains[joint_id] = ikp.support_dgain(j);
+                gains_transition_times[joint_id] = tmp_landing2support_transition_time;
             }
         }
 

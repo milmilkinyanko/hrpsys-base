@@ -276,7 +276,7 @@ public:
        \param change_d if change derivative gain
        \return true if set successfully, false otherwise
      */
-    bool setServoGainPercentage(const char *i_jname, double i_percentage, bool change_p = true, bool change_d = true, double transition_time = 0);
+    bool setServoGainPercentage(const char *i_jname, double i_percentage, double transition_time = 0, bool change_p = true, bool change_d = true);
 
     /**
        \brief set the parcentage to the default servo gain
@@ -286,7 +286,7 @@ public:
        \param change_d if change derivative gain
        \return true if set successfully, false otherwise
      */
-    bool setServoGainPercentage(const char *i_jname, double *i_percentage, bool change_p = true, bool change_d = true, double transition_time = 0);
+    bool setServoGainPercentage(const char *i_jname, const double *i_percentage, const double *transition_time, bool change_p = true, bool change_d = true);
 
     /**
        \brief set the parcentage to the default servo torque gain

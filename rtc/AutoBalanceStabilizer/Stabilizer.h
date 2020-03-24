@@ -53,6 +53,10 @@ struct stabilizerPortData
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
+    bool change_servo_gains;
+    std::vector<double> servo_pgains;
+    std::vector<double> servo_dgains;
+    std::vector<double> gains_transition_times;
 };
 
 class Stabilizer
@@ -158,7 +162,8 @@ class Stabilizer
             joint_torques(i) = m_robot->joint(i)->u;
         }
 
-        return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog};
+        return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog,
+                change_servo_gains, servo_pgains, servo_dgains, gains_transition_times};
     }
 
     hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }
@@ -384,8 +389,10 @@ class Stabilizer
     double landing2support_transition_time = 0.5;
 
     // Servo gain
+    bool change_servo_gains = false;
     std::vector<double> servo_pgains;
     std::vector<double> servo_dgains;
+    std::vector<double> gains_transition_times;
 };
 
 }

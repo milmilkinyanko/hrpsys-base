@@ -157,6 +157,7 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   m_tauRef.data.length(num_joints);
   m_pgain.data.length(num_joints);
   m_dgain.data.length(num_joints);
+  m_gainTransitionTime.data.length(num_joints);
 
   int ngyro = m_robot->numSensors(Sensor::RATE_GYRO);
   std::cout << "the number of gyros = " << ngyro << std::endl;
@@ -298,11 +299,11 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
 
       if (m_pgainIn.isNew()) {
           m_pgainIn.read();
-          m_robot->setServoGainPercentage("all", m_pgain.data.get_buffer(), true, false, m_gainTransitionTime.data);
+          m_robot->setServoGainPercentage("all", m_pgain.data.get_buffer(), m_gainTransitionTime.data.get_buffer(), true, false);
       }
       if (m_dgainIn.isNew()) {
           m_dgainIn.read();
-          m_robot->setServoGainPercentage("all", m_dgain.data.get_buffer(), false, true, m_gainTransitionTime.data);
+          m_robot->setServoGainPercentage("all", m_dgain.data.get_buffer(), m_gainTransitionTime.data.get_buffer(), false, true);
       }
   }
 

@@ -154,8 +154,8 @@ class RobotHardware
   /**
      \brief gain transition time
   */
-  TimedDouble m_gainTransitionTime;
-  InPort<TimedDouble> m_gainTransitionTimeIn;
+  TimedDoubleSeq m_gainTransitionTime;
+  InPort<TimedDoubleSeq> m_gainTransitionTimeIn;
 
   // </rtc-template>
 

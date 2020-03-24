@@ -420,14 +420,17 @@ class HrpsysConfigurator(object):
         # connection for AutoBalanceStabilizer
         if rtm.findPort(self.rh.ref, "lfsensor") and \
            rtm.findPort(self.rh.ref, "rfsensor") and self.abst:
-            connectPorts(self.sh.port("basePosOut"),      self.abst.port("basePosIn"))
-            connectPorts(self.sh.port("baseRpyOut"),      self.abst.port("baseRpyIn"))
-            connectPorts(self.sh.port("zmpOut"),          self.abst.port("refZmpIn"))
-            connectPorts(self.sh.port("optionalDataOut"), self.abst.port("optionalData"))
-            connectPorts(self.rh.port("q"),               self.abst.port("qCurrent"))
-            connectPorts(self.kf.port("rpy"),             self.abst.port("rpy"))
-            connectPorts(self.abst.port("tau"),           self.rh.port("tauRef"))
-            connectPorts(self.abst.port("accRef"),        self.kf.port("accRef"))
+            connectPorts(self.sh.port("basePosOut"),           self.abst.port("basePosIn"))
+            connectPorts(self.sh.port("baseRpyOut"),           self.abst.port("baseRpyIn"))
+            connectPorts(self.sh.port("zmpOut"),               self.abst.port("refZmpIn"))
+            connectPorts(self.sh.port("optionalDataOut"),      self.abst.port("optionalData"))
+            connectPorts(self.rh.port("q"),                    self.abst.port("qCurrent"))
+            connectPorts(self.kf.port("rpy"),                  self.abst.port("rpy"))
+            connectPorts(self.abst.port("accRef"),             self.kf.port("accRef"))
+            connectPorts(self.abst.port("tau"),                self.rh.port("tauRef"))
+            connectPorts(self.abst.port("pgain"),              self.rh.port("pgain"))
+            connectPorts(self.abst.port("dgain"),              self.rh.port("dgain"))
+            connectPorts(self.abst.port("gainTransitionTime"), self.rh.port("gainTransitionTime"))
             if self.es:
                 connectPorts(self.abst.port("emergencySignal"), self.es.port("emergencySignal"))
             if self.rfu:

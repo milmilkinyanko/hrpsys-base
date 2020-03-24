@@ -726,13 +726,14 @@ bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
     return false;
 }
 
-bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, bool change_p, bool change_d, double transition_time)
+bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, double transition_time, bool change_p, bool change_d)
 {
-    std::vector<double> vi_percentage(numJoints(), i_percentage);
-    return setServoGainPercentage(i_jname, &vi_percentage.front(), change_p, change_d, transition_time);
+    const std::vector<double> vi_percentage(numJoints(), i_percentage);
+    const std::vector<double> vtransition_time(numJoints(), transition_time);
+    return setServoGainPercentage(i_jname, &vi_percentage.front(), &vtransition_time.front(), change_p, change_d);
 }
 
-bool robot::setServoGainPercentage(const char *i_jname, double *i_percentage, bool change_p, bool change_d, double transition_time)
+bool robot::setServoGainPercentage(const char *i_jname, const double *i_percentage, const double *transition_time, bool change_p, bool change_d)
 {
     if (!change_p && !change_d) return false;
     const size_t percentage_size = sizeof(i_percentage) / sizeof(i_percentage[0]);
@@ -744,16 +745,16 @@ bool robot::setServoGainPercentage(const char *i_jname, double *i_percentage, bo
         }
     }
 
-    const int max_count = (transition_time < m_dt + 1e-6) ? GAIN_COUNT : transition_time / m_dt;
     Link *l = NULL;
     if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0){
-        if (numJoints() != percentage_size) {
-            std::cerr << "[RobotHardware] Size of i_percentage must be same as numJoints" << std::endl;
+        const size_t num_joints = numJoints();
+        if (num_joints != percentage_size && num_joints != sizeof(transition_time) / sizeof(transition_time[0])) {
+            std::cerr << "[RobotHardware] Size of i_percentage and transition_time must be same as numJoints" << std::endl;
             return false;
         }
 
         std::cerr << "[RobotHardware] setServoGainPercentage ";
-        for (unsigned int i=0; i<numJoints(); i++){
+        for (unsigned int i = 0; i < num_joints; i++) {
             if (!read_pgain(i, &old_pgain[i])) old_pgain[i] = pgain[i];
             if (change_p) pgain[i] = default_pgain[i] * i_percentage[i] / 100.0;
 
@@ -765,7 +766,7 @@ bool robot::setServoGainPercentage(const char *i_jname, double *i_percentage, bo
             if (!read_torque_dgain(i, &old_tqdgain[i])) old_tqdgain[i] = tqdgain[i];
 #endif
             gain_counter[i] = 0;
-            max_gain_counts[i] = max_count;
+            max_gain_counts[i] = (transition_time[i] < m_dt + 1e-6) ? GAIN_COUNT : transition_time[i] / m_dt;
 
             std::cerr << i_percentage[i] << " ";
         }
@@ -782,7 +783,7 @@ bool robot::setServoGainPercentage(const char *i_jname, double *i_percentage, bo
         if (!read_torque_dgain(l->jointId, &old_tqdgain[l->jointId])) old_tqdgain[l->jointId] = tqdgain[l->jointId];
 #endif
         gain_counter[l->jointId] = 0;
-        max_gain_counts[l->jointId] = max_count;
+        max_gain_counts[l->jointId] = (transition_time[l->jointId] < m_dt + 1e-6) ? GAIN_COUNT : transition_time[l->jointId] / m_dt;
         std::cerr << "[RobotHardware] setServoGainPercentage " << i_percentage[0] << "[%] for " << i_jname << std::endl;
     } else {
         char *s = (char *)i_jname; while(*s) {*s=toupper(*s);s++;}

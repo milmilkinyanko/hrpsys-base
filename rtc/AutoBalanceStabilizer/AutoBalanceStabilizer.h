@@ -187,6 +187,12 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
     TimedLong m_emergencySignal;
     OutPort<TimedLong> m_emergencySignalOut;
+    TimedDoubleSeq m_pgain;
+    OutPort<TimedDoubleSeq> m_pgainOut;
+    TimedDoubleSeq m_dgain;
+    OutPort<TimedDoubleSeq> m_dgainOut;
+    TimedDoubleSeq m_gainTransitionTime;
+    OutPort<TimedDoubleSeq> m_gainTransitionTimeOut;
 
     // for debug
     TimedDoubleSeq m_baseTform;

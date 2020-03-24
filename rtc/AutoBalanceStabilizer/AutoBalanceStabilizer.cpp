@@ -81,6 +81,9 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_accRefOut("accRef", m_accRef),
       m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
+      m_pgainOut("pgain", m_pgain),
+      m_dgainOut("dgain", m_dgain),
+      m_gainTransitionTimeOut("gainTransitionTime", m_gainTransitionTime),
 
       // Out port for debugging
       m_refZmpOut("refZmpOut", m_refZmp), // global
@@ -291,6 +294,10 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         ref_wrenches_for_st.resize(num_fsensors, hrp::dvector6::Zero());
         act_wrenches.resize(num_fsensors, hrp::dvector6::Zero());
 
+        m_pgain.data.length(num_joints);
+        m_dgain.data.length(num_joints);
+        m_gainTransitionTime.data.length(num_joints);
+
         // Debug
         m_refContactStates.data.length(2);
         m_controlSwingSupportTime.data.length(3 * 2);
@@ -500,6 +507,9 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("accRef", m_accRefOut);
     addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
+    addOutPort("pgain", m_pgainOut);
+    addOutPort("dgain", m_dgainOut);
+    addOutPort("gainTransitionTime", m_gainTransitionTimeOut);
 
     // Out port for debugging
     addOutPort("refZmpOut", m_refZmpOut);
@@ -730,6 +740,13 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_accRef.data.az = acc_ref(2);
     m_accRefOut.write();
 
+    m_refCP.tm = m_qRef.tm;
+    const hrp::Vector3 ref_cp = gg->calcCP();
+    m_refCP.data.x = ref_cp(0);
+    m_refCP.data.y = ref_cp(1);
+    m_refCP.data.z = ref_cp(2);
+    m_refCPOut.write();
+
     // control parameters
     {
         m_refContactStates.tm = m_qRef.tm;
@@ -798,13 +815,6 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_diffFootOriginExtMoment.data.z = diff_foot_origin_ext_moment[2];
     m_diffFootOriginExtMomentOut.write();
 
-    m_refCP.tm = m_qRef.tm;
-    const hrp::Vector3 ref_cp = gg->calcCP();
-    m_refCP.data.x = ref_cp(0);
-    m_refCP.data.y = ref_cp(1);
-    m_refCP.data.z = ref_cp(2);
-    m_refCPOut.write();
-
     m_actCP.tm = m_qRef.tm;
     const hrp::Vector3 rel_act_cp = st->getOriginActCP();
     m_actCP.data.x = rel_act_cp(0);
@@ -822,6 +832,23 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
             }
         }
         m_COPInfoOut.write();
+    }
+
+    if (st_port_data.change_servo_gains) {
+        m_pgain.tm = m_qRef.tm;
+        m_dgain.tm = m_qRef.tm;
+        m_gainTransitionTime.tm = m_qRef.tm;
+
+        const size_t num_joints = m_pgain.data.length();
+        for (size_t i = 0; i < num_joints; ++i) {
+            m_pgain.data[i] = st_port_data.servo_pgains[i];
+            m_dgain.data[i] = st_port_data.servo_dgains[i];
+            m_gainTransitionTime.data[i] = st_port_data.gains_transition_times[i];
+        }
+
+        m_pgainOut.write();
+        m_dgainOut.write();
+        m_gainTransitionTimeOut.write();
     }
 }
 
