@@ -118,6 +118,15 @@ module OpenHRP
     };
 
     /**
+     * @enum JointControlMode
+     * @brief Mode of joint control
+     */
+    enum JointControlMode {
+      JOINT_POSITION,
+      JOINT_TORQUE
+    };
+
+    /**
      * @enum ControllerMode
      * @brief Mode of controller
      */
@@ -395,6 +404,17 @@ module OpenHRP
     };
 
     /**
+     * @struct JointServoControlParameter
+     * @brief Joint PD Servo Control Parameters
+     */
+    struct JointServoControlParameter {
+      sequence<double> support_pgain;
+      sequence<double> support_dgain;
+      sequence<double> landing_pgain;
+      sequence<double> landing_dgain;
+    };
+
+    /**
      * @struct StabilizerParam
      * @brief Stabilizer Parameters.
      */
@@ -548,6 +568,12 @@ module OpenHRP
       DblArray2 root_rot_compensation_limit;
       /// Whether truncate zmp according to foot support polygon or not
       boolean use_zmp_truncation;
+      /// Joint control mode (Position or Torque)
+      JointControlMode joint_control_mode;
+      sequence<JointServoControlParameter> joint_servo_control_parameters;
+      double swing2landing_transition_time;
+      double landing_phase_time;
+      double landing2support_transition_time;
     };
 
 
@@ -701,6 +727,8 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     boolean releaseEmergencyStop();
+
+    void testMotion(in long test_motion);
 
     /**
      * @brief Get Stabilizer parameters.

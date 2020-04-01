@@ -197,3 +197,8 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::releaseEmergencyStop()
 {
     return m_autobalancestabilizer->releaseEmergencyStop();
 };
+
+void AutoBalanceStabilizerService_impl::testMotion(const CORBA::Long test_number)
+{
+    m_autobalancestabilizer->testMotion(test_number);
+}

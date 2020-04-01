@@ -212,7 +212,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
             qrefv = calcInteriorPoint(transition_joint_q, abc_param.q_ref, transition_smooth_gain);
 
             if (transition_count == 1) {
-                std::cerr << "[" << comp_name << "] [" << "] Move to MODE_IDLE" << std::endl;
+                std::cerr << "[" << comp_name << "] Move to MODE_IDLE" << std::endl;
                 reset_emergency_flag = true;
             }
             --transition_count;
@@ -709,7 +709,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         }
     } // st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC
 
-    if (joint_control_mode == JOINT_TORQUE && control_mode == MODE_ST) setSwingSupportJointServoGains();
+    if (joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE && control_mode == MODE_ST) setSwingSupportJointServoGains();
     calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot); // foot origin relative => Actual world fraem
     calcTorque(foot_origin_rot);
 
@@ -927,8 +927,7 @@ bool Stabilizer::calcFalling() // TODO: rename
                 if (projected_normal.at(i).norm() > sin(tilt_margin[0])) {
                     will_fall = true;
                     if (m_will_fall_counter[i] % static_cast <int>(1.0/dt) == 0 ) { // once per 1.0[s]
-                        std::cerr << "[" << comp_name << "] ["
-                                  << "] " << stikp[i].ee_name << " cannot support total weight, "
+                        std::cerr << "[" << comp_name << "] " << stikp[i].ee_name << " cannot support total weight, "
                                   << "swgsuptime : " << control_swing_support_time[i] << ", state : " << ref_contact_states[i]
                                   << ", otherwise robot will fall down toward " << "(" << projected_normal.at(i)(0) << "," << projected_normal.at(i)(1) << ") direction" << std::endl;
                     }
@@ -951,8 +950,9 @@ bool Stabilizer::calcFalling() // TODO: rename
     if (fall_direction.norm() > sin(tilt_margin[1])) {
         is_falling = true;
         if (m_is_falling_counter % static_cast <int>(0.2/dt) == 0) { // once per 0.2[s]
-            std::cerr << "[" << comp_name << "] ["
-                      << "] robot is falling down toward " << "(" << fall_direction(0) << "," << fall_direction(1) << ") direction" << std::endl;
+            std::cerr << "[" << comp_name << "] robot is falling down toward ("
+                      << fall_direction(0) << ", " << fall_direction(1) << ") direction"
+                      << std::endl;
         }
         m_is_falling_counter++;
     } else {
@@ -1450,8 +1450,7 @@ void Stabilizer::calcTorque(const hrp::Matrix33& rot)
 
 void Stabilizer::syncToSt()
 {
-    std::cerr << "[" << comp_name << "] ["
-              << "] Sync IDLE => ST"  << std::endl;
+    std::cerr << "[" << comp_name << "] Sync IDLE => ST"  << std::endl;
     // TODO: この辺の初期化をまとめたい
     d_rpy[0] = d_rpy[1] = 0;
     pos_ctrl = hrp::Vector3::Zero();
@@ -1477,8 +1476,7 @@ void Stabilizer::syncToSt()
 
 void Stabilizer::syncToIdle()
 {
-    std::cerr << "[" << comp_name << "] ["
-              << "] Sync ST => IDLE"  << std::endl;
+    std::cerr << "[" << comp_name << "] Sync ST => IDLE"  << std::endl;
     transition_count = calcMaxTransitionCount();
     for (size_t i = 0; i < m_robot->numJoints(); i++) {
         transition_joint_q[i] = m_robot->joint(i)->q;
@@ -1955,6 +1953,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
         root_rot_compensation_limit[i] = i_stp.root_rot_compensation_limit[i];
     }
     detection_count_to_mode_air = static_cast<int>(i_stp.detection_time_to_air / dt);
+
     if (control_mode == MODE_IDLE) {
         for (size_t i = 0; i < i_stp.end_effector_list.length(); i++) {
             auto ikp_itr = std::find_if(stikp.begin(), stikp.end(), [&i_stp, i](STIKParam& ikp) { return ikp.ee_name == std::string(i_stp.end_effector_list[i].leg); });
@@ -1964,11 +1963,13 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
     } else {
         std::cerr << "[" << comp_name << "] cannot change end-effectors except during MODE_IDLE" << std::endl;
     }
+
     for (std::vector<STIKParam>::const_iterator it = stikp.begin(); it != stikp.end(); it++) {
         std::cerr << "[" << comp_name << "]  End Effector [" << it->ee_name << "]" << std::endl;
         std::cerr << "[" << comp_name << "]   localpos = " << it->localp.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
         std::cerr << "[" << comp_name << "]   localR = " << it->localR.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "", "    [", "]")) << std::endl;
     }
+
     if (i_stp.foot_origin_offset.length () != 2) {
         std::cerr << "[" << comp_name << "]   foot_origin_offset cannot be set. Length " << i_stp.foot_origin_offset.length() << " != " << 2 << std::endl;
     } else if (control_mode != MODE_IDLE) {
@@ -1980,6 +1981,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
             foot_origin_offset[i](2) = i_stp.foot_origin_offset[i][2];
         }
     }
+
     std::cerr << "[" << comp_name << "]   foot_origin_offset is ";
     for (size_t i = 0; i < 2; i++) {
         std::cerr << foot_origin_offset[i].format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"));
@@ -1988,6 +1990,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
     std::cerr << "[" << comp_name << "]   eefm_k1  = [" << eefm_k1[0] << ", " << eefm_k1[1] << "], eefm_k2  = [" << eefm_k2[0] << ", " << eefm_k2[1] << "], eefm_k3  = [" << eefm_k3[0] << ", " << eefm_k3[1] << "]" << std::endl;
     std::cerr << "[" << comp_name << "]   eefm_zmp_delay_time_const  = [" << eefm_zmp_delay_time_const[0] << ", " << eefm_zmp_delay_time_const[1] << "][s], eefm_ref_zmp_aux  = [" << ref_zmp_aux(0) << ", " << ref_zmp_aux(1) << "][m]" << std::endl;
     std::cerr << "[" << comp_name << "]   eefm_body_attitude_control_gain  = [" << eefm_body_attitude_control_gain[0] << ", " << eefm_body_attitude_control_gain[1] << "], eefm_body_attitude_control_time_const  = [" << eefm_body_attitude_control_time_const[0] << ", " << eefm_body_attitude_control_time_const[1] << "][s]" << std::endl;
+
     if (is_damping_parameter_ok) {
         for (size_t j = 0; j < stikp_size; j++) {
             std::cerr << "[" << comp_name << "]   [" << stikp[j].ee_name << "] eefm_rot_damping_gain = "
@@ -2016,6 +2019,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
     } else {
         std::cerr << "[" << comp_name << "]   eefm damping parameters cannot be set because of invalid param." << std::endl;
     }
+
     std::cerr << "[" << comp_name << "]   eefm_pos_transition_time = " << eefm_pos_transition_time << "[s], eefm_pos_margin_time = " << eefm_pos_margin_time << "[s] eefm_pos_time_const_swing = " << eefm_pos_time_const_swing << "[s]" << std::endl;
     std::cerr << "[" << comp_name << "]   cogvel_cutoff_freq = " << act_cogvel_filter->getCutOffFreq() << "[Hz]" << std::endl;
     szd->print_params(std::string(comp_name));
@@ -2037,6 +2041,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
     std::cerr << "[" << comp_name << "]   root_rot_compensation_limit = [" << root_rot_compensation_limit[0] << " " << root_rot_compensation_limit[1] << "][rad]" << std::endl;
     // IK limb parameters
     std::cerr << "[" << comp_name << "]  IK limb parameters" << std::endl;
+
     bool is_ik_limb_parameter_valid_length = true;
     if (i_stp.ik_limb_parameters.length() != jpe_v.size()) {
         is_ik_limb_parameter_valid_length = false;
@@ -2073,6 +2078,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
             std::cerr << "])" << std::endl;
         }
     }
+
     if (is_ik_limb_parameter_valid_length) {
         std::cerr << "[" << comp_name << "]   ik_optional_weight_vectors = ";
         for (size_t i = 0; i < jpe_v.size(); i++) {
@@ -2111,6 +2117,77 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
             std::cerr << stikp[i].ik_loop_count << ", ";
         }
         std::cerr << "]" << std::endl;
+    }
+
+    // TODO: control_modeでまとめる。整理
+    // joint servo control parameters
+    std::cerr << "[" << comp_name << "]  joint servo control parameters" << std::endl;
+    if (control_mode == MODE_IDLE) {
+        // !TORQUE -> TORQUE
+        if (joint_control_mode != OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE && i_stp.joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE) {
+            for (STIKParam& ikp : stikp) {
+                ikp.eefm_pos_damping_gain *= 1000;
+                ikp.eefm_rot_damping_gain *= 1000;
+            }
+            eefm_swing_pos_damping_gain *= 1000;
+            eefm_swing_rot_damping_gain *= 1000;
+        } else if (joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE && i_stp.joint_control_mode != OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE) {
+            // TORQUE -> !TORQUE
+            for (STIKParam& ikp : stikp) {
+                ikp.eefm_pos_damping_gain /= 1000;
+                ikp.eefm_rot_damping_gain /= 1000;
+            }
+            eefm_swing_pos_damping_gain /= 1000;
+            eefm_swing_rot_damping_gain /= 1000;
+        }
+
+        joint_control_mode = i_stp.joint_control_mode;
+
+        std::cerr << "[" << comp_name << "]   joint_control_mode changed" << std::endl;
+    } else {
+        std::cerr << "[" << comp_name << "]   joint_control_mode cannot be changed during MODE_AIR or MODE_ST." << std::endl;
+    }
+
+    swing2landing_transition_time = i_stp.swing2landing_transition_time;
+    landing_phase_time = i_stp.landing_phase_time;
+    landing2support_transition_time = i_stp.landing2support_transition_time;
+
+    bool is_joint_servo_control_parameter_valid_length = true;
+    if (i_stp.joint_servo_control_parameters.length() == stikp_size) {
+        // TODO: true / false判定を先にしておくべきか
+        for (size_t i = 0; i < stikp_size; i++) {
+            const OpenHRP::AutoBalanceStabilizerService::JointServoControlParameter& jscp = i_stp.joint_servo_control_parameters[i];
+            if (stikp[i].support_pgain.size() == jscp.support_pgain.length() &&
+                stikp[i].support_dgain.size() == jscp.support_dgain.length() &&
+                stikp[i].landing_pgain.size() == jscp.landing_pgain.length() &&
+                stikp[i].landing_dgain.size() == jscp.landing_dgain.length()) {
+                for (size_t j = 0; j < stikp[i].support_pgain.size(); j++) {
+                    stikp[i].support_pgain(j) = jscp.support_pgain[j];
+                    stikp[i].support_dgain(j) = jscp.support_dgain[j];
+                    stikp[i].landing_pgain(j) = jscp.landing_pgain[j];
+                    stikp[i].landing_dgain(j) = jscp.landing_dgain[j];
+                }
+            } else is_joint_servo_control_parameter_valid_length = false;
+        }
+    } else {
+        is_joint_servo_control_parameter_valid_length = false;
+    }
+
+    if (is_joint_servo_control_parameter_valid_length) {
+        std::cerr << "[" << comp_name << "]   support_pgain = [";
+        for (size_t i = 0; i < stikp_size; i++) std::cerr << "[" << stikp[i].support_pgain.transpose() << "],";
+        std::cerr << "]" << std::endl;
+        std::cerr << "[" << comp_name << "]   support_dgain = [";
+        for (size_t i = 0; i < stikp_size; i++) std::cerr << "[" << stikp[i].support_dgain.transpose() << "],";
+        std::cerr << "]" << std::endl;
+        std::cerr << "[" << comp_name << "]   landing_pgain = [";
+        for (size_t i = 0; i < stikp_size; i++) std::cerr << "[" << stikp[i].landing_pgain.transpose() << "],";
+        std::cerr << "]" << std::endl;
+        std::cerr << "[" << comp_name << "]   landing_dgain = [";
+        for (size_t i = 0; i < stikp_size; i++) std::cerr << "[" << stikp[i].landing_dgain.transpose() << "],";
+        std::cerr << "]" << std::endl;
+    } else {
+        std::cerr << "[" << comp_name << "]   Servo gain parameters cannot be set because of invalid param." << std::endl;
     }
 }
 

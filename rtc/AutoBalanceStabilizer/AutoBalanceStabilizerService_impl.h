@@ -55,6 +55,7 @@ class AutoBalanceStabilizerService_impl
     // CORBA::Boolean getRemainingFootstepSequence(OpenHRP::AutoBalanceStabilizerService::FootstepSequence_out o_footstep , CORBA::Long& o_current_fs_idx);
     // CORBA::Boolean getGoPosFootstepsSequence(CORBA::Double x, CORBA::Double y, CORBA::Double th, OpenHRP::AutoBalanceStabilizerService::FootstepsSequence_out o_footstep);
     CORBA::Boolean releaseEmergencyStop();
+    void testMotion(const CORBA::Long test_number);
 
     /* Service for Stabilizer */
     void startStabilizer(void);

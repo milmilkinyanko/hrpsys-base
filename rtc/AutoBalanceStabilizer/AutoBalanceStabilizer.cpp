@@ -1311,15 +1311,28 @@ void AutoBalanceStabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabili
 void AutoBalanceStabilizer::startStabilizer(void)
 {
     st->startStabilizer();
-    // gg->startRunning(m_dt);
 }
 
 void AutoBalanceStabilizer::stopStabilizer(void)
 {
-    // st->stopStabilizer();
-    // gg->startJumping(m_dt);
-    gg->startRunning(m_dt);
-    // gg->startRunJumpDemo(m_dt);
+    st->stopStabilizer();
+}
+
+void AutoBalanceStabilizer::testMotion(const int test_number)
+{
+    switch(test_number) {
+      case 0:
+          gg->startRunning(m_dt);
+          break;
+      case 1:
+          gg->startJumping(m_dt);
+          break;
+      case 2:
+          gg->startRunJumpDemo(m_dt);
+          break;
+      default:
+          std::cerr << "[" << m_profile.instance_name << "] Unused number" << std::endl;
+    }
 }
 
 void AutoBalanceStabilizer::waitABCTransition()

@@ -269,4 +269,3 @@ module OpenHRP
     boolean dummy();
   };
 };
-

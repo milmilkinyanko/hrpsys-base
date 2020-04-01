@@ -136,6 +136,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_param);
     void startStabilizer(void);
     void stopStabilizer(void);
+    void testMotion(const int test_number);
 
   protected:
     // Configuration variable declaration

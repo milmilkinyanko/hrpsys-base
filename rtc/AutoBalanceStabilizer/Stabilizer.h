@@ -177,7 +177,7 @@ class Stabilizer
   private:
     enum CONTROL_MODE {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
     enum CONTACT_PHASE {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
-    enum JOINT_CONTROL_MODE {JOINT_POSITION, JOINT_TORQUE} joint_control_mode = JOINT_POSITION;
+    OpenHRP::AutoBalanceStabilizerService::JointControlMode joint_control_mode = OpenHRP::AutoBalanceStabilizerService::JOINT_POSITION;
 
     bool calcIfCOPisOutside();
     bool calcIfCPisOutside();
