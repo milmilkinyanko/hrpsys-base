@@ -108,6 +108,7 @@ private:
                 // szd->distributeZMPToForceMomentsPseudoInverse2(ref_foot_force, ref_foot_moment,
                 //                                                ee_pos, cop_pos, ee_rot, names, limb_gains,
                 //                                                refzmp_vec[i], refzmp_vec[i],
+                //                                                total_force, total_moment, weight,
                 //                                                total_fz, dt, true, "");
             }
             for (size_t j = 0; j < fs.size(); j++) {
@@ -214,8 +215,6 @@ public:
                       distribution_algorithm = EEFMQP;
                   } else if (arg_strs[i]=="EEFMQP2") {
                       distribution_algorithm = EEFMQP2;
-                  } else if (arg_strs[i]=="EEFMQPCOP") {
-                      distribution_algorithm = EEFMQPCOP;
                   } else if (arg_strs[i]=="EEFMQPCOP") {
                       distribution_algorithm = EEFMQPCOP;
                   } else if (arg_strs[i]=="EEFMQPCOP2") {

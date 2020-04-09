@@ -203,6 +203,8 @@ class RobotHardware
   OutPort<TimedDoubleSeq> m_tauOut;
   OutPort<TimedDoubleSeq> m_ctauOut;
   OutPort<TimedDoubleSeq> m_pdtauOut;
+  OutPort<TimedDoubleSeq> m_pgainOut;
+  OutPort<TimedDoubleSeq> m_dgainOut;
   std::vector<OutPort<TimedAcceleration3D> *> m_accOut;
   std::vector<OutPort<TimedAngularVelocity3D> *> m_rateOut;
   std::vector<OutPort<TimedDoubleSeq> *> m_forceOut;

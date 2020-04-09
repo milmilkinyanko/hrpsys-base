@@ -501,6 +501,7 @@ void AutoBalanceStabilizer::setupBasicPort()
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
+    addOutPort("tau", m_tauOut);
     addOutPort("basePosOut", m_basePosOut);
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("basePoseOut", m_basePoseOut);
@@ -834,7 +835,10 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         m_COPInfoOut.write();
     }
 
-    if (st_port_data.change_servo_gains) {
+    if (st->getIfChangeServoGains()) {
+        std::cerr << "[" << m_profile.instance_name << "] Change servo gains" << std::endl;
+        st->setIfChangeServoGains(false);
+
         m_pgain.tm = m_qRef.tm;
         m_dgain.tm = m_qRef.tm;
         m_gainTransitionTime.tm = m_qRef.tm;
@@ -876,7 +880,7 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     const coil::vstring contact_str = coil::split(prop["contact_points"], ",");
     init_constraints.reserve(contact_str.size());
     for (size_t i = 0; i < contact_str.size();) {
-        std::cerr << contact_str[i] << " Index: " << m_robot->link(contact_str[i])->index;
+        std::cerr << contact_str[i] << " Index: " << m_robot->link(contact_str[i])->index << std::endl;
         hrp::LinkConstraint constraint(m_robot->link(contact_str[i++])->index);
 
         const std::string constraint_type_str = contact_str[i++];
@@ -887,7 +891,7 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
         else if (constraint_type_str == "FLOAT")  constraint_type = hrp::LinkConstraint::ConstraintType::FLOAT;
         else if (constraint_type_str == "FREE")   constraint_type = hrp::LinkConstraint::ConstraintType::FREE;
         else {
-            std::cerr << "[" << m_profile.instance_name << "] Constraint type " << constraint_type_str << " can't be selected. Set FIX." << std::endl;
+            std::cerr << "[" << m_profile.instance_name << "] Constraint type " << constraint_type_str << " is not a proper type. Set FIX." << std::endl;
         }
         constraint.setConstraintType(constraint_type);
 
@@ -946,24 +950,25 @@ void AutoBalanceStabilizer::setupIKConstraints(const hrp::BodyPtr& _robot,
     momentum_weights_interpolator->setName(std::string(m_profile.instance_name) + " momentum_weights_interpolator");
 
     // Joint
-    default_q_weights.resize(_robot->numJoints());
-    flywheel_q_weights.resize(_robot->numJoints());
-    constexpr double W = 2e-6; // default q weight
-    default_q_weights <<
-        1e-3, 1e-3, 1e-3, // chest
-        W, W,    // HEAD
-        1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // LARM
-        1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // RARM
-        W, W, W, W, W, W, // LLEG
-        W, W, W, W, W, W; // RLEG
+    constexpr double DEFAULT_Q_WEIGHT = 2e-6; // default q weight
+    default_q_weights = hrp::dvector::Constant(_robot->numJoints(), DEFAULT_Q_WEIGHT);
+    flywheel_q_weights = hrp::dvector::Constant(_robot->numJoints(), DEFAULT_Q_WEIGHT);
 
-    flywheel_q_weights <<
-        W, W, W, // chest
-        W, W,    // HEAD
-        0, 0, 0, 0, 0, 0, 0, // LARM
-        0, 0, 0, 0, 0, 0, 0, // RARM
-        W, W, W, W, W, W, // LLEG
-        W, W, W, W, W, W; // RLEG
+    // default_q_weights <<
+    //     1e-3, 1e-3, 1e-3, // chest
+    //     W, W,    // HEAD
+    //     1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // LARM
+    //     1e-3, 1e-2, 2e-5, 2e-5, W, W, W, // RARM
+    //     W, W, W, W, W, W, // LLEG
+    //     W, W, W, W, W, W; // RLEG
+
+    // flywheel_q_weights <<
+    //     W, W, W, // chest
+    //     W, W,    // HEAD
+    //     0, 0, 0, 0, 0, 0, 0, // LARM
+    //     0, 0, 0, 0, 0, 0, 0, // RARM
+    //     W, W, W, W, W, W, // LLEG
+    //     W, W, W, W, W, W; // RLEG
 
     q_weights_interpolator->set(default_q_weights.data());
     flywheel_q_weights = default_q_weights;

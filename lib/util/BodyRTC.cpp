@@ -662,17 +662,17 @@ CORBA::Boolean RobotHardwareServicePort::power(const char* jname, OpenHRP::Robot
 CORBA::Boolean RobotHardwareServicePort::servo(const char* jname, OpenHRP::RobotHardwareService::SwitchStatus turnon) {
     return m_robot->servo(jname, turnon == OpenHRP::RobotHardwareService::SWITCH_ON);
 }
-void RobotHardwareServicePort::setServoGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoGainPercentage(const char *jname, double percentage, double transition_time) {
 }
-void RobotHardwareServicePort::setServoPGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoPGainPercentage(const char *jname, double percentage, double transition_time) {
 }
-void RobotHardwareServicePort::setServoDGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoDGainPercentage(const char *jname, double percentage, double transition_time) {
 }
-void RobotHardwareServicePort::setServoTorqueGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoTorqueGainPercentage(const char *jname, double percentage) {
 }
-void RobotHardwareServicePort::setServoTorquePGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoTorquePGainPercentage(const char *jname, double percentage) {
 }
-void RobotHardwareServicePort::setServoTorqueDGainPercentage(const char *jname, double limit) {
+void RobotHardwareServicePort::setServoTorqueDGainPercentage(const char *jname, double percentage) {
 }
 void RobotHardwareServicePort::setServoErrorLimit(const char *jname, double limit) {
     m_robot->setServoErrorLimit(jname, limit);

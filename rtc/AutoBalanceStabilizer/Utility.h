@@ -34,9 +34,21 @@ inline T calcInteriorPoint(const T& start, const T& goal, const double ratio)
     return (1 - ratio) * start + ratio * goal;
 }
 
+inline double clamp(const double value, double limit_value)
+{
+    if (limit_value < 0) limit_value = -limit_value;
+    return std::max(-limit_value, std::min(limit_value, value));
+}
+
 inline double clamp(const double value, const double llimit_value, const double ulimit_value)
 {
     return std::max(llimit_value, std::min(ulimit_value, value));
+}
+
+inline hrp::Vector3 clamp(const hrp::Vector3& value, double limit_value)
+{
+    if (limit_value < 0) limit_value = -limit_value;
+    return value.array().max(-limit_value).min(limit_value);
 }
 
 inline hrp::Vector3 clamp(const hrp::Vector3& value, const double llimit_value, const double ulimit_value)

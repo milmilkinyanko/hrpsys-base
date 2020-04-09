@@ -31,12 +31,12 @@ public:
     void getStatus2(OpenHRP::RobotHardwareService::RobotState2_out rs);
     CORBA::Boolean power(const char* jname, OpenHRP::RobotHardwareService::SwitchStatus ss);
     CORBA::Boolean servo(const char* jname, OpenHRP::RobotHardwareService::SwitchStatus ss);
-    void setServoGainPercentage(const char *jname, double limit);
-    void setServoPGainPercentage(const char *jname, double limit);
-    void setServoDGainPercentage(const char *jname, double limit);
-    void setServoTorqueGainPercentage(const char *jname, double limit);
-    void setServoTorquePGainPercentage(const char *jname, double limit);
-    void setServoTorqueDGainPercentage(const char *jname, double limit);
+    void setServoGainPercentage(const char *jname, double percentage, double transition_time = 2.0);
+    void setServoPGainPercentage(const char *jname, double percentage, double transition_time = 2.0);
+    void setServoDGainPercentage(const char *jname, double percentage, double transition_time = 2.0);
+    void setServoTorqueGainPercentage(const char *jname, double percentage);
+    void setServoTorquePGainPercentage(const char *jname, double percentage);
+    void setServoTorqueDGainPercentage(const char *jname, double percentage);
     void setServoErrorLimit(const char *jname, double limit);
     void setJointControlMode(const char *jname, OpenHRP::RobotHardwareService::JointControlMode jcm);
     void calibrateInertiaSensor();

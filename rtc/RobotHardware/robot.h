@@ -177,6 +177,36 @@ public:
     int readJointCommandTorques(double *o_torques);
 
     /**
+       \brief read array of all servo proportional gain
+       \param o_pgain array of all servo proportional gain
+       \param TRUE if read successfully, FALSE otherwise
+     */
+    int readJointServoPgain(int id, double *o_pgain);
+
+    /**
+       \brief read array of all servo derivative gain
+       \param o_pgain array of all servo derivative gain
+       \param TRUE if read successfully, FALSE otherwise
+    */
+    int readJointServoDgain(int id, double *o_dgain);
+
+#if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
+    /**
+       \brief read array of all torque proportional gain
+       \param o_pgain array of all torque proportional gain
+       \param TRUE if read successfully, FALSE otherwise
+     */
+    int readJointTorquePgain(int id, double *o_pgain);
+
+    /**
+       \brief read array of all torque derivative gain
+       \param o_pgain array of all torque derivative gain
+       \param TRUE if read successfully, FALSE otherwise
+    */
+    int readJointTorqueDgain(int id, double *o_dgain);
+#endif
+
+    /**
        \brief read gyro sensor output
        \param i_rank rank of gyro sensor
        \param o_rates array of angular velocities(length = 3) [rad/s]
@@ -276,7 +306,7 @@ public:
        \param change_d if change derivative gain
        \return true if set successfully, false otherwise
      */
-    bool setServoGainPercentage(const char *i_jname, double i_percentage, double transition_time = 0, bool change_p = true, bool change_d = true);
+    bool setServoGainPercentage(const char *i_jname, double i_percentage, double transition_time = 2.0, bool change_p = true, bool change_d = true);
 
     /**
        \brief set the parcentage to the default servo gain

@@ -53,7 +53,6 @@ struct stabilizerPortData
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
-    bool change_servo_gains;
     std::vector<double> servo_pgains;
     std::vector<double> servo_dgains;
     std::vector<double> gains_transition_times;
@@ -61,61 +60,14 @@ struct stabilizerPortData
 
 class Stabilizer
 {
-  public: // TODO: public関数をprivateにする
+  public:
     Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
     void execStabilizer(const paramsFromAutoBalancer& abc_param,
                         const paramsFromSensors& sensor_param);
-    void startStabilizer();
-    void stopStabilizer();
-    void storeCurrentStates();
-    void calcTargetParameters(const paramsFromAutoBalancer& abc_param);
-    void calcActualParameters(const paramsFromSensors& sensor_param);
-    void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
-    void syncToSt();
-    void syncToIdle();
-    /**
-     * @fn
-     * @return being on ground or not
-     */
-    bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
-    void moveBasePosRotForBodyRPYControl ();
-    void calcSwingSupportLimbGain();
-    void calcTPCC();
-    void calcEEForceMomentControl();
-    void calcSwingEEModification ();
-    void getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
-    void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
-    void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
-    void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
-    std::string getStabilizerAlgorithmString(const OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm);
-    void waitSTTransition();
-    // funcitons for calc final torque output
-    void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
-    void calcTorque();
-    void fixLegToCoords (const std::string& leg, const rats::coordinates& coords);
-    void getFootmidCoords (rats::coordinates& ret);
-    double calcDampingControl (const double tau_d, const double tau, const double prev_d,
-                               const double DD, const double TT);
-    hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
-    double calcDampingControl (const double prev_d, const double TT);
-    hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
-                                     const hrp::Vector3& DD, const hrp::Vector3& TT);
-    void calcDiffFootOriginExtMoment ();
-    void setSwingSupportJointServoGains();
-    void calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
-    void calcTorque(const hrp::Matrix33& rot);
 
-    bool isContact (const size_t idx) // 0 = right, 1 = left
-    {
-        return (prev_act_force_z[idx] > 25.0);
-    }
-    int calcMaxTransitionCount ()
-    {
-        return (transition_time / dt);
-    }
     // TODO: tmporarary function: delete this function after merging autobalancestabilizer IK and stabilizer IK
     void addSTIKParam(const std::string& ee_name, const std::string& target_name,
                       const std::string& ee_base, const std::string& sensor_name,
@@ -163,26 +115,84 @@ class Stabilizer
         }
 
         return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog,
-                change_servo_gains, servo_pgains, servo_dgains, gains_transition_times};
+                servo_pgains, servo_dgains, gains_transition_times};
     }
 
-    hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }
+    // Setter for AutoBalanceStabilizer
+    void setIfChangeServoGains(const bool if_change) { change_servo_gains = if_change; }
+
+    // Getter for AutoBalanceStabilizer
     std::vector<bool> getActContactStates() const { return act_contact_states; }
     hrp::Vector3 getDiffFootOriginExtMoment() const { return diff_foot_origin_ext_moment; }
     std::vector<hrp::Vector3> getContactCOPInfo() const  { return contact_cop_info; }
     hrp::Vector3 getOriginRefCP() const { return rel_ref_cp; }
     hrp::Vector3 getOriginActCP() const { return rel_act_cp; }
     std::pair<bool, int> getEmergencySignal() const { return std::make_pair(whether_send_emergency_signal, emergency_signal); }
+    bool getIfChangeServoGains() const { return change_servo_gains; }
+
+    // Service
+    void startStabilizer();
+    void stopStabilizer();
+    void getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
+    void setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp);
+    void setBoolSequenceParam (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
+    void setBoolSequenceParamWithCheckContact (std::vector<bool>& st_bool_values, const OpenHRP::AutoBalanceStabilizerService::BoolSequence& output_bool_values, const std::string& prop_name);
+    std::string getStabilizerAlgorithmString(const OpenHRP::AutoBalanceStabilizerService::STAlgorithm _st_algorithm);
 
   private:
     enum CONTROL_MODE {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode = MODE_IDLE;
     enum CONTACT_PHASE {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
     OpenHRP::AutoBalanceStabilizerService::JointControlMode joint_control_mode = OpenHRP::AutoBalanceStabilizerService::JOINT_POSITION;
 
+    void storeCurrentStates();
+    void calcTargetParameters(const paramsFromAutoBalancer& abc_param);
+    void calcActualParameters(const paramsFromSensors& sensor_param);
+    void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
+    void syncToSt();
+    void syncToIdle();
+    /**
+     * @fn
+     * @return being on ground or not
+     */
+    bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
+    void moveBasePosRotForBodyRPYControl ();
+    void calcSwingSupportLimbGain();
+    void calcTPCC();
+    void calcEEForceMomentControl();
+    void calcSwingEEModification ();
+
+    // Functions to calculate robot state
     bool calcIfCOPisOutside();
     bool calcIfCPisOutside();
     bool calcFalling();
     void calcStateForEmergencySignal();
+
+    void waitSTTransition();
+    // funcitons for calc final torque output
+    void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
+    void calcTorque();
+    void fixLegToCoords (const std::string& leg, const rats::coordinates& coords);
+    void getFootmidCoords (rats::coordinates& ret);
+    double calcDampingControl (const double tau_d, const double tau, const double prev_d,
+                               const double DD, const double TT);
+    hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
+    double calcDampingControl (const double prev_d, const double TT);
+    hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
+                                     const hrp::Vector3& DD, const hrp::Vector3& TT);
+    void calcDiffFootOriginExtMoment ();
+    void setSwingSupportJointServoGains();
+    void calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
+    void calcTorque(const hrp::Matrix33& rot);
+
+    bool isContact (const size_t idx) // 0 = right, 1 = left
+    {
+        return (prev_act_force_z[idx] > 25.0);
+    }
+    int calcMaxTransitionCount ()
+    {
+        return (transition_time / dt);
+    }
+    hrp::Vector3 calcDiffCP() const { return ref_foot_origin_rot * (ref_cp - act_cp - cp_offset); }
 
     // Stabilizer Parameters
     struct STIKParam {

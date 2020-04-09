@@ -62,6 +62,10 @@ RobotHardware::RobotHardware(RTC::Manager* manager)
     m_servoStateOut("servoState", m_servoState),
     m_emergencySignalOut("emergencySignal", m_emergencySignal),
     m_rstate2Out("rstate2", m_rstate2),
+    // Debug
+    m_pgainOut("pgainOut", m_pgain),
+    m_dgainOut("dgainOut", m_dgain),
+
     m_RobotHardwareServicePort("RobotHardwareService"),
     // </rtc-template>
 	dummy(0)
@@ -94,6 +98,8 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   addOutPort("servoState", m_servoStateOut);
   addOutPort("emergencySignal", m_emergencySignalOut);
   addOutPort("rstate2", m_rstate2Out);
+  addOutPort("pgainOut", m_pgainOut);
+  addOutPort("dgainOut", m_dgainOut);
 
   // Set service provider to Ports
     m_RobotHardwareServicePort.registerProvider("service0", "RobotHardwareService", m_service0);
@@ -108,9 +114,9 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   RTC::Properties& prop = getProperties();
   double dt = 0.0;
   coil::stringTo(dt, prop["dt"].c_str());
-  // int periodic_rate = 0;
-  // coil::stringTo(periodic_rate, prop["exec_cxt.periodic.rate"].c_str());
-  // dt = 1.0 / periodic_rate;
+  int periodic_rate = 0;
+  coil::stringTo(periodic_rate, prop["exec_cxt.periodic.rate"].c_str());
+  dt = 1.0 / periodic_rate;
   if (!dt) {
       std::cerr << m_profile.instance_name << ": joint command velocity check is disabled" << std::endl;
   }
@@ -318,6 +324,14 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
   m_ctau.tm = tm;
   m_robot->readPDControllerTorques(m_pdtau.data.get_buffer());
   m_pdtau.tm = tm;
+
+  for (unsigned int i = 0; i < m_pgain.data.length(); i++) {
+      m_robot->readJointServoPgain(i, &m_pgain.data[i]);
+      m_robot->readJointServoDgain(i, &m_dgain.data[i]);
+  }
+  m_pgain.tm = tm;
+  m_dgain.tm = tm;
+
   for (unsigned int i=0; i<m_rate.size(); i++){
       double rate[3];
       m_robot->readGyroSensor(i, rate);
@@ -370,6 +384,8 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
   m_tauOut.write();
   m_ctauOut.write();
   m_pdtauOut.write();
+  m_pgainOut.write();
+  m_dgainOut.write();
   m_servoStateOut.write();
   for (unsigned int i=0; i<m_rateOut.size(); i++){
       m_rateOut[i]->write();

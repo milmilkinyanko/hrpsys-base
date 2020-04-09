@@ -98,9 +98,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
                                                             dt, false, comp_name);
 
         stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
-        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
-        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
-        stikp[i].support_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].support_dgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].landing_pgain = hrp::dvector::Constant(jpe->numJoints(), 100);
+        stikp[i].landing_dgain = hrp::dvector::Constant(jpe->numJoints(), 100);
 
         // Fix for toe joint
         const size_t num_joints = jpe->numJoints();
@@ -231,12 +231,6 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     m_robot->calcForwardKinematics();
 
     ref_zmp = target_root_R * abc_param.zmp_ref + target_root_p; // base frame -> world frame
-    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
-        // apply inverse system
-        const hrp::Vector3 modified_ref_zmp = ref_zmp + eefm_zmp_delay_time_const[0] * (ref_zmp - prev_ref_zmp) / dt;
-        prev_ref_zmp = ref_zmp;
-        ref_zmp = modified_ref_zmp;
-    }
 
     hrp::Vector3 foot_origin_pos;
     hrp::Matrix33 foot_origin_rot;
@@ -246,6 +240,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     ref_total_force = hrp::Vector3::Zero();
     ref_total_moment = hrp::Vector3::Zero(); // Total moment around reference ZMP tmp
     ref_total_foot_origin_moment = hrp::Vector3::Zero();
+    // std::cerr << "ref_force_z: ";
     for (size_t i = 0; i < stikp.size(); ++i) {
         // TODO: なぜかyは0
         // const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
@@ -255,6 +250,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         target_ee_p[i] = target->p + target->R * stikp[i].localp;
         target_ee_R[i] = target->R * stikp[i].localR;
         ref_force[i]  = abc_param.wrenches_ref[i].head<3>();
+        // std::cerr << ref_force[i](2) << ", ";
         ref_moment[i] = abc_param.wrenches_ref[i].tail<3>();
         ref_total_force += ref_force[i];
         ref_total_moment += (target_ee_p[i] - ref_zmp).cross(ref_force[i]);
@@ -266,6 +262,15 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         if (is_feedback_control_enable[i]) {
             ref_total_foot_origin_moment += (target_ee_p[i] - foot_origin_pos).cross(ref_force[i]) + ref_moment[i];
         }
+    }
+    // std::cerr << std::endl;
+
+    // TODO: commit [Stabilizer] use reference zmp without first-order lead element by inverse system when calculating ref_total_moment
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
+        // apply inverse system
+        const hrp::Vector3 modified_ref_zmp = ref_zmp + eefm_zmp_delay_time_const[0] * (ref_zmp - prev_ref_zmp) / dt;
+        prev_ref_zmp = ref_zmp;
+        ref_zmp = modified_ref_zmp;
     }
     // <= Reference world frame
 
@@ -300,12 +305,15 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         }
         prev_ref_foot_origin_rot = ref_foot_origin_rot = foot_origin_rot;
 
+        // std::cerr << "ref_force_z: ";
         for (size_t i = 0; i < stikp.size(); i++) {
             stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
             stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
             ref_force[i] = foot_origin_rot.transpose() * ref_force[i];
+            // std::cerr << ref_force[i](2) << ", ";
             ref_moment[i] = foot_origin_rot.transpose() * ref_moment[i];
         }
+        // std::cerr << std::endl;
 
         ref_total_foot_origin_moment = foot_origin_rot.transpose() * ref_total_foot_origin_moment;
         ref_total_force = foot_origin_rot.transpose() * ref_total_force;
@@ -517,48 +525,64 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
             // truncate ZMP
             if (use_zmp_truncation) {
-                Eigen::Vector2d new_refzmp_xy(new_refzmp.head(2));
+                Eigen::Vector2d new_refzmp_xy(new_refzmp.head<2>());
                 szd->get_vertices(support_polygon_vertices);
                 szd->calc_convex_hull(support_polygon_vertices, ref_contact_states, ee_pos, ee_rot);
                 if (!szd->is_inside_support_polygon(new_refzmp_xy, hrp::Vector3::Zero(), true, comp_name)) {
-                    new_refzmp.head(2) = new_refzmp_xy;
+                    new_refzmp.head<2>() = new_refzmp_xy;
                 }
             }
 
+            // const auto printVec = [](const std::string& name, const hrp::Vector3& vec) {
+            //     std::cerr << name << ": " << vec.transpose() << std::endl;
+            // };
+
+            // for (size_t i = 0; i < stikp_size; ++i) {
+            //     printVec("cop_pos[i]", cop_pos[i]);
+            // }
+            // printVec("new_refzmp", new_refzmp);
+            // printVec("refzmp", hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos));
+
             // Distribute ZMP into each EE force/moment at each COP
-            if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM) {
-                // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
-                szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
-                                                 ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
-                                                 new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                 total_ref_fz, dt,
-                                                 DEBUGP(loop), comp_name);
-            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQP) {
-                szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
-                                                   ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
-                                                   new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                   total_ref_fz, dt,
-                                                   DEBUGP(loop), comp_name,
-                                                   (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP));
-            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP) {
-                szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
-                                                              ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
-                                                              new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                              total_ref_fz, dt,
-                                                              DEBUGP(loop), comp_name,
-                                                              (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP), is_contact_list);
-            } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2) {
-                szd->distributeZMPToForceMomentsPseudoInverse2(tmp_ref_force, tmp_ref_moment,
-                                                               ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
-                                                               new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                               foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
-                                                               ee_forcemoment_distribution_weight,
-                                                               total_ref_fz, dt,
-                                                               DEBUGP(loop), comp_name);
+            if (on_ground) {
+                if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFM) {
+                    // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
+                    szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
+                                                     ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
+                                                     new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
+                                                     total_ref_fz, dt,
+                                                     DEBUGP(loop), comp_name);
+                } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQP) {
+                    szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
+                                                       ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
+                                                       new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
+                                                       total_ref_fz, dt,
+                                                       DEBUGP(loop), comp_name,
+                                                       (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP));
+                } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP) {
+                    szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
+                                                                  ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toe_heel_ratio,
+                                                                  new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
+                                                                  total_ref_fz, dt,
+                                                                  DEBUGP(loop), comp_name,
+                                                                  (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP), is_contact_list);
+                } else if (st_algorithm == OpenHRP::AutoBalanceStabilizerService::EEFMQPCOP2) {
+                    szd->distributeZMPToForceMomentsPseudoInverse2(tmp_ref_force, tmp_ref_moment,
+                                                                   ee_pos, cop_pos, ee_rot, ee_name, limb_gains,
+                                                                   new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
+                                                                   foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
+                                                                   ee_forcemoment_distribution_weight,
+                                                                   total_ref_fz, dt,
+                                                                   DEBUGP(loop), comp_name);
+                }
             }
 
             // for debug output
             new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
+
+            // std::cerr << "tmp_ref_force: ";
+            // for (const auto& force : tmp_ref_force) std::cerr << force(2) << ", ";
+            // std::cerr << std::endl;
 
             // foot modif
             hrp::Vector3 f_diff = hrp::Vector3::Zero();
@@ -617,7 +641,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                         ikp.d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.d_foot_rpy, rot_damping_gain, ikp.eefm_rot_time_const);
                     }
 
-                    ikp.d_foot_rpy = clamp(ikp.d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
+                    ikp.d_foot_rpy = clamp(ikp.d_foot_rpy, ikp.eefm_rot_compensation_limit);
                 }
 
                 if (!eefm_use_force_difference_control) { // Pos
@@ -629,7 +653,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                         ikp.d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.d_foot_pos, pos_damping_gain, ikp.eefm_pos_time_const_support);
                     }
 
-                    ikp.d_foot_pos = clamp(ikp.d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
+                    ikp.d_foot_pos = clamp(ikp.d_foot_pos, ikp.eefm_pos_compensation_limit);
                 }
 
                 // Actual ee frame =>
@@ -653,6 +677,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 // foot force difference control version
                 //   Basically Equation (18) in the paper [1]
                 const hrp::Vector3 ref_f_diff = (stikp[1].ref_force - stikp[0].ref_force);
+                // std::cerr << "ref force z 0: " << stikp[0].ref_force(2) << ", ref force z 1: " << stikp[1].ref_force(2) << std::endl;
 
                 if (eefm_use_swing_damping) {
                     hrp::Vector3 damping_gain;
@@ -693,6 +718,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
             }
 
             if (DEBUGP(loop)) {
+            // if (true) {
                 std::cerr << "[" << comp_name << "] Control values" << std::endl;
                 if (eefm_use_force_difference_control) {
                     std::cerr << "[" << comp_name << "]   "
@@ -886,7 +912,7 @@ bool Stabilizer::calcIfCPisOutside()
 {
     bool is_cp_outside = false;
     if (on_ground && transition_count == 0 && control_mode == MODE_ST) {
-        Eigen::Vector2d current_cp = act_cp.head(2);
+        Eigen::Vector2d current_cp = act_cp.head<2>();
         szd->get_margined_vertices(margined_support_polygon_vertices);
         szd->calc_convex_hull(margined_support_polygon_vertices, act_contact_states, rel_ee_pos, rel_ee_rot);
         if (!is_walking || is_estop_while_walking) is_cp_outside = !szd->is_inside_support_polygon(current_cp, -sbp_cog_offset);
@@ -1157,6 +1183,8 @@ void Stabilizer::calcEEForceMomentControl()
         }
     }
 
+    const size_t stikp_size = stikp.size();
+
     // State calculation for swing ee compensation
     //   joint angle : current control output
     //   root pos : target root p
@@ -1171,12 +1199,13 @@ void Stabilizer::calcEEForceMomentControl()
         m_robot->rootLink()->R = act_Rs * (senR.transpose() * m_robot->rootLink()->R);
         m_robot->calcForwardKinematics();
 
+        // Calculate foot_origin_coords-relative ee pos and rot
         hrp::Vector3 foot_origin_pos;
         hrp::Matrix33 foot_origin_rot;
         calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
-        // Calculate foot_origin_coords-relative ee pos and rot
+
         // Subtract them from target_ee_diff_xx
-        for (size_t i = 0; i < stikp.size(); i++) {
+        for (size_t i = 0; i < stikp_size; i++) {
             const hrp::Link* target = m_robot->link(stikp[i].target_name);
             stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
             stikp[i].target_ee_diff_r  = (foot_origin_rot.transpose() * target->R * stikp[i].localR).transpose() * stikp[i].target_ee_diff_r;
@@ -1193,8 +1222,8 @@ void Stabilizer::calcEEForceMomentControl()
     hrp::Vector3 foot_origin_pos;
     hrp::Matrix33 foot_origin_rot;
     calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
-    std::vector<hrp::Vector3> current_d_foot_pos(stikp.size());
-    for (size_t i = 0; i < stikp.size(); i++) {
+    std::vector<hrp::Vector3> current_d_foot_pos(stikp_size);
+    for (size_t i = 0; i < stikp_size; i++) {
         current_d_foot_pos[i] = foot_origin_rot * stikp[i].d_foot_pos;
     }
 
@@ -1204,10 +1233,10 @@ void Stabilizer::calcEEForceMomentControl()
     // TODO: IKの位置はここじゃない？ or stikpのループを1つにする
     // solveIK
     //   IK target is link origin pos and rot, not ee pos and rot.
-    std::vector<hrp::Vector3>  ref_ee_p(stikp.size()); // TODO: should be target_ee_p ?
-    std::vector<hrp::Matrix33> ref_ee_R(stikp.size());
+    std::vector<hrp::Vector3>  ref_ee_p(stikp_size); // TODO: should be target_ee_p ?
+    std::vector<hrp::Matrix33> ref_ee_R(stikp_size);
     double tmp_d_pos_z_root = 0.0;
-    for (size_t i = 0; i < stikp.size(); i++) {
+    for (size_t i = 0; i < stikp_size; i++) {
         if (!is_ik_enable[i]) continue;
 
         // Add damping_control compensation to target value
@@ -1226,7 +1255,7 @@ void Stabilizer::calcEEForceMomentControl()
         ref_ee_p[i] = ref_ee_p[i] + foot_origin_rot * stikp[i].d_pos_swing;
     }
 
-    for (size_t i = 0; i < stikp.size(); i++) {
+    for (size_t i = 0; i < stikp_size; i++) {
         if (!is_ik_enable[i]) continue;
         for (size_t _ = 0; _ < stikp[i].ik_loop_count; ++_) {
             jpe_v[i]->calcInverseKinematics2Loop(ref_ee_p[i], ref_ee_R[i], 1.0, 0.001, 0.01,
@@ -1352,7 +1381,6 @@ void Stabilizer::calcDiffFootOriginExtMoment()
 void Stabilizer::setSwingSupportJointServoGains()
 {
     static double tmp_landing2support_transition_time = landing2support_transition_time;
-    change_servo_gains = false;
 
     const size_t stikp_size = stikp.size();
     for (size_t i = 0; i < stikp_size; i++) {
@@ -1454,15 +1482,22 @@ void Stabilizer::syncToSt()
     // TODO: この辺の初期化をまとめたい
     d_rpy[0] = d_rpy[1] = 0;
     pos_ctrl = hrp::Vector3::Zero();
-    for (size_t i = 0; i < stikp.size(); i++) {
-        STIKParam& ikp = stikp[i];
+    for (STIKParam& ikp : stikp) {
         ikp.target_ee_diff_p = hrp::Vector3::Zero();
         ikp.target_ee_diff_r = hrp::Matrix33::Identity();
-        ikp.d_pos_swing = ikp.prev_d_pos_swing = hrp::Vector3::Zero();
-        ikp.d_rpy_swing = ikp.prev_d_rpy_swing = hrp::Vector3::Zero();
+
+        ikp.d_pos_swing      = hrp::Vector3::Zero();
+        ikp.prev_d_pos_swing = hrp::Vector3::Zero();
+        ikp.d_rpy_swing      = hrp::Vector3::Zero();
+        ikp.prev_d_rpy_swing = hrp::Vector3::Zero();
+
+        ikp.d_foot_pos    = hrp::Vector3::Zero();
+        ikp.ee_d_foot_pos = hrp::Vector3::Zero();
+        ikp.d_foot_rpy    = hrp::Vector3::Zero();
+        ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
+
         ikp.target_ee_diff_p_filter->reset(hrp::Vector3::Zero());
         ikp.target_ee_diff_r_filter->reset(hrp::Vector3::Zero());
-        ikp.d_foot_pos = ikp.ee_d_foot_pos = ikp.d_foot_rpy = ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
     }
 
     if (on_ground) {
@@ -1485,7 +1520,8 @@ void Stabilizer::syncToIdle()
 
 void Stabilizer::startStabilizer()
 {
-    waitSTTransition(); // Wait until all transition has finished
+    // Wait until all transition has finished
+    waitSTTransition();
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (control_mode == MODE_IDLE) {
@@ -1493,7 +1529,40 @@ void Stabilizer::startStabilizer()
             syncToSt();
         }
     }
-    waitSTTransition();
+    waitSTTransition(); // TODO: 後ろ？
+
+    if (joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE) {
+        std::cerr << "[" << comp_name << "] " << "Moved to ST command pose and sync to TORQUE mode"  << std::endl;
+        constexpr double DEFAULT_TRANSITION_TIME = 2.0;
+
+        for (size_t i = 0; i < m_robot->numJoints(); ++i) {
+            servo_pgains[i] = 100;
+            servo_dgains[i] = 100;
+            // TODO: servo Torque
+            gains_transition_times[i] = DEFAULT_TRANSITION_TIME;
+        }
+
+        // m_robotHardwareService0->setServoGainPercentage("all", 100);
+        // m_robotHardwareService0->setServoTorqueGainPercentage("all", 100);
+        for (size_t i = 0; i < stikp.size(); ++i) {
+            const STIKParam& ikp = stikp[i];
+            const auto& jpe = jpe_v[i];
+            for (size_t j = 0; j < ikp.support_pgain.size(); ++j) {
+                const int joint_id = jpe->joint(j)->jointId;
+                servo_pgains[joint_id] = ikp.support_pgain(j);
+                servo_dgains[joint_id] = ikp.support_dgain(j);
+                gains_transition_times[joint_id] = DEFAULT_TRANSITION_TIME;
+            }
+        }
+
+        change_servo_gains = true;
+        // for (size_t j = 0; j < ikp.support_pgain.size(); j++) {
+        //     m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(), ikp.support_pgain(j), 3);
+        //     m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(), ikp.support_dgain(j), 3);
+        // }
+    }
+
+    std::cerr << "[" << comp_name << "] " << "Start ST DONE"  << std::endl;
 }
 
 void Stabilizer::stopStabilizer()
@@ -2143,7 +2212,7 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
 
         joint_control_mode = i_stp.joint_control_mode;
 
-        std::cerr << "[" << comp_name << "]   joint_control_mode changed" << std::endl;
+        std::cerr << "[" << comp_name << "]   joint_control_mode changed to mode " << joint_control_mode << std::endl;
     } else {
         std::cerr << "[" << comp_name << "]   joint_control_mode cannot be changed during MODE_AIR or MODE_ST." << std::endl;
     }
@@ -2167,9 +2236,17 @@ void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService:
                     stikp[i].landing_pgain(j) = jscp.landing_pgain[j];
                     stikp[i].landing_dgain(j) = jscp.landing_dgain[j];
                 }
-            } else is_joint_servo_control_parameter_valid_length = false;
+            } else {
+                std::cerr << stikp[i].support_pgain.size() << ", " << jscp.support_pgain.length() << std::endl;
+                std::cerr << stikp[i].support_dgain.size() << ", " << jscp.support_dgain.length() << std::endl;
+                std::cerr << stikp[i].landing_pgain.size() << ", " << jscp.landing_pgain.length() << std::endl;
+                std::cerr << stikp[i].landing_dgain.size() << ", " << jscp.landing_dgain.length() << std::endl;
+                is_joint_servo_control_parameter_valid_length = false;
+                break;
+            }
         }
     } else {
+        std::cerr << "i_stp.joint_servo_control_parameters.length() != stikp.size()" << std::endl;
         is_joint_servo_control_parameter_valid_length = false;
     }
 

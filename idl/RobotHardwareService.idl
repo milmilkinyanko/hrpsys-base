@@ -90,21 +90,21 @@ module OpenHRP
      * @param name joint name, part name or "all"
      * @param percentage to joint servo gain[0-100]
      */
-    void setServoGainPercentage(in string name, in double percentage);
+    void setServoGainPercentage(in string name, in double percentage, in double transition_time);
 
     /**
      * @brief set the parcentage to the default servo propotional gain
      * @param name joint name, part name or "all"
      * @param percentage to joint servo gain[0-100]
      */
-    void setServoPGainPercentage(in string name, in double percentage);
+    void setServoPGainPercentage(in string name, in double percentage, in double transition_time);
 
     /**
      * @brief set the parcentage to the default servo derivative gain
      * @param name joint name, part name or "all"
      * @param percentage to joint servo gain[0-100]
      */
-    void setServoDGainPercentage(in string name, in double percentage);
+    void setServoDGainPercentage(in string name, in double percentage, in double transition_time);
 
     /**
      * @brief set the maximum joint servo error angle

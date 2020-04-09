@@ -516,6 +516,28 @@ int robot::readJointCommandTorques(double *o_torques)
     return read_command_torques(o_torques);
 }
 
+int robot::readJointServoPgain(int id, double *o_pgain)
+{
+    return read_pgain(id, o_pgain);
+}
+
+int robot::readJointServoDgain(int id, double *o_dgain)
+{
+    return read_dgain(id, o_dgain);
+}
+
+#if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
+int robot::readJointTorquePgain(int id, double *o_pgain)
+{
+    return read_torque_pgain(id, o_pgain);
+}
+
+int robot::readJointTorqueDgain(int id, double *o_dgain)
+{
+    return read_torque_dgain(id, o_dgain);
+}
+#endif
+
 void robot::readGyroSensor(unsigned int i_rank, double *o_rates)
 {
     read_gyro_sensor(i_rank, o_rates);
@@ -736,9 +758,9 @@ bool robot::setServoGainPercentage(const char *i_jname, double i_percentage, dou
 bool robot::setServoGainPercentage(const char *i_jname, const double *i_percentage, const double *transition_time, bool change_p, bool change_d)
 {
     if (!change_p && !change_d) return false;
-    const size_t percentage_size = sizeof(i_percentage) / sizeof(i_percentage[0]);
+    // const size_t percentage_size = sizeof(i_percentage) / sizeof(i_percentage[0]);
 
-    for (size_t i = 0; i < percentage_size; ++i) {
+    for (size_t i = 0; i < numJoints(); ++i) {
         if (i_percentage[i] < 0 || 100 < i_percentage[i]) {
             std::cerr << "[RobotHardware] Invalid percentage " <<  i_percentage[i] << "[%] for setServoGainPercentage. Percentage should be in (0, 100)[%]." << std::endl;
             return false;
@@ -746,12 +768,16 @@ bool robot::setServoGainPercentage(const char *i_jname, const double *i_percenta
     }
 
     Link *l = NULL;
-    if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0){
+    if (strcmp(i_jname, "all") == 0 || strcmp(i_jname, "ALL") == 0) {
         const size_t num_joints = numJoints();
-        if (num_joints != percentage_size && num_joints != sizeof(transition_time) / sizeof(transition_time[0])) {
-            std::cerr << "[RobotHardware] Size of i_percentage and transition_time must be same as numJoints" << std::endl;
-            return false;
-        }
+        // const size_t time_size = sizeof(transition_time) / sizeof(transition_time[0]);
+        // if (num_joints != percentage_size && num_joints != time_size) {
+        //     std::cerr << "[RobotHardware] Size of i_percentage and transition_time must be same as numJoints" << std::endl;
+        //     std::cerr << "                numJoints:               " << num_joints << std::endl;
+        //     std::cerr << "                size of i_percentage:    " << percentage_size << std::endl;
+        //     std::cerr << "                size of transition_time: " << time_size << std::endl;
+        //     return false;
+        // }
 
         std::cerr << "[RobotHardware] setServoGainPercentage ";
         for (unsigned int i = 0; i < num_joints; i++) {
@@ -766,7 +792,8 @@ bool robot::setServoGainPercentage(const char *i_jname, const double *i_percenta
             if (!read_torque_dgain(i, &old_tqdgain[i])) old_tqdgain[i] = tqdgain[i];
 #endif
             gain_counter[i] = 0;
-            max_gain_counts[i] = (transition_time[i] < m_dt + 1e-6) ? GAIN_COUNT : transition_time[i] / m_dt;
+            // max_gain_counts[i] = (transition_time[i] < m_dt + 1e-6) ? GAIN_COUNT : transition_time[i] / m_dt;
+            max_gain_counts[i] = (transition_time[i] < m_dt + 1e-6) ? GAIN_COUNT : transition_time[i] / 0.002; // TODO: tmp
 
             std::cerr << i_percentage[i] << " ";
         }
@@ -791,19 +818,19 @@ bool robot::setServoGainPercentage(const char *i_jname, const double *i_percenta
         const size_t jgroup_size = jgroup.size();
 
         if (jgroup_size == 0) return false;
-        if (jgroup_size != percentage_size) {
-            std::cerr << "[RobotHardware] Size of i_percentage must be same as jgroup.size()" << std::endl;
-            return false;
-        }
+        // if (jgroup_size != percentage_size) {
+        //     std::cerr << "[RobotHardware] Size of i_percentage must be same as jgroup.size()" << std::endl;
+        //     return false;
+        // }
 
         for (unsigned int i = 0; i < jgroup_size; i++) {
             std::cerr << "[RobotHardware] setServoGainPercentage ";
 
             if (!read_pgain(jgroup[i], &old_pgain[jgroup[i]])) old_pgain[jgroup[i]] = pgain[jgroup[i]];
-            if (change_p) pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage[0] / 100.0;
+            if (change_p) pgain[jgroup[i]] = default_pgain[jgroup[i]] * i_percentage[i] / 100.0;
 
             if (!read_dgain(jgroup[i], &old_dgain[jgroup[i]])) old_dgain[jgroup[i]] = dgain[jgroup[i]];
-            if (change_d) dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage[0] / 100.0;
+            if (change_d) dgain[jgroup[i]] = default_dgain[jgroup[i]] * i_percentage[i] / 100.0;
 
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
             if (!read_torque_pgain(jgroup[i], &old_tqpgain[jgroup[i]])) old_tqpgain[jgroup[i]] = tqpgain[jgroup[i]];
