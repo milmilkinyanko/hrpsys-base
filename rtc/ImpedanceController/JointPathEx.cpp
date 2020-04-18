@@ -159,7 +159,7 @@ void JointPathEx::getInterlockingJointPairIndices (std::vector<std::pair<size_t,
 
 bool JointPathEx::calcJacobianInverseNullspace(dmatrix &J, dmatrix &Jinv, dmatrix &Jnull) {
     const int n = numJoints();
-                
+
     hrp::dmatrix w = hrp::dmatrix::Identity(n,n);
     //
     // wmat/weight: weighting joint angle weight
@@ -356,7 +356,7 @@ bool JointPathEx::calcInverseKinematics2Loop(const Vector3& dp, const Vector3& o
         }
         min_speed_ratio = std::max(std::min(min_speed_ratio, speed_ratio), 0.0);
     }
-    if ( min_speed_ratio < 1.0 ) { 
+    if ( min_speed_ratio < 1.0 ) {
       if ( DEBUG ) {
         std::cerr << "spdlmt: ";
         for(int j=0; j < n; ++j) { std::cerr << dq(j) << " "; } std::cerr << std::endl;
@@ -434,7 +434,7 @@ hrp::Vector3 matrix_logEx(const hrp::Matrix33& m) {
     double q0, th;
     hrp::Vector3 q;
     double norm;
-  
+
     Eigen::Quaternion<double> eiq(m);
     q0 = eiq.w();
     q = eiq.vec();
@@ -491,7 +491,7 @@ bool JointPathEx::calcInverseKinematics2(const Vector3& end_p, const Matrix33& e
             return false;
         }
     }
-    
+
     const int n = numJoints();
     dvector qorg(n);
 
@@ -502,18 +502,18 @@ bool JointPathEx::calcInverseKinematics2(const Vector3& end_p, const Matrix33& e
         avoid_weight_gain[i] = 100000000000000000000.0;
     }
 
-    
+
     double errsqr = DBL_MAX;//maxIKErrorSqr * 100.0;
     double errsqr0 = errsqr;
     bool converged = false;
 
     int iter = 0;
     for(iter = 0; iter < MAX_IK_ITERATION; iter++){
-        
+
       if ( DEBUG ) {
         std::cerr << " iter : " << iter << " / " << MAX_IK_ITERATION << ", n = " << n << std::endl;
       }
-        
+
       Vector3 dp(end_p - target->p);
       Vector3 omega(target->R * omegaFromRotEx(target->R.transpose() * end_R));
       if ( dp.norm() > 0.1 ) dp = dp*0.1/dp.norm();
@@ -564,7 +564,7 @@ bool JointPathEx::calcInverseKinematics2(const Vector3& end_p, const Matrix33& e
       }
       calcForwardKinematics();
     }
-    
+
     return converged;
 }
 

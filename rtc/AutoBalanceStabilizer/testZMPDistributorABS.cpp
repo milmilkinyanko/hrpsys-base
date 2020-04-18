@@ -301,6 +301,22 @@ class testZMPDistributorJAXON_RED : public testZMPDistributor
         };
 };
 
+class testZMPDistributorJAXON_BLUE : public testZMPDistributor
+{
+ public:
+    testZMPDistributorJAXON_BLUE () : testZMPDistributor(0.002)
+    {
+        total_fz = 57.4035 * 9.8066;
+        szd->set_leg_inside_margin(0.055992);
+        szd->set_leg_outside_margin(0.075992);
+        szd->set_leg_front_margin(0.133242);
+        szd->set_leg_rear_margin(0.100445);
+        szd->set_vertices_from_margin_params();
+        leg_pos.push_back(hrp::Vector3(0,-0.100,0));
+        leg_pos.push_back(hrp::Vector3(0,0.100,0));
+    };
+};
+
 void print_usage ()
 {
     std::cerr << "Usage : testZMPDistributor [robot-name] [test-type] [option]" << std::endl;
@@ -320,7 +336,9 @@ int main(int argc, char* argv[])
             tzd = new testZMPDistributorHRP2JSK();
         } else if (std::string(argv[1]) == "--jaxon_red") {
             tzd = new testZMPDistributorJAXON_RED();
-        } else {
+        } else if (std::string(argv[1]) == "--jaxon_blue") {
+            tzd = new testZMPDistributorJAXON_BLUE();
+        }else {
             print_usage();
             ret = 1;
         }

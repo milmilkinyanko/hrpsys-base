@@ -1111,7 +1111,7 @@ void AutoBalanceStabilizer::calcOutputRefForcesFromRefZmp()
     alpha = hrp::clamp(alpha, 0.0, 1.0);
 
     // if (DEBUGP) {
-    //     std::cerr << "[" << m_profile.instance_name << "] alpha:" << alpha << std::endl;
+    //     std::cerr << "[" << m_profile.instance_name << "] alpha: " << alpha << std::endl;
     // }
 
     const double mg = m_robot->totalMass() * g_acc;

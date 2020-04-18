@@ -148,6 +148,25 @@ void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
     loop++; // TODO: remove?
     if (!is_legged_robot) return;
 
+    if (DEBUGP(loop)) {
+        std::cerr << "[" << comp_name << "] Parameters from autobalancer and sensors\n";
+        std::cerr << "[" << comp_name << "]   zmp_ref:        " << abc_param.zmp_ref.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   base_pos_ref:   " << abc_param.base_pos_ref.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   base_rpy_ref:   " << abc_param.base_rpy_ref.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   sbp_cog_offset: " << abc_param.sbp_cog_offset.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   wrenches_ref:\n";
+        for (const hrp::dvector6& ref_wrench : abc_param.wrenches_ref) {
+            std::cerr << "[" << comp_name << "]                   " << ref_wrench.transpose() << "\n";
+        }
+
+        std::cerr << "[" << comp_name << "]   sensor_rpy:     " << sensor_param.rpy.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   act wrenches:\n";
+        for (const hrp::dvector6& wrench : sensor_param.wrenches) {
+            std::cerr << "[" << comp_name << "]                   " << wrench.transpose() << "\n";
+        }
+        std::cerr << std::endl;
+    }
+
     calcTargetParameters(abc_param);
     calcActualParameters(sensor_param);
     calcStateForEmergencySignal();
@@ -265,8 +284,9 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     }
     // std::cerr << std::endl;
 
-    // TODO: commit [Stabilizer] use reference zmp without first-order lead element by inverse system when calculating ref_total_moment
-    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
+    // todo: commit [Stabilizer] use reference zmp without first-order lead element by inverse system when calculating ref_total_moment
+    // if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
+    if (false) {
         // apply inverse system
         const hrp::Vector3 modified_ref_zmp = ref_zmp + eefm_zmp_delay_time_const[0] * (ref_zmp - prev_ref_zmp) / dt;
         prev_ref_zmp = ref_zmp;
@@ -321,7 +341,7 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         target_foot_origin_rot = foot_origin_rot;
 
         // capture point
-        ref_cp = ref_cog + ref_cogvel / std::sqrt(g_acc / (ref_cog - ref_zmp)(2));
+        ref_cp = ref_cog + ref_cogvel / std::sqrt(g_acc / (ref_cog(2) - ref_zmp(2)));
         rel_ref_cp = hrp::Vector3(ref_cp(0), ref_cp(1), ref_zmp(2));
         rel_ref_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_ref_cp) - m_robot->rootLink()->p);
         sbp_cog_offset = foot_origin_rot.transpose() * sbp_cog_offset;
@@ -354,6 +374,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
         act_base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
         calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
+        // std::cerr << "calcActualParameters foot_origin_pos: " << foot_origin_pos.transpose() << std::endl;
     } else {
         // TODO: restore関数, current_root_pという名前も微妙かも
         copyJointAnglesToRobotModel(m_robot, qorg);
@@ -509,6 +530,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
             // All state variables are foot_origin coords relative
             if (DEBUGP(loop)) {
+            // if (true) {
                 std::cerr << "[" << comp_name << "] ee values" << std::endl;
                 hrp::Vector3 tmpp;
                 for (size_t i = 0; i < ee_name.size(); i++) {
@@ -524,7 +546,8 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
             }
 
             // truncate ZMP
-            if (use_zmp_truncation) {
+            // if (use_zmp_truncation) {
+            if (false) {
                 Eigen::Vector2d new_refzmp_xy(new_refzmp.head<2>());
                 szd->get_vertices(support_polygon_vertices);
                 szd->calc_convex_hull(support_polygon_vertices, ref_contact_states, ee_pos, ee_rot);
@@ -533,9 +556,9 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 }
             }
 
-            // const auto printVec = [](const std::string& name, const hrp::Vector3& vec) {
-            //     std::cerr << name << ": " << vec.transpose() << std::endl;
-            // };
+            const auto printVec = [](const std::string& name, const hrp::Vector3& vec) {
+                std::cerr << name << ": " << vec.transpose() << std::endl;
+            };
 
             // for (size_t i = 0; i < stikp_size; ++i) {
             //     printVec("cop_pos[i]", cop_pos[i]);
@@ -580,7 +603,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
             // for debug output
             new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
 
-            // std::cerr << "tmp_ref_force: ";
+            // std::cerr << "tmp_ref_force z: ";
             // for (const auto& force : tmp_ref_force) std::cerr << force(2) << ", ";
             // std::cerr << std::endl;
 
@@ -615,6 +638,10 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 ikp.ref_force = foot_origin_rot.transpose() * ikp.ref_force;
                 sensor_force = foot_origin_rot.transpose() * sensor_force;
                 ee_moment = foot_origin_rot.transpose() * ee_moment;
+
+                // std::cerr << "ref_force: " << ikp.ref_force.transpose() << std::endl;
+                // std::cerr << "act force: " << sensor_force.transpose() << std::endl;
+
                 if (i == 0) f_diff -= sensor_force;
                 else f_diff += sensor_force;
                 for (size_t j = 0; j < 3; ++j) {
@@ -1147,12 +1174,9 @@ void Stabilizer::calcTPCC()
         max_ik_loop_count = std::max(max_ik_loop_count, stikp[i].ik_loop_count);
     }
 
-    const double move_cog_ratio = 0.9;
+    constexpr double MOVE_COG_RATIO = 0.9;
     for (size_t _ = 0; _ < max_ik_loop_count; ++_) {
-        const hrp::Vector3 com = m_robot->calcCM();
-        for (size_t i = 0; i < 2; i++) {
-            m_robot->rootLink()->p(i) = m_robot->rootLink()->p(i) + 0.9 * (newcog(i) - com(i));
-        }
+        m_robot->rootLink()->p += MOVE_COG_RATIO * (newcog - m_robot->calcCM());
         m_robot->calcForwardKinematics();
 
         for (size_t i = 0; i < stikp.size(); i++) {
@@ -1222,6 +1246,7 @@ void Stabilizer::calcEEForceMomentControl()
     hrp::Vector3 foot_origin_pos;
     hrp::Matrix33 foot_origin_rot;
     calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
+    // std::cerr << "calcEE foot_origin_pos: " << foot_origin_pos.transpose() << std::endl;
     std::vector<hrp::Vector3> current_d_foot_pos(stikp_size);
     for (size_t i = 0; i < stikp_size; i++) {
         current_d_foot_pos[i] = foot_origin_rot * stikp[i].d_foot_pos;
@@ -1881,6 +1906,7 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::Stabi
     }
 }
 
+// TODO: move to Service_impl ?
 void Stabilizer::setStabilizerParam(const OpenHRP::AutoBalanceStabilizerService::StabilizerParam& i_stp)
 {
     std::cerr << "[" << comp_name << "] setStabilizerParam" << std::endl;
