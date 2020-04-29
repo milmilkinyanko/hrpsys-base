@@ -205,7 +205,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                         jlim_avoid_weight = DBL_MAX;
                     } else {
                         jlim_avoid_weight = fabs( (pow((jmax - jmin),2) * (( 2 * jang) - jmax - jmin)) / (4 * pow((jmax - jang),2) * pow((jang - jmin),2)) );
-                        if (isnan(jlim_avoid_weight)) jlim_avoid_weight = 0;
+                        if (std::isnan(jlim_avoid_weight)) jlim_avoid_weight = 0;
                     }
                     if (( jlim_avoid_weight - jlim_avoid_weight_old(j) ) >= 0 ) { // add weight only if q approaching to the limit
                         dq_weight_all_jlim(j) += jlim_avoid_weight;
@@ -242,7 +242,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                // }
 
                 // update joint angles
-                for(int i=0;i<dq_all.rows();i++){ if( isnan(dq_all(i)) || isinf(dq_all(i)) ){ std::cerr <<"ERROR nan/inf is found" << std::endl; return;} }
+                for(int i=0;i<dq_all.rows();i++){ if( std::isnan(dq_all(i)) || std::isinf(dq_all(i)) ){ std::cerr <<"ERROR nan/inf is found" << std::endl; return;} }
                 for(int i=0;i<J_DOF;i++){
                     _robot->joint(i)->q += dq_all(i);
                     LIMIT_MINMAX(_robot->joint(i)->q, _robot->joint(i)->llimit, _robot->joint(i)->ulimit);
