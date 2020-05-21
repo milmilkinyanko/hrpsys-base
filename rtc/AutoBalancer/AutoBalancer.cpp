@@ -262,11 +262,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         stp.ik_loop_count = 3;
         // For swing ee modification
         stp.target_ee_diff_p = hrp::Vector3::Zero();
-        stp.target_ee_diff_r = hrp::Matrix33::Identity();
         stp.d_rpy_swing = hrp::Vector3::Zero();
         stp.d_pos_swing = hrp::Vector3::Zero();
         stp.target_ee_diff_p_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
-        stp.target_ee_diff_r_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
         stp.prev_d_pos_swing = hrp::Vector3::Zero();
         stp.prev_d_rpy_swing = hrp::Vector3::Zero();
         {
@@ -2809,7 +2807,6 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   st->eefm_gravitational_acceleration = i_param.eefm_gravitational_acceleration;
   for (size_t i = 0; i < st->stikp.size(); i++) {
     st->stikp[i].target_ee_diff_p_filter->setCutOffFreq(i_param.eefm_ee_error_cutoff_freq);
-    st->stikp[i].target_ee_diff_r_filter->setCutOffFreq(i_param.eefm_ee_error_cutoff_freq);
     st->stikp[i].limb_length_margin = i_param.limb_length_margin[i];
   }
   st->setBoolSequenceParam(st->is_ik_enable, i_param.is_ik_enable, std::string("is_ik_enable"));

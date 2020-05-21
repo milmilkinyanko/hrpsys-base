@@ -212,6 +212,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   rel_ee_pos.reserve(stikp.size());
   rel_ee_rot.reserve(stikp.size());
   rel_ee_name.reserve(stikp.size());
+  rel_ee_rot_for_ik.reserve(stikp.size());
 
   hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
   if (sen == NULL) {
@@ -371,7 +372,6 @@ void Stabilizer::getTargetParameters ()
     ref_foot_origin_pos = foot_origin_pos;
     for (size_t i = 0; i < stikp.size(); i++) {
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
-      stikp[i].target_ee_diff_r = foot_origin_rot.transpose() * target_ee_R[i];
       stikp[i].ref_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target_ee_R[i]);
       ref_force[i] = foot_origin_rot.transpose() * ref_force[i];
       ref_moment[i] = foot_origin_rot.transpose() * ref_moment[i];
@@ -546,8 +546,10 @@ void Stabilizer::getActualParametersForST ()
       is_contact_list.reserve(stikp.size());
       for (size_t i = 0; i < stikp.size(); i++) {
         STIKParam& ikp = stikp[i];
-        if (!is_feedback_control_enable[i]) continue;
+        if (!is_ik_enable[i]) continue;
         hrp::Link* target = m_robot->link(ikp.target_name);
+        rel_ee_rot_for_ik.push_back(foot_origin_rot.transpose() * (target->R * ikp.localR));
+        if (!is_feedback_control_enable[i]) continue;
         ee_pos.push_back(target->p + target->R * ikp.localp);
         cop_pos.push_back(target->p + target->R * ikp.localCOPPos);
         ee_rot.push_back(target->R * ikp.localR);
@@ -812,16 +814,20 @@ void Stabilizer::sync_2_st ()
   d_rpy[0] = d_rpy[1] = 0;
   pdr = hrp::Vector3::Zero();
   pos_ctrl = hrp::Vector3::Zero();
+  prev_ref_foot_origin_rot = hrp::Matrix33::Identity();
+  for (size_t i = 0; i < prev_ref_contact_states.size(); i++) {
+    prev_ref_contact_states[i] = true;
+  }
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();
-    ikp.target_ee_diff_r = hrp::Matrix33::Identity();
     ikp.d_pos_swing = ikp.prev_d_pos_swing = hrp::Vector3::Zero();
     ikp.d_rpy_swing = ikp.prev_d_rpy_swing = hrp::Vector3::Zero();
     ikp.target_ee_diff_p_filter->reset(hrp::Vector3::Zero());
-    ikp.target_ee_diff_r_filter->reset(hrp::Vector3::Zero());
     ikp.d_foot_pos = ikp.ee_d_foot_pos = ikp.d_foot_rpy = ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
     ikp.omega.angle() = 0.0;
+    swing_modification_interpolator[ikp.ee_name]->clear();
+    is_foot_touch[i] = false;
   }
   if (on_ground) {
     transition_count = -1 * calcMaxTransitionCount();
@@ -1486,6 +1492,7 @@ void Stabilizer::calcStateForEmergencySignal()
   rel_ee_pos.clear();
   rel_ee_rot.clear();
   rel_ee_name.clear();
+  rel_ee_rot_for_ik.clear();
 };
 
 void Stabilizer::calcSwingSupportLimbGain ()
@@ -1611,7 +1618,6 @@ void Stabilizer::calcEEForceMomentControl()
     for (size_t i = 0; i < stikp.size(); i++) {
       hrp::Link* target = m_robot->link(stikp[i].target_name);
       stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
-      stikp[i].target_ee_diff_r = (foot_origin_rot.transpose() * target->R * stikp[i].localR).transpose() * stikp[i].target_ee_diff_r;
       stikp[i].act_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target->R * stikp[i].localR);
     }
   }
@@ -1649,7 +1655,7 @@ void Stabilizer::calcEEForceMomentControl()
         tmpR[i] = target_ee_R[i];
       }
       // Add swing ee compensation
-      rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(rel_ee_rot[i].transpose() * stikp[i].d_rpy_swing));
+      rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(rel_ee_rot_for_ik[i].transpose() * stikp[i].d_rpy_swing));
       tmpp[i] = tmpp[i] + (foot_origin_rot * stikp[i].d_pos_swing);
     }
   }
@@ -1672,7 +1678,7 @@ void Stabilizer::calcEEForceMomentControl()
 
 // Swing ee compensation.
 //   Calculate compensation values to minimize the difference between "current" foot-origin-coords-relative pos and rot and "target" foot-origin-coords-relative pos and rot for swing ee.
-//   Input  : target_ee_diff_p, target_ee_diff_r
+//   Input  : target_ee_diff_p, ref_theta, act_theta
 //   Output : d_pos_swing, d_rpy_swing
 void Stabilizer::calcSwingEEModification ()
 {
@@ -1708,11 +1714,11 @@ void Stabilizer::calcSwingEEModification ()
       /* rotation */
       {
         Eigen::AngleAxisd prev_omega = stikp[i].omega;
-        stikp[i].omega = (stikp[i].ref_theta * stikp[i].act_theta.inverse());
+        stikp[i].omega = (stikp[i].act_theta.inverse() * stikp[i].ref_theta);
         stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
         stikp[i].omega = stikp[i].omega * prev_omega;
         hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
-        double lvlimit = deg2rad(-20.0*dt), uvlimit = deg2rad(20.0*dt); // 20 [deg/s]
+        double lvlimit = deg2rad(-40.0*dt), uvlimit = deg2rad(40.0*dt); // 20 [deg/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
         stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);

@@ -67,9 +67,8 @@ public:
     hrp::dvector6 eefm_ee_forcemoment_distribution_weight;
     double swing_support_gain, support_time;
     // For swing ee modification
-    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > target_ee_diff_p_filter, target_ee_diff_r_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > target_ee_diff_p_filter;
     hrp::Vector3 target_ee_diff_p, d_pos_swing, d_rpy_swing, prev_d_pos_swing, prev_d_rpy_swing;
-    hrp::Matrix33 target_ee_diff_r;
     double remain_time;
     // IK parameter
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
@@ -96,7 +95,7 @@ public:
   hrp::Vector3 current_root_p, target_root_p, ref_foot_origin_pos, prev_act_foot_origin_pos;
   hrp::Matrix33 current_root_R, target_root_R, act_root_R, prev_act_foot_origin_rot, prev_ref_foot_origin_rot, target_foot_origin_rot, ref_foot_origin_rot;
   std::vector <hrp::Vector3> target_ee_p, rel_ee_pos, act_ee_p, projected_normal, act_force, ref_force, ref_moment;
-  std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R;
+  std::vector <hrp::Matrix33> target_ee_R, rel_ee_rot, act_ee_R, rel_ee_rot_for_ik;
   std::vector<std::string> rel_ee_name;
   rats::coordinates target_foot_midcoords;
   hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
