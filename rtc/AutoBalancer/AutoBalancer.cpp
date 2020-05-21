@@ -1836,8 +1836,17 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   tmp_ratio = 1.0;
   transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
   prev_ref_zmp = ref_zmp;
+  prev_roll_state = false;
+  prev_pitch_state = false;
+  angular_momentum_interpolator->clear();
+  roll_weight_interpolator->clear();
+  pitch_weight_interpolator->clear();
+  limit_cog_interpolator->clear();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
+  }
+  for (size_t i = 0; i < 2; i++) {
+    touchdown_transition_interpolator[leg_names[i]]->clear();
   }
 
   for (size_t i = 0; i < limbs.length(); i++) {
