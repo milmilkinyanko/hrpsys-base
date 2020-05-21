@@ -125,6 +125,11 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   is_foot_touch.resize(stikp.size(), false);
   touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
   touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
+  prev_ref_zmp = hrp::Vector3::Zero();
+  prev_ref_cog = hrp::Vector3::Zero();
+  act_cogvel = hrp::Vector3::Zero();
+  prev_act_foot_origin_rot = hrp::Matrix33::Identity();
+  prev_act_foot_origin_pos = hrp::Vector3::Zero();
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -815,9 +820,6 @@ void Stabilizer::sync_2_st ()
   pdr = hrp::Vector3::Zero();
   pos_ctrl = hrp::Vector3::Zero();
   prev_ref_foot_origin_rot = hrp::Matrix33::Identity();
-  for (size_t i = 0; i < prev_ref_contact_states.size(); i++) {
-    prev_ref_contact_states[i] = true;
-  }
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();
