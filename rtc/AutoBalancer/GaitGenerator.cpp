@@ -647,7 +647,8 @@ namespace rats
       foot_guided_controller_ptr = NULL;
     }
     foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - rg.get_refzmp_cur()(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, gravitational_acceleration);
-    foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
+    // foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
+    foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
     prev_act_cp = cur_cog; // assume that robot is stopping when starting walking

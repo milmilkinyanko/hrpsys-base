@@ -78,6 +78,7 @@ public:
     x_k(1) = vel;
   }
   void set_pos (const double x) { x_k(0) = x; }
+  void set_dc_off (const double off) { dc_off = off; }
   void set_zmp (const double u) { act_u_k = u; }
   void set_offset (const double offset) { w_k_offset = offset; }
   void set_dz(const double _dz) {
@@ -131,6 +132,11 @@ public:
       controllers[i].update(p_ret[i], x_ret[i], N, ref_dcm[i], ref_zmp[i]);
   }
   // set function
+  void set_dc_off(const hrp::Vector3& off)
+  {
+    for (size_t i = 0; i < dim; i++)
+      controllers[i].set_dc_off(off[i]);
+  }
   void set_offset(const hrp::Vector3& offset)
   {
     for (size_t i = 0; i < dim; i++)
