@@ -151,8 +151,6 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
-  TimedBooleanSeq m_actContactStates;
-  InPort<TimedBooleanSeq> m_actContactStatesIn;
   TimedPoint3D m_refFootOriginExtMoment;
   InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
   TimedBoolean m_refFootOriginExtMomentIsHoldValue;
@@ -181,6 +179,12 @@ class AutoBalancer
   // <rtc-template block="outport_declare">
   OutPort<TimedDoubleSeq> m_qOut;
   OutPort<TimedPoint3D> m_zmpOut;
+  TimedPoint3D m_zmpAct;
+  OutPort<TimedPoint3D> m_zmpActOut;
+  TimedPoint3D m_refCP;
+  OutPort<TimedPoint3D> m_refCPOut;
+  TimedPoint3D m_actCP;
+  OutPort<TimedPoint3D> m_actCPOut;
   TimedDoubleSeq m_qAbc;
   OutPort<TimedDoubleSeq> m_qAbcOut;
   TimedDoubleSeq m_tmp;
@@ -199,6 +203,10 @@ class AutoBalancer
   OutPort<TimedAcceleration3D> m_accRefOut;
   TimedBooleanSeq m_contactStates;
   OutPort<TimedBooleanSeq> m_contactStatesOut;
+  TimedBooleanSeq m_actContactStates;
+  OutPort<TimedBooleanSeq> m_actContactStatesOut;
+  TimedDoubleSeq m_COPInfo;
+  OutPort<TimedDoubleSeq> m_COPInfoOut;
   TimedDoubleSeq m_toeheelRatio;
   OutPort<TimedDoubleSeq> m_toeheelRatioOut;
   TimedDoubleSeq m_controlSwingSupportTime;

@@ -70,7 +70,6 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
       m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
       m_touchWallMotionSolvedIn("touchWallMotionSolved", m_touchWallMotionSolved),
-      m_actContactStatesIn("actContactStates", m_actContactStates),
       m_rpyIn("rpy", m_rpy),
       m_qRefSeqIn("qRefSeq", m_qRefSeq),
       m_landingHeightIn("landingHeight", m_landingHeight),
@@ -78,6 +77,11 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_qOut("q", m_qRef),
       m_qAbcOut("qAbc", m_qAbc),
       m_zmpOut("zmpOut", m_zmp),
+      m_zmpActOut("zmpAct", m_zmpAct),
+      m_refCPOut("refCapturePoint", m_refCP),
+      m_actCPOut("actCapturePoint", m_actCP),
+      m_actContactStatesOut("actContactStates", m_actContactStates),
+      m_COPInfoOut("COPInfo", m_COPInfo),
       m_basePosOut("basePosOut", m_basePos),
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_baseTformOut("baseTformOut", m_baseTform),
@@ -132,7 +136,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("zmpIn", m_zmpIn);
     addInPort("optionalData", m_optionalDataIn);
     addInPort("diffCapturePoint", m_diffCPIn);
-    addInPort("actContactStates", m_actContactStatesIn);
     addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
     addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
     addInPort("touchWallMotionSolved", m_touchWallMotionSolvedIn);
@@ -145,6 +148,11 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("q", m_qOut);
     addOutPort("qAbc", m_qAbcOut);
     addOutPort("zmpOut", m_zmpOut);
+    addOutPort("zmpAct", m_zmpActOut);
+    addOutPort("refCapturePoint", m_refCPOut);
+    addOutPort("actCapturePoint", m_actCPOut);
+    addOutPort("actContactStates", m_actContactStatesOut);
+    addOutPort("COPInfo", m_COPInfoOut);
     addOutPort("basePosOut", m_basePosOut);
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
@@ -349,18 +357,27 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         st->swing_modification_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt, interpolator::CUBICSPLINE)));
       }
       m_contactStates.data.length(num);
+      m_actContactStates.data.length(num);
       m_toeheelRatio.data.length(num);
       if (ikp.find("rleg") != ikp.end() && ikp.find("lleg") != ikp.end()) {
         m_contactStates.data[contact_states_index_map["rleg"]] = true;
         m_contactStates.data[contact_states_index_map["lleg"]] = true;
+        m_actContactStates.data[contact_states_index_map["rleg"]] = true;
+        m_actContactStates.data[contact_states_index_map["lleg"]] = true;
       }
       if (ikp.find("rarm") != ikp.end() && ikp.find("larm") != ikp.end()) {
         m_contactStates.data[contact_states_index_map["rarm"]] = false;
         m_contactStates.data[contact_states_index_map["larm"]] = false;
+        m_actContactStates.data[contact_states_index_map["rarm"]] = false;
+        m_actContactStates.data[contact_states_index_map["larm"]] = false;
       }
       m_controlSwingSupportTime.data.length(num);
       for (size_t i = 0; i < num; i++) m_controlSwingSupportTime.data[i] = 1.0;
       for (size_t i = 0; i < num; i++) m_toeheelRatio.data[i] = rats::no_using_toe_heel_ratio;
+      m_COPInfo.data.length(m_contactStates.data.length()*3); // nx, ny, fz for each end-effectors
+      for (size_t i = 0; i < m_COPInfo.data.length(); i++) {
+        m_COPInfo.data[i] = 0.0;
+      }
 
       // ST param
       st->initStabilizer(prop, num);
@@ -714,14 +731,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_touchWallMotionSolvedIn.read();
       is_touch_wall_motion_solved = m_touchWallMotionSolved.data;
     }
-    // if (m_actContactStatesIn.isNew()) {
-    //   m_actContactStatesIn.read();
-    //   std::vector<bool> tmp_contacts(m_actContactStates.data.length());
-    //   for (size_t i = 0; i < m_actContactStates.data.length(); i++) {
-    //     tmp_contacts[i] = m_actContactStates.data[i];
-    //   }
-    //   gg->set_act_contact_states(tmp_contacts);
-    // }
     if (m_rpyIn.isNew()) {
       m_rpyIn.read();
     }
@@ -1048,6 +1057,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_originActZmp.data.x = st->act_zmp(0); m_originActZmp.data.y = st->act_zmp(1); m_originActZmp.data.z = st->act_zmp(2);
     m_originActCog.data.x = st->act_cog(0); m_originActCog.data.y = st->act_cog(1); m_originActCog.data.z = st->act_cog(2);
     m_originActCogVel.data.x = st->act_cogvel(0); m_originActCogVel.data.y = st->act_cogvel(1); m_originActCogVel.data.z = st->act_cogvel(2);
+    m_zmpAct.data.x = st->rel_act_zmp(0); m_zmpAct.data.y = st->rel_act_zmp(1); m_zmpAct.data.z = st->rel_act_zmp(2);
+    m_refCP.data.x = st->rel_ref_cp(0); m_refCP.data.y = st->rel_ref_cp(1); m_refCP.data.z = st->rel_ref_cp(2);
+    m_actCP.data.x = st->rel_act_cp(0); m_actCP.data.y = st->rel_act_cp(1); m_actCP.data.z = st->rel_act_cp(2);
+    for (size_t i = 0; i < m_actContactStates.data.length(); i++) m_actContactStates.data[i] = st->act_contact_states[i];
+    for (size_t i = 0; i < m_COPInfo.data.length(); i++) m_COPInfo.data[i] = st->copInfo[i];
     m_originRefZmp.tm = m_qRef.tm;
     m_originRefZmpOut.write();
     m_originRefCog.tm = m_qRef.tm;
@@ -1062,6 +1076,16 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_originActCogOut.write();
     m_originActCogVel.tm = m_qRef.tm;
     m_originActCogVelOut.write();
+    m_zmpAct.tm = m_qRef.tm;
+    m_zmpActOut.write();
+    m_refCP.tm = m_qRef.tm;
+    m_refCPOut.write();
+    m_actCP.tm = m_qRef.tm;
+    m_actCPOut.write();
+    m_actContactStates.tm = m_qRef.tm;
+    m_actContactStatesOut.write();
+    m_COPInfo.tm = m_qRef.tm;
+    m_COPInfoOut.write();
     return RTC::RTC_OK;
 }
 
