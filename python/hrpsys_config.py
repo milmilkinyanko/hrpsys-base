@@ -394,10 +394,9 @@ class HrpsysConfigurator(object):
             connectPorts(self.sh.port("baseRpyOut"), self.wbms.port("baseRpyIn"))
             connectPorts(self.sh.port("optionalDataOut"), self.wbms.port("optionalData"))
 
-        # connection for st
+        # connection for abc
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
-                                     self.rh.ref, "rfsensor") and self.st:
-            connectPorts(self.kf.port("rpy"), self.st.port("rpy"))
+                                     self.rh.ref, "rfsensor") and self.abc:
             connectPorts(self.kf.port("rpy"), self.abc.port("rpy"))
             #### wbms
             if self.wbms:
@@ -412,6 +411,29 @@ class HrpsysConfigurator(object):
                 connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
                 connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
                 connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
+            connectPorts(self.abc.port("accRef"), self.kf.port("accRef"))
+            connectPorts(self.rh.port("q"), self.abc.port("qCurrent"))
+            connectPorts(self.seq.port("qRef"), self.abc.port("qRefSeq"))
+            if self.es:
+                connectPorts(self.abc.port("emergencySignal"), self.es.port("emergencySignal"))
+                connectPorts(self.abc.port("emergencyFallMotion"), self.es.port("emergencyFallMotion"))
+                connectPorts(self.es.port("touchWallMotionSolved"), self.abc.port("touchWallMotionSolved"))
+                connectPorts(self.es.port("qTouchWall"), self.abc.port("qTouchWall"))
+            if self.rfu:
+                connectPorts(self.abc.port("diffFootOriginExtMoment"), self.rfu.port("diffFootOriginExtMoment"))
+                connectPorts(self.rfu.port("refFootOriginExtMoment"), self.abc.port("refFootOriginExtMoment"))
+                connectPorts(self.rfu.port("refFootOriginExtMomentIsHoldValue"), self.abc.port("refFootOriginExtMomentIsHoldValue"))
+            if self.octd:
+                connectPorts(self.abc.port("contactStates"), self.octd.port("contactStates"))
+
+        # connection for st
+        if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
+                                     self.rh.ref, "rfsensor") and self.st:
+            connectPorts(self.kf.port("rpy"), self.st.port("rpy"))
+            connectPorts(self.sh.port("zmpOut"), self.st.port("zmpIn"))
+            connectPorts(self.sh.port("basePosOut"), self.st.port("basePosIn"))
+            connectPorts(self.sh.port("baseRpyOut"), self.st.port("baseRpyIn"))
+            connectPorts(self.sh.port("optionalDataOut"), self.st.port("optionalData"))
             connectPorts(self.abc.port("zmpOut"), self.st.port("zmpRef"))
             connectPorts(self.abc.port("baseRpyOut"), self.st.port("baseRpyIn"))
             connectPorts(self.abc.port("basePosOut"), self.st.port("basePosIn"))
@@ -419,18 +441,11 @@ class HrpsysConfigurator(object):
             connectPorts(self.abc.port("contactStates"), self.st.port("contactStates"))
             connectPorts(self.abc.port("controlSwingSupportTime"), self.st.port("controlSwingSupportTime"))
             connectPorts(self.rh.port("q"), self.st.port("qCurrent"))
-            connectPorts(self.rh.port("q"), self.abc.port("qCurrent"))
             connectPorts(self.seq.port("qRef"), self.st.port("qRefSeq"))
-            connectPorts(self.seq.port("qRef"), self.abc.port("qRefSeq"))
             connectPorts(self.abc.port("walkingStates"), self.st.port("walkingStates"))
             connectPorts(self.abc.port("sbpCogOffset"), self.st.port("sbpCogOffset"))
 
             connectPorts(self.abc.port("toeheelRatio"), self.st.port("toeheelRatio"))
-            if self.es:
-                connectPorts(self.abc.port("emergencySignal"), self.es.port("emergencySignal"))
-                connectPorts(self.abc.port("emergencyFallMotion"), self.es.port("emergencyFallMotion"))
-                connectPorts(self.es.port("touchWallMotionSolved"), self.abc.port("touchWallMotionSolved"))
-                connectPorts(self.es.port("qTouchWall"), self.abc.port("qTouchWall"))
             connectPorts(self.st.port("emergencySignal"), self.abc.port("emergencySignal"))
             connectPorts(self.st.port("diffCapturePoint"), self.abc.port("diffCapturePoint"))
             connectPorts(self.st.port("actContactStates"), self.abc.port("actContactStates"))
@@ -943,12 +958,20 @@ class HrpsysConfigurator(object):
         if self.abc != None:
             self.connectLoggerPort(self.abc, 'zmpOut')
             self.connectLoggerPort(self.abc, 'baseTformOut')
+            self.connectLoggerPort(self.abc, 'qAbc')
             self.connectLoggerPort(self.abc, 'q')
             self.connectLoggerPort(self.abc, 'contactStates')
             self.connectLoggerPort(self.abc, 'controlSwingSupportTime')
             self.connectLoggerPort(self.abc, 'cogOut')
             self.connectLoggerPort(self.abc, 'tmp')
             self.connectLoggerPort(self.abc, 'allEEComp')
+            self.connectLoggerPort(self.abc, 'originRefZmp')
+            self.connectLoggerPort(self.abc, 'originRefCog')
+            self.connectLoggerPort(self.abc, 'originRefCogVel')
+            self.connectLoggerPort(self.abc, 'originNewZmp')
+            self.connectLoggerPort(self.abc, 'originActZmp')
+            self.connectLoggerPort(self.abc, 'originActCog')
+            self.connectLoggerPort(self.abc, 'originActCogVel')
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')
@@ -2115,13 +2138,13 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         '''!@brief
         Start Stabilzier mode
         '''
-        self.st_svc.startStabilizer()
+        self.abc_svc.startStabilizer()
 
     def stopStabilizer(self):
         '''!@brief
         Stop Stabilzier mode
         '''
-        self.st_svc.stopStabilizer()
+        self.abc_svc.stopStabilizer()
 
     def startImpedance_315_4(self, arm,
                        M_p = 100.0,

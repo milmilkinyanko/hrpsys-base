@@ -76,11 +76,13 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_landingHeightIn("landingHeight", m_landingHeight),
       m_steppableRegionIn("steppableRegion", m_steppableRegion),
       m_qOut("q", m_qRef),
+      m_qAbcOut("qAbc", m_qAbc),
       m_zmpOut("zmpOut", m_zmp),
       m_basePosOut("basePosOut", m_basePos),
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_tmpOut("tmp", m_tmp),
+      m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
       m_contactStatesOut("contactStates", m_contactStates),
@@ -93,6 +95,14 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_landingTargetOut("landingTarget", m_landingTarget),
       m_endCogStateOut("endCogState", m_endCogState),
       m_AutoBalancerServicePort("AutoBalancerService"),
+      // for debug output
+      m_originRefZmpOut("originRefZmp", m_originRefZmp),
+      m_originRefCogOut("originRefCog", m_originRefCog),
+      m_originRefCogVelOut("originRefCogVel", m_originRefCogVel),
+      m_originNewZmpOut("originNewZmp", m_originNewZmp),
+      m_originActZmpOut("originActZmp", m_originActZmp),
+      m_originActCogOut("originActCog", m_originActCog),
+      m_originActCogVelOut("originActCogVel", m_originActCogVel),
       // </rtc-template>
       gait_type(BIPED),
       m_robot(hrp::BodyPtr()),
@@ -133,11 +143,13 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
+    addOutPort("qAbc", m_qAbcOut);
     addOutPort("zmpOut", m_zmpOut);
     addOutPort("basePosOut", m_basePosOut);
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
+    addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
@@ -154,6 +166,14 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("estimatedFxy", m_estimatedFxyOut);
     addOutPort("landingTarget", m_landingTargetOut);
     addOutPort("endCogState", m_endCogStateOut);
+    // for debug output
+    addOutPort("originRefZmp", m_originRefZmpOut);
+    addOutPort("originRefCog", m_originRefCogOut);
+    addOutPort("originRefCogVel", m_originRefCogVelOut);
+    addOutPort("originNewZmp", m_originNewZmpOut);
+    addOutPort("originActZmp", m_originActZmpOut);
+    addOutPort("originActCog", m_originActCogOut);
+    addOutPort("originActCogVel", m_originActCogVelOut);
 
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -190,12 +210,21 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     // allocate memory for outPorts
     m_qRef.data.length(m_robot->numJoints());
+    m_qAbc.data.length(m_robot->numJoints());
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(27);
     diff_q.resize(m_robot->numJoints());
+    // for debug output
+    m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
+    m_originRefCog.data.x = m_originRefCog.data.y = m_originRefCog.data.z = 0.0;
+    m_originRefCogVel.data.x = m_originRefCogVel.data.y = m_originRefCogVel.data.z = 0.0;
+    m_originNewZmp.data.x = m_originNewZmp.data.y = m_originNewZmp.data.z = 0.0;
+    m_originActZmp.data.x = m_originActZmp.data.y = m_originActZmp.data.z = 0.0;
+    m_originActCog.data.x = m_originActCog.data.y = m_originActCog.data.z = 0.0;
+    m_originActCogVel.data.x = m_originActCogVel.data.y = m_originActCogVel.data.z = 0.0;
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -685,14 +714,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_touchWallMotionSolvedIn.read();
       is_touch_wall_motion_solved = m_touchWallMotionSolved.data;
     }
-    if (m_actContactStatesIn.isNew()) {
-      m_actContactStatesIn.read();
-      std::vector<bool> tmp_contacts(m_actContactStates.data.length());
-      for (size_t i = 0; i < m_actContactStates.data.length(); i++) {
-        tmp_contacts[i] = m_actContactStates.data[i];
-      }
-      gg->set_act_contact_states(tmp_contacts);
-    }
+    // if (m_actContactStatesIn.isNew()) {
+    //   m_actContactStatesIn.read();
+    //   std::vector<bool> tmp_contacts(m_actContactStates.data.length());
+    //   for (size_t i = 0; i < m_actContactStates.data.length(); i++) {
+    //     tmp_contacts[i] = m_actContactStates.data[i];
+    //   }
+    //   gg->set_act_contact_states(tmp_contacts);
+    // }
     if (m_rpyIn.isNew()) {
       m_rpyIn.read();
     }
@@ -731,6 +760,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       // For parameters
       setActData2ST();
       st->getActualParameters();
+      gg->set_act_contact_states(st->act_contact_states);
       // if (!go_vel_interpolator->isEmpty()) {
       //   std::vector<double> tmp_v(3);
       //   go_vel_interpolator->get(tmp_v.data(), true);
@@ -836,14 +866,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
 
     // Write Outport
-    // if ( m_qRef.data.length() != 0 ) { // initialized
-    //   if (is_legged_robot) {
-    //     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-    //       m_qRef.data[i] = m_robot->joint(i)->q;
-    //     }
-    //   }
-    //   m_qOut.write();
-    // }
+    if ( m_qRef.data.length() != 0 ) { // initialized
+      if (is_legged_robot) {
+        for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
+          m_qAbc.data[i] = m_robot->joint(i)->q;
+        }
+      }
+      m_qAbcOut.write();
+    }
     if (is_legged_robot) {
       // basePos
       m_basePos.data.x = ref_basePos(0);
@@ -897,6 +927,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_estimatedFxy.data.y = gg->fxy(1);
       m_estimatedFxy.data.z = gg->fxy(2);
       m_estimatedFxy.tm = m_qRef.tm;
+      // diff foot origin ext moment
+      m_diffFootOriginExtMoment.data.x = st->diff_foot_origin_ext_moment(0);
+      m_diffFootOriginExtMoment.data.y = st->diff_foot_origin_ext_moment(1);
+      m_diffFootOriginExtMoment.data.z = st->diff_foot_origin_ext_moment(2);
+      m_diffFootOriginExtMoment.tm = m_qRef.tm;
       // write
       m_basePosOut.write();
       m_baseRpyOut.write();
@@ -908,6 +943,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_isStuckOut.write();
       m_useFlywheelOut.write();
       m_estimatedFxyOut.write();
+      m_diffFootOriginExtMomentOut.write();
       for (size_t i = 0; i < 21; i++) {
         m_tmp.data[i] = gg->get_tmp(i);
       }
@@ -996,7 +1032,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
     }
-
     if ( m_qRef.data.length() != 0 ) { // initialized
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
@@ -1005,6 +1040,28 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       }
       m_qOut.write();
     }
+    // for debug output
+    m_originRefZmp.data.x = st->ref_zmp(0); m_originRefZmp.data.y = st->ref_zmp(1); m_originRefZmp.data.z = st->ref_zmp(2);
+    m_originRefCog.data.x = st->ref_cog(0); m_originRefCog.data.y = st->ref_cog(1); m_originRefCog.data.z = st->ref_cog(2);
+    m_originRefCogVel.data.x = st->ref_cogvel(0); m_originRefCogVel.data.y = st->ref_cogvel(1); m_originRefCogVel.data.z = st->ref_cogvel(2);
+    m_originNewZmp.data.x = st->new_refzmp(0); m_originNewZmp.data.y = st->new_refzmp(1); m_originNewZmp.data.z = st->new_refzmp(2);
+    m_originActZmp.data.x = st->act_zmp(0); m_originActZmp.data.y = st->act_zmp(1); m_originActZmp.data.z = st->act_zmp(2);
+    m_originActCog.data.x = st->act_cog(0); m_originActCog.data.y = st->act_cog(1); m_originActCog.data.z = st->act_cog(2);
+    m_originActCogVel.data.x = st->act_cogvel(0); m_originActCogVel.data.y = st->act_cogvel(1); m_originActCogVel.data.z = st->act_cogvel(2);
+    m_originRefZmp.tm = m_qRef.tm;
+    m_originRefZmpOut.write();
+    m_originRefCog.tm = m_qRef.tm;
+    m_originRefCogOut.write();
+    m_originRefCogVel.tm = m_qRef.tm;
+    m_originRefCogVelOut.write();
+    m_originNewZmp.tm = m_qRef.tm;
+    m_originNewZmpOut.write();
+    m_originActZmp.tm = m_qRef.tm;
+    m_originActZmpOut.write();
+    m_originActCog.tm = m_qRef.tm;
+    m_originActCogOut.write();
+    m_originActCogVel.tm = m_qRef.tm;
+    m_originActCogVelOut.write();
     return RTC::RTC_OK;
 }
 
