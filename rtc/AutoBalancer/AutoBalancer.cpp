@@ -1920,6 +1920,7 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   prev_ref_zmp = ref_zmp;
   prev_roll_state = false;
   prev_pitch_state = false;
+  gg->set_is_emergency_step(false);
   angular_momentum_interpolator->clear();
   roll_weight_interpolator->clear();
   pitch_weight_interpolator->clear();
@@ -2399,6 +2400,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->use_act_states = st->use_act_states = i_param.use_act_states;
   gg->set_use_act_states();
   gg->is_interpolate_zmp_in_double = i_param.is_interpolate_zmp_in_double;
+  gg->is_stable_go_stop_mode = i_param.is_stable_go_stop_mode;
   gg->zmp_delay_time_const = i_param.zmp_delay_time_const;
   gg->overwritable_max_time = i_param.overwritable_max_time;
   gg->fg_zmp_cutoff_freq = i_param.fg_zmp_cutoff_freq;
@@ -2513,6 +2515,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   }
   i_param.use_act_states = gg->use_act_states;
   i_param.is_interpolate_zmp_in_double = gg->is_interpolate_zmp_in_double;
+  i_param.is_stable_go_stop_mode = gg->is_stable_go_stop_mode;
   i_param.zmp_delay_time_const = gg->zmp_delay_time_const;
   i_param.overwritable_max_time = gg->overwritable_max_time;
   i_param.fg_zmp_cutoff_freq = gg->fg_zmp_cutoff_freq;

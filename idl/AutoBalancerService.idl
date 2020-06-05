@@ -335,6 +335,8 @@ module OpenHRP
       DblArray3 sum_d_footstep_thre;
       DblArray3 footstep_check_delta;
       boolean is_interpolate_zmp_in_double;
+      /// whether gostop after becoming stable
+      boolean is_stable_go_stop_mode;
     };
 
     /**
