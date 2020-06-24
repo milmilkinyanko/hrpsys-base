@@ -306,6 +306,7 @@ class AutoBalancer
   void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
   void stopFootForEarlyTouchDown();
+  void limbStretchAvoidanceControl();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;

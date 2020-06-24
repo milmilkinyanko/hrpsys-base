@@ -278,7 +278,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         tmp_fikp.target_link = m_robot->link(ee_target);
         tmp_fikp.localPos = tp.localPos;
         tmp_fikp.localR = tp.localR;
-        tmp_fikp.max_limb_length = 0.0;
+        tmp_fikp.max_limb_length = tp.localPos.norm();
         while (!root->isRoot()) {
           tmp_fikp.max_limb_length += root->b.norm();
           tmp_fikp.parent_name = root->name;
@@ -1611,6 +1611,37 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
     }
   }
 }
+// TODO: move to fik.h
+void AutoBalancer::limbStretchAvoidanceControl () {
+  std::vector<hrp::Vector3> tmp_p;
+  std::vector<std::string> tmp_name;
+  for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+    if (it->first.find("leg") != std::string::npos) {
+      tmp_p.push_back(it->second.target_p0 + it->second.target_r0 * it->second.localPos);
+      tmp_name.push_back(it->first);
+    }
+  }
+  double tmp_d_root_height = 0.0, prev_d_root_height = fik->d_root_height;
+  if (fik->use_limb_stretch_avoidance) {
+    for (size_t i = 0; i < tmp_p.size(); i++) {
+      // Check whether inside limb length limitation
+      hrp::Link* parent_link = m_robot->link(fik->ikp[tmp_name[i]].parent_name);
+      hrp::Vector3 rel_target_p = tmp_p[i] - parent_link->p; // position from parent to target link (world frame)
+      double limb_length_limitation = fik->ikp[tmp_name[i]].max_limb_length - fik->ikp[tmp_name[i]].limb_length_margin;
+      double tmp = limb_length_limitation * limb_length_limitation - rel_target_p(0) * rel_target_p(0) - rel_target_p(1) * rel_target_p(1);
+      if (rel_target_p.norm() > limb_length_limitation && tmp >= 0) {
+        tmp_d_root_height = std::min(tmp_d_root_height, rel_target_p(2) + std::sqrt(tmp));
+      }
+    }
+    // Change root link height depending on limb length
+    fik->d_root_height = tmp_d_root_height == 0.0 ? (- 1/fik->limb_stretch_avoidance_time_const * fik->d_root_height * m_dt + fik->d_root_height) : tmp_d_root_height;
+  } else {
+    fik->d_root_height = - 1/fik->limb_stretch_avoidance_time_const * fik->d_root_height * m_dt + fik->d_root_height;
+  }
+  vlimit(fik->d_root_height, prev_d_root_height + fik->limb_stretch_avoidance_vlimit[0], prev_d_root_height + fik->limb_stretch_avoidance_vlimit[1]);
+  target_root_p(2) += fik->d_root_height;
+  ref_cog(2) += fik->d_root_height;
+}
 void AutoBalancer::solveFullbodyIK ()
 {
   // set desired natural pose and pullback gain
@@ -1628,6 +1659,8 @@ void AutoBalancer::solveFullbodyIK ()
   sbp_cog_offset(2) = 0.0;
 
   stopFootForEarlyTouchDown();
+
+  limbStretchAvoidanceControl();
 
     std::vector<IKConstraint> ik_tgt_list;
     {
