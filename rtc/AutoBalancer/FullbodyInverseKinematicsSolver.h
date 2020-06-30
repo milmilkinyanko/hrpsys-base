@@ -40,6 +40,34 @@ class IKConstraint {
          pos_precision(1e-4), rot_precision(deg2rad(0.1)){}
 };
 
+class CollisionData
+{
+  public:
+    int base_id, target_id;
+    hrp::Vector3 base_localp, target_localp, dir;
+    double safe_d1, safe_d0, cur_d, safe_d_offset;
+    bool is_collision;
+    CollisionData ()
+        : base_id(0), target_id(0), base_localp(hrp::Vector3::Zero()), target_localp(hrp::Vector3::Zero()), dir(hrp::Vector3::Zero()), cur_d(0.0), is_collision(false),
+          safe_d_offset(1e-3), safe_d1(0.21), safe_d0(0.26) {};
+    void reset () {
+        is_collision = false;
+    }
+    void checkCollision (const hrp::BodyPtr _robot) {
+        if (base_id != target_id) {
+            hrp::Vector3 base_pos = _robot->joint(base_id)->p + _robot->joint(base_id)->R * base_localp;
+            hrp::Vector3 target_pos = _robot->joint(target_id)->p + _robot->joint(target_id)->R * target_localp;
+            dir = (target_pos - base_pos).normalized();
+            cur_d = (target_pos - base_pos).norm();
+            if (cur_d < safe_d0) is_collision = true;
+            else is_collision = false;
+        }
+    }
+    double calcWeight (const double e) {
+        double a = std::log(e) / (safe_d0 - safe_d1);
+        return std::min(std::exp(a * (cur_d - safe_d1)), 1.0);
+    }
+};
 
 class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSolver{
     protected:
@@ -50,6 +78,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
     public:
         hrp::dvector dq_weight_all, q_ref, q_ref_max_dq, q_ref_constraint_weight;
         hrp::Vector3 cur_momentum_around_COM, cur_momentum_around_COM_filtered, rootlink_rpy_llimit, rootlink_rpy_ulimit;
+        std::vector<CollisionData> arm_leg_collision;
         FullbodyInverseKinematicsSolver (hrp::BodyPtr _robot, const std::string& _print_str, const double _dt)
         : SimpleFullbodyInverseKinematicsSolver(_robot,_print_str, _dt),
           WS_DOF(6),
@@ -68,6 +97,19 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
             for(int i=0;i<3;i++){
               am_filters[i].setParameterAsBiquad(10, 1/std::sqrt(2), 1.0/m_dt);
               am_filters[i].reset();
+            }
+            arm_leg_collision.resize(2);
+            if (_robot->link("R_CROTCH_R") != NULL && _robot->link("R_WRIST_Y") != NULL) {
+                arm_leg_collision[0].base_id = _robot->link("R_CROTCH_R")->jointId;
+                arm_leg_collision[0].base_localp = hrp::Vector3(0.02, 0, -0.2);
+                arm_leg_collision[0].target_id = _robot->link("R_WRIST_Y")->jointId;
+                arm_leg_collision[0].target_localp = hrp::Vector3(-0.01, 0, 0);
+            }
+            if (_robot->link("L_CROTCH_R") != NULL && _robot->link("L_WRIST_Y") != NULL) {
+                arm_leg_collision[1].base_id = _robot->link("L_CROTCH_R")->jointId;
+                arm_leg_collision[1].base_localp = hrp::Vector3(0.02, 0, -0.2);
+                arm_leg_collision[1].target_id = _robot->link("L_WRIST_Y")->jointId;
+                arm_leg_collision[1].target_localp = hrp::Vector3(-0.01, 0, 0);
             }
         };
         ~FullbodyInverseKinematicsSolver () {};
@@ -261,6 +303,11 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 hrp::calcRodrigues(dR, omega.normalized(), omega.norm());
                 rats::rotm3times(_robot->rootLink()->R, dR, _robot->rootLink()->R);
                 _robot->calcForwardKinematics();
+
+                // Collision check
+                for (size_t i = 0; i < 2; i++) {
+                    arm_leg_collision[i].checkCollision(_robot);
+                }
             #else
                 std::cerr<<"solveFullbodyIKOnce() needs OPENHRP_PACKAGE_VERSION_320 !!!"<<std::endl;
             #endif
@@ -271,6 +318,11 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
             m_robot->rootLink()->R = current_root_R;
             m_robot->calcForwardKinematics();
         };
+        void resetCollision () {
+            for(size_t i = 0; i < arm_leg_collision.size(); i++) {
+                arm_leg_collision[i].reset();
+            }
+        }
 
     protected:
         hrp::Vector3 omegaFromRotEx(const hrp::Matrix33& r) {//copy from JointPathEx.cpp

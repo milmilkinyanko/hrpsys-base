@@ -552,6 +552,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_emergency_stopping = false;
     is_touch_wall_motion_solved = false;
     touch_wall_retrieve_time = 0.5;
+    use_collision_avoidance = false;
 
     cog_z_constraint = 1e-3;
 
@@ -1715,6 +1716,21 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
       }
     }
+    // collision aoidance
+    if (use_collision_avoidance) {
+      for (size_t i = 0; i < 2; i++) {
+        if (fik->arm_leg_collision[i].is_collision) {
+          IKConstraint tmp;
+          double tmp_weight = fik->arm_leg_collision[i].calcWeight(1e-8);
+          tmp.target_link_name = m_robot->joint(fik->arm_leg_collision[i].target_id)->name;
+          tmp.localPos = fik->arm_leg_collision[i].target_localp;
+          tmp.targetPos = m_robot->joint(fik->arm_leg_collision[i].base_id)->p + m_robot->joint(fik->arm_leg_collision[i].base_id)->R * fik->arm_leg_collision[i].base_localp
+            + fik->arm_leg_collision[i].dir * (fik->arm_leg_collision[i].safe_d0 + fik->arm_leg_collision[i].safe_d_offset);
+          tmp.constraint_weight << tmp_weight,tmp_weight,tmp_weight,0,0,0;
+          ik_tgt_list.push_back(tmp);
+        }
+      }
+    }
     {
         IKConstraint tmp;
         tmp.target_link_name = "COM";
@@ -1775,11 +1791,11 @@ void AutoBalancer::solveFullbodyIK ()
         if (!cog_constraint_interpolator->isEmpty()) {
           cog_constraint_interpolator->get(&cog_z_constraint, true);
         }
-        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight*transition_interpolator_ratio,pitch_weight*transition_interpolator_ratio,0; // consider angular momentum (COMMON)
+        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight*transition_interpolator_ratio,pitch_weight*transition_interpolator_ratio,1e-7; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
-        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 0.0;
+        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 1e-8;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
             if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
@@ -1958,6 +1974,7 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   roll_weight_interpolator->clear();
   pitch_weight_interpolator->clear();
   limit_cog_interpolator->clear();
+  fik->resetCollision();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }
@@ -2715,6 +2732,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   }
   is_emergency_step_mode = i_param.is_emergency_step_mode;
   is_emergency_touch_wall_mode = i_param.is_emergency_touch_wall_mode;
+  use_collision_avoidance = i_param.use_collision_avoidance;
   if (control_mode == MODE_IDLE) {
     ik_mode = i_param.ik_mode;
     std::cerr << "[" << m_profile.instance_name << "]   ik_mode = " << ik_mode << std::endl;
@@ -2814,6 +2832,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_emergency_step_mode = is_emergency_step_mode;
   i_param.is_emergency_touch_wall_mode = is_emergency_touch_wall_mode;
   i_param.ik_mode = ik_mode;
+  i_param.use_collision_avoidance = use_collision_avoidance;
   i_param.cog_z_constraint = cog_z_constraint;
   i_param.touch_wall_retrieve_time = touch_wall_retrieve_time;
   return true;

@@ -378,7 +378,7 @@ class AutoBalancer
   bool is_foot_touch[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
-  bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved;
+  bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance;
   double cog_z_constraint, touch_wall_retrieve_time;
 };
 
