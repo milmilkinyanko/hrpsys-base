@@ -651,6 +651,8 @@ namespace rats
     foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
+    prev_use_roll_flywheel = false;
+    prev_use_pitch_flywheel = false;
     prev_act_cp = cur_cog; // assume that robot is stopping when starting walking
     fxy = hrp::Vector3::Zero();
     sum_fx = sum_fy = hrp::Vector3::Zero();
