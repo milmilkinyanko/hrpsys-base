@@ -1791,7 +1791,7 @@ void AutoBalancer::solveFullbodyIK ()
         if (!cog_constraint_interpolator->isEmpty()) {
           cog_constraint_interpolator->get(&cog_z_constraint, true);
         }
-        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight*transition_interpolator_ratio,pitch_weight*transition_interpolator_ratio,1e-7; // consider angular momentum (COMMON)
+        tmp.constraint_weight << 1,1,cog_z_constraint,roll_weight*transition_interpolator_ratio,pitch_weight*transition_interpolator_ratio,0; // consider angular momentum (COMMON)
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
