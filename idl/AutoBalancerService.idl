@@ -427,6 +427,8 @@ module OpenHRP
       double cog_z_constraint;
       /// Sync time for retrieve touch wall motion [s]
       double touch_wall_retrieve_time;
+      boolean is_natural_walk;
+      double arm_swing_deg;
     };
 
     /**

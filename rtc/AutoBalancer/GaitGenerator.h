@@ -1930,6 +1930,7 @@ namespace rats
     size_t get_falling_direction () const {return falling_direction;};
     size_t get_step_num () const {return footstep_nodes_list.size(); };
     bool get_is_single_walking () const { return (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2); };
+    bool get_is_more_than_1st_step () const { return (lcg.get_footstep_index() > 1); };
     // Get ee coords by checking whether given EE name is swing or support
     bool get_swing_support_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
     {

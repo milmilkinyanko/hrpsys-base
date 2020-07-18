@@ -553,8 +553,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_touch_wall_motion_solved = false;
     touch_wall_retrieve_time = 0.5;
     use_collision_avoidance = false;
+    is_natural_walk = false;
 
     cog_z_constraint = 1e-3;
+    arm_swing_deg = 30.0;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -1646,7 +1648,14 @@ void AutoBalancer::limbStretchAvoidanceControl () {
 void AutoBalancer::solveFullbodyIK ()
 {
   // set desired natural pose and pullback gain
-  for(int i=0;i<m_robot->numJoints();i++) fik->q_ref(i) = m_qRef.data[i];
+  for(int i=0;i<m_robot->numJoints();i++) {
+      fik->q_ref(i) = m_qRef.data[i];
+      if (is_natural_walk && gg->get_is_more_than_1st_step()) {
+        double arm_off = (ikp["rleg"].target_r0.transpose() * (ikp["lleg"].target_p0 - ikp["rleg"].target_p0))(0) * (deg2rad(arm_swing_deg)/0.15);
+        if (m_robot->joint(i)->name == "R_SHOULDER_P") fik->q_ref(i) -= arm_off;
+        if (m_robot->joint(i)->name == "L_SHOULDER_P") fik->q_ref(i) += arm_off;
+      }
+  }
   fik->revertRobotStateToCurrentAll();
   {
     hrp::Vector3 tmpcog = m_robot->calcCM();
@@ -1747,6 +1756,7 @@ void AutoBalancer::solveFullbodyIK ()
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 1.0, weight_normal_interpolator_time = 1.5;
+        if (is_natural_walk) normal_weight = 0.0;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
         // roll
         if (gg->get_use_roll_flywheel()) {
@@ -1795,6 +1805,7 @@ void AutoBalancer::solveFullbodyIK ()
 
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
+        if (is_natural_walk) normal_ratio = 1e-5;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 1e-8;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
@@ -2748,6 +2759,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
     std::cerr << "[" << m_profile.instance_name << "]   cog_z_constraint cannot be set because interpolating." << std::endl;
   }
   touch_wall_retrieve_time = i_param.touch_wall_retrieve_time;
+  is_natural_walk = i_param.is_natural_walk;
+  arm_swing_deg = i_param.arm_swing_deg;
   return true;
 };
 
@@ -2835,6 +2848,8 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.use_collision_avoidance = use_collision_avoidance;
   i_param.cog_z_constraint = cog_z_constraint;
   i_param.touch_wall_retrieve_time = touch_wall_retrieve_time;
+  i_param.is_natural_walk = is_natural_walk;
+  i_param.arm_swing_deg = arm_swing_deg;
   return true;
 };
 
