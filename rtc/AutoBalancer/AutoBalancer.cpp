@@ -554,6 +554,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     touch_wall_retrieve_time = 0.5;
     use_collision_avoidance = false;
     is_natural_walk = false;
+    is_stop_early_foot = false;
 
     cog_z_constraint = 1e-3;
     arm_swing_deg = 30.0;
@@ -1668,7 +1669,7 @@ void AutoBalancer::solveFullbodyIK ()
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   sbp_cog_offset(2) = 0.0;
 
-  stopFootForEarlyTouchDown();
+  if (is_stop_early_foot) stopFootForEarlyTouchDown();
 
   limbStretchAvoidanceControl();
 
@@ -2760,6 +2761,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   }
   touch_wall_retrieve_time = i_param.touch_wall_retrieve_time;
   is_natural_walk = i_param.is_natural_walk;
+  is_stop_early_foot = i_param.is_stop_early_foot;
   arm_swing_deg = i_param.arm_swing_deg;
   return true;
 };
@@ -2849,6 +2851,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.cog_z_constraint = cog_z_constraint;
   i_param.touch_wall_retrieve_time = touch_wall_retrieve_time;
   i_param.is_natural_walk = is_natural_walk;
+  i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
   return true;
 };

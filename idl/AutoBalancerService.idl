@@ -428,6 +428,7 @@ module OpenHRP
       /// Sync time for retrieve touch wall motion [s]
       double touch_wall_retrieve_time;
       boolean is_natural_walk;
+      boolean is_stop_early_foot;
       double arm_swing_deg;
     };
 
