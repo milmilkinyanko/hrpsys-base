@@ -233,6 +233,8 @@ class AutoBalancer
   std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
   std::vector<TimedPoint3D> m_limbCOPOffset;
   std::vector<OutPort<TimedPoint3D> *> m_limbCOPOffsetOut;
+  TimedDoubleSeq m_tau;
+  OutPort<TimedDoubleSeq> m_tauOut;
   // for debug
   OutPort<TimedPoint3D> m_cogOut;
   OutPort<TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;

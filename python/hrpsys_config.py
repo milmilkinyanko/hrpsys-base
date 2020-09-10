@@ -425,6 +425,7 @@ class HrpsysConfigurator(object):
                 connectPorts(self.rfu.port("refFootOriginExtMomentIsHoldValue"), self.abc.port("refFootOriginExtMomentIsHoldValue"))
             if self.octd:
                 connectPorts(self.abc.port("contactStates"), self.octd.port("contactStates"))
+            connectPorts(self.abc.port("tau"), self.rh.port("tauRef"))
 
         # connection for st
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
