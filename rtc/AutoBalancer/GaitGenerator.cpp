@@ -1822,7 +1822,7 @@ namespace rats
     start_ref_coords.difference(dp, dr, goal_ref_coords);
     dp = start_ref_coords.rot.transpose() * dp;
     dr = start_ref_coords.rot.transpose() * dr;
-    while ( !(eps_eq(std::sqrt(dp(0)*dp(0)+dp(1)*dp(1)), 0.0, 1e-3*0.1) && eps_eq(dr(2), 0.0, deg2rad(0.5))) ) {
+    while ( !(eps_eq(std::sqrt(dp(0)*dp(0)+dp(1)*dp(1)), 0.0, 1e-3*5) && eps_eq(dr(2), 0.0, deg2rad(0.5))) ) {
       velocity_mode_parameter cur_vel_param;
       cur_vel_param.set(dp(0)/default_step_time, dp(1)/default_step_time, rad2deg(dr(2))/default_step_time);
       append_footstep_list_velocity_mode(new_footstep_nodes_list, cur_vel_param);
