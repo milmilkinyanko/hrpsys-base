@@ -1659,8 +1659,8 @@ void AutoBalancer::solveFullbodyIK ()
       fik->q_ref(i) = m_qRef.data[i];
       if (is_natural_walk && gg_is_walking) {
         double arm_off = (ikp["rleg"].target_r0.transpose() * (ikp["lleg"].target_p0 - ikp["rleg"].target_p0))(0) * (deg2rad(arm_swing_deg)/0.15);
-        if (m_robot->joint(i)->name == "R_SHOULDER_P") fik->q_ref(i) -= arm_off;
-        if (m_robot->joint(i)->name == "L_SHOULDER_P") fik->q_ref(i) += arm_off;
+        if (m_robot->joint(i)->name == "R_SHOULDER_P" || m_robot->joint(i)->name == "RARM_JOINT1") fik->q_ref(i) -= arm_off;
+        if (m_robot->joint(i)->name == "L_SHOULDER_P" || m_robot->joint(i)->name == "LARM_JOINT1") fik->q_ref(i) += arm_off;
       }
   }
   fik->revertRobotStateToCurrentAll();
