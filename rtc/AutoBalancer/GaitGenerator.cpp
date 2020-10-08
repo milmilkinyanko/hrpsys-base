@@ -667,6 +667,7 @@ namespace rats
     is_emergency_touch_wall = false;
     is_stuck = false;
     lcg.reset(one_step_len, footstep_nodes_list.at(1).front().step_time/dt, initial_swing_leg_dst_steps, initial_swing_leg_dst_steps, initial_support_leg_steps, default_double_support_ratio_swing_before, default_double_support_ratio_swing_after);
+    if (!double_support_zmp_interpolator->isEmpty()) double_support_zmp_interpolator->clear();
     /* make another */
     lcg.set_swing_support_steps_list(footstep_nodes_list);
     for (size_t i = 1; i < footstep_nodes_list.size()-1; i++) {
