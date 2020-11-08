@@ -311,6 +311,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         stp.target_ee_diff_p_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
         stp.prev_d_pos_swing = hrp::Vector3::Zero();
         stp.prev_d_rpy_swing = hrp::Vector3::Zero();
+        stp.contact_phase = Stabilizer::SUPPORT_PHASE;
+        stp.phase_time = 0;
         {
           bool is_ee_exists = false;
           for (size_t j = 0; j < m_robot->numSensors(hrp::Sensor::FORCE); j++) {
@@ -3198,6 +3200,9 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   } else {
       std::cerr << "[" << m_profile.instance_name << "]   joint_control_mode cannot be changed during MODE_AIR or MODE_ST." << std::endl;
   }
+  st->swing2landing_transition_time = i_param.swing2landing_transition_time;
+  st->landing_phase_time = i_param.landing_phase_time;
+  st->landing2support_transition_time = i_param.landing2support_transition_time;
   bool is_joint_servo_control_parameter_valid_length = true;
   if ( i_param.joint_servo_control_parameters.length() == st->stikp.size() ) {
       for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -3419,6 +3424,9 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
     ilp.manipulability_limit = st->jpe_v[i]->getManipulabilityLimit();
     ilp.ik_loop_count = st->stikp[i].ik_loop_count; // size_t -> unsigned short, value may change, but ik_loop_count is small value and value not change
   }
+  i_param.swing2landing_transition_time = st->swing2landing_transition_time;
+  i_param.landing_phase_time = st->landing_phase_time;
+  i_param.landing2support_transition_time = st->landing2support_transition_time;
   i_param.joint_control_mode = st->joint_control_mode;
   i_param.joint_servo_control_parameters.length(st->stikp.size());
   for (size_t i = 0; i < st->stikp.size(); i++) {

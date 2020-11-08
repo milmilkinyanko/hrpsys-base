@@ -130,6 +130,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   act_cogvel = hrp::Vector3::Zero();
   prev_act_foot_origin_rot = hrp::Matrix33::Identity();
   prev_act_foot_origin_pos = hrp::Vector3::Zero();
+  swing2landing_transition_time = 0.05;
+  landing_phase_time = 0.1;
+  landing2support_transition_time = 0.5;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -772,6 +775,7 @@ void Stabilizer::getActualParametersForST ()
     }
   } // st_algorithm == OpenHRP::AutoBalancerService::EEFM
 
+  if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE && control_mode == MODE_ST ) setSwingSupportJointServoGains();
   calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot); // foot origin relative => Actual world frame
   calcTorque(foot_origin_rot);
 
@@ -1231,6 +1235,39 @@ void Stabilizer::calcRUNST() {
       }
     }
   }
+}
+
+void Stabilizer::setSwingSupportJointServoGains()
+{
+    static double tmp_landing2support_transition_time = landing2support_transition_time;
+    for (size_t i = 0; i < stikp.size(); i++) {
+        STIKParam& ikp = stikp[i];
+        hrp::JointPathExPtr jpe = jpe_v[i];
+        if (ikp.contact_phase == SWING_PHASE && !ref_contact_states[i] && controlSwingSupportTime[i] < swing2landing_transition_time+landing_phase_time) { // SWING -> LANDING
+            ikp.contact_phase = LANDING_PHASE;
+            ikp.phase_time = 0;
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_pgain(j),swing2landing_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_dgain(j),swing2landing_transition_time);
+            }
+        }
+        if (ikp.contact_phase == LANDING_PHASE && act_contact_states[i] && ref_contact_states[i] && ikp.phase_time > swing2landing_transition_time) { // LANDING -> SUPPORT
+            ikp.contact_phase = SUPPORT_PHASE;
+            ikp.phase_time = 0;
+            tmp_landing2support_transition_time = std::min(landing2support_transition_time, controlSwingSupportTime[i]);
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_pgain(j),tmp_landing2support_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),tmp_landing2support_transition_time);
+            }
+        }
+        // if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time) { // SUPPORT -> SWING
+        if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time
+            && ( (ref_contact_states[i] && controlSwingSupportTime[i] < 0.2) || !ref_contact_states[i] )) { // SUPPORT -> SWING
+            ikp.contact_phase = SWING_PHASE;
+            ikp.phase_time = 0;
+        }
+        ikp.phase_time += dt;
+    }
 }
 
 void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot)
