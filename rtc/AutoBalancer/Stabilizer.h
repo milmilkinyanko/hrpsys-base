@@ -30,6 +30,7 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include "../SequencePlayer/interpolator.h"
+#include "hrpsys/idl/RobotHardwareService.hh"
 
 // </rtc-template>
 
@@ -74,6 +75,8 @@ public:
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;
     Eigen::AngleAxisd ref_theta, act_theta, omega;
+    // joint servo control parameter
+    hrp::dvector support_pgain,support_dgain,landing_pgain,landing_dgain;
   };
   enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
   // members
@@ -143,13 +146,16 @@ public:
   std::map<std::string, interpolator*> swing_modification_interpolator;
   std::vector<bool> is_foot_touch;
   std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
+  // joint servo control
+  OpenHRP::RobotHardwareService::JointControlMode joint_control_mode;
+  RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
       control_mode(MODE_IDLE),
       st_algorithm(OpenHRP::AutoBalancerService::TPCC),
       emergency_check_mode(OpenHRP::AutoBalancerService::NO_CHECK),
-      szd(NULL),
+      szd(NULL), joint_control_mode(OpenHRP::RobotHardwareService::POSITION),
       m_debugLevel(0)
   {
   };
