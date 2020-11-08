@@ -973,6 +973,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'originActZmp')
             self.connectLoggerPort(self.abc, 'originActCog')
             self.connectLoggerPort(self.abc, 'originActCogVel')
+            self.connectLoggerPort(self.abc, 'tau')
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')
