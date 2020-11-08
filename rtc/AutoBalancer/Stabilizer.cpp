@@ -772,6 +772,9 @@ void Stabilizer::getActualParametersForST ()
     }
   } // st_algorithm == OpenHRP::AutoBalancerService::EEFM
 
+  calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot); // foot origin relative => Actual world frame
+  calcTorque(foot_origin_rot);
+
   for ( int i = 0; i < m_robot->numJoints(); i++ ){
     m_robot->joint(i)->q = qrefv[i];
   }
@@ -934,7 +937,7 @@ void Stabilizer::calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vec
   // }
 }
 
-void Stabilizer::calcTorque ()
+void Stabilizer::calcTorque (const hrp::Matrix33& rot)
 {
   m_robot->calcForwardKinematics();
   // buffers for the unit vector method
@@ -984,20 +987,29 @@ void Stabilizer::calcTorque ()
   //   // std::cerr << ":aa "; rats::print_matrix(std::cerr, aa);
   //   // std::cerr << ":dv "; rats::print_vector(std::cerr, dv);
   // }
-  for (size_t j = 0; j < 2; j++) {
-    hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link, dt);
-    hrp::dmatrix JJ;
-    jm.calcJacobian(JJ);
-    hrp::dvector ft(6);
-    for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
-    hrp::dvector tq_from_extft(jm.numJoints());
-    tq_from_extft = JJ.transpose() * ft;
-    // if (loop%200==0) {
-    //   std::cerr << ":ft "; rats::print_vector(std::cerr, ft);
-    //   std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
-    //   std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
-    // }
-    for (size_t i = 0; i < jm.numJoints(); i++) jm.joint(i)->u -= tq_from_extft(i);
+  // for (size_t j = 0; j < 2; j++) {//numContacts
+  // hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link, dt);
+  if ( control_mode == MODE_ST ) {
+      for (size_t j = 0; j < stikp.size(); j++) {
+          STIKParam& ikp = stikp[j];
+          hrp::Link* target = m_robot->link(ikp.target_name);
+          size_t idx = contact_states_index_map[ikp.ee_name];
+          hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), target, dt);
+          hrp::dmatrix JJ;
+          jm.calcJacobian(JJ);
+          hrp::dvector ft(6);
+          // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
+          ft.segment(0,3) = rot * ikp.ref_force;
+          ft.segment(3,3) = rot * ikp.ref_moment;
+          hrp::dvector tq_from_extft(jm.numJoints());
+          tq_from_extft = JJ.transpose() * ft;
+          // if (loop%200==0) {
+          //   std::cerr << ":ft "; rats::print_vector(std::cerr, ft);
+          //   std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
+          //   std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
+          // }
+          for (size_t i = 0; i < jm.numJoints(); i++) jm.joint(i)->u -= tq_from_extft(i);
+      }
   }
   //hrp::dmatrix MM(6,m_robot->numJoints());
   //m_robot->calcMassMatrix(MM);
@@ -1201,6 +1213,20 @@ void Stabilizer::calcRUNST() {
       }
     }
   }
+}
+
+void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot)
+{
+    // cog, zmp must be in the same coords with stikp.ref_forece
+    hrp::Vector3 total_force = hrp::Vector3::Zero();
+    for (size_t j = 0; j < stikp.size(); j++) {
+        total_force(2) += stikp[j].ref_force(2); // only fz
+    }
+    total_force.segment(0,2) = (cog.segment(0,2) - zmp.segment(0,2))*total_force(2)/(cog(2) - zmp(2)); // overwrite fxy
+    for (size_t j = 0; j < stikp.size(); j++) {
+        STIKParam& ikp = stikp[j];
+        if (on_ground && total_force(2) > 1e-6) ikp.ref_force.segment(0,2) += rot.transpose() * total_force.segment(0,2) * ikp.ref_force(2)/total_force(2);// set fx,fy
+    }
 }
 
 void Stabilizer::moveBasePosRotForBodyRPYControl ()

@@ -1052,7 +1052,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
           m_qRef.data[i] = m_robot->joint(i)->q;
-          m_tau.data[i] = 0.0;
+          m_tau.data[i] = m_robot->joint(i)->u;
         }
       }
       m_qOut.write();

@@ -178,7 +178,8 @@ public:
   hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
                                    const hrp::Vector3& DD, const hrp::Vector3& TT);
   void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
-  void calcTorque ();
+  void calcExternalForce (const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
+  void calcTorque (const hrp::Matrix33& rot);
   void calcRUNST();
   void moveBasePosRotForBodyRPYControl ();
   double vlimit(double value, double llimit_value, double ulimit_value);
