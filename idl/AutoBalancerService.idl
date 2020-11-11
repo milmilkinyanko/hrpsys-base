@@ -368,6 +368,8 @@ module OpenHRP
       sequence<double> support_dgain;
       sequence<double> landing_pgain;
       sequence<double> landing_dgain;
+      sequence<double> swing_pgain;
+      sequence<double> swing_dgain;
     };
 
     /**
@@ -604,6 +606,8 @@ module OpenHRP
       double swing2landing_transition_time;
       double landing_phase_time;
       double landing2support_transition_time;
+      double support_phase_min_time;
+      double support2swing_transition_time;
       sequence<JointServoControlParameter> joint_servo_control_parameters;
     };
 

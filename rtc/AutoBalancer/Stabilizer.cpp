@@ -133,6 +133,8 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   swing2landing_transition_time = 0.05;
   landing_phase_time = 0.1;
   landing2support_transition_time = 0.5;
+  support_phase_min_time = 0.1;
+  support2swing_transition_time = 0.05;
   use_force_sensor = true;
 
   // parameters for RUNST
@@ -1266,10 +1268,14 @@ void Stabilizer::setSwingSupportJointServoGains()
             }
         }
         // if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time) { // SUPPORT -> SWING
-        if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time
+        if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time+support_phase_min_time
             && ( (ref_contact_states[i] && controlSwingSupportTime[i] < 0.2) || !ref_contact_states[i] )) { // SUPPORT -> SWING
             ikp.contact_phase = SWING_PHASE;
             ikp.phase_time = 0;
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.swing_pgain(j),support2swing_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.swing_dgain(j),support2swing_transition_time);
+            }
         }
         ikp.phase_time += dt;
     }

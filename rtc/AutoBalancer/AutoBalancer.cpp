@@ -343,6 +343,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
             st->stikp.back().support_dgain = hrp::dvector::Constant(st->jpe_v.back()->numJoints(),100);
             st->stikp.back().landing_pgain = hrp::dvector::Constant(st->jpe_v.back()->numJoints(),100);
             st->stikp.back().landing_dgain = hrp::dvector::Constant(st->jpe_v.back()->numJoints(),100);
+            st->stikp.back().swing_pgain = hrp::dvector::Constant(st->jpe_v.back()->numJoints(),100);
+            st->stikp.back().swing_dgain = hrp::dvector::Constant(st->jpe_v.back()->numJoints(),100);
         }
         st->contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
         st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands ik => disabled, feet ik => enabled, by default
@@ -3204,6 +3206,8 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   st->swing2landing_transition_time = i_param.swing2landing_transition_time;
   st->landing_phase_time = i_param.landing_phase_time;
   st->landing2support_transition_time = i_param.landing2support_transition_time;
+  st->support_phase_min_time = i_param.support_phase_min_time;
+  st->support2swing_transition_time = i_param.support2swing_transition_time;
   bool is_joint_servo_control_parameter_valid_length = true;
   if ( i_param.joint_servo_control_parameters.length() == st->stikp.size() ) {
       for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -3211,12 +3215,16 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
           if ( st->stikp[i].support_pgain.size() == i_param.joint_servo_control_parameters[i].support_pgain.length() &&
                st->stikp[i].support_dgain.size() == i_param.joint_servo_control_parameters[i].support_dgain.length() &&
                st->stikp[i].landing_pgain.size() == i_param.joint_servo_control_parameters[i].landing_pgain.length() &&
-               st->stikp[i].landing_dgain.size() == i_param.joint_servo_control_parameters[i].landing_dgain.length() ) {
+               st->stikp[i].landing_dgain.size() == i_param.joint_servo_control_parameters[i].landing_dgain.length() &&
+               st->stikp[i].swing_pgain.size() == i_param.joint_servo_control_parameters[i].swing_pgain.length() &&
+               st->stikp[i].swing_dgain.size() == i_param.joint_servo_control_parameters[i].swing_dgain.length() ) {
               for (size_t j = 0; j < st->stikp[i].support_pgain.size(); j++) {
                   st->stikp[i].support_pgain(j) = i_param.joint_servo_control_parameters[i].support_pgain[j];
                   st->stikp[i].support_dgain(j) = i_param.joint_servo_control_parameters[i].support_dgain[j];
                   st->stikp[i].landing_pgain(j) = i_param.joint_servo_control_parameters[i].landing_pgain[j];
                   st->stikp[i].landing_dgain(j) = i_param.joint_servo_control_parameters[i].landing_dgain[j];
+                  st->stikp[i].swing_pgain(j) = i_param.joint_servo_control_parameters[i].swing_pgain[j];
+                  st->stikp[i].swing_dgain(j) = i_param.joint_servo_control_parameters[i].swing_dgain[j];
               }
           } else is_joint_servo_control_parameter_valid_length = false;
       }
@@ -3235,6 +3243,12 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
       std::cerr << "]" << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   landing_dgain = [";
       for (size_t i = 0; i < st->stikp.size(); i++) std::cerr << "[" << st->stikp[i].landing_dgain.transpose() << "],";
+      std::cerr << "]" << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "]   swing_pgain = [";
+      for (size_t i = 0; i < st->stikp.size(); i++) std::cerr << "[" << st->stikp[i].swing_pgain.transpose() << "],";
+      std::cerr << "]" << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "]   swing_dgain = [";
+      for (size_t i = 0; i < st->stikp.size(); i++) std::cerr << "[" << st->stikp[i].swing_dgain.transpose() << "],";
       std::cerr << "]" << std::endl;
   } else std::cerr << "[" << m_profile.instance_name << "]   servo gain parameters cannot be set because of invalid param." << std::endl;
 }
@@ -3429,6 +3443,8 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
   i_param.swing2landing_transition_time = st->swing2landing_transition_time;
   i_param.landing_phase_time = st->landing_phase_time;
   i_param.landing2support_transition_time = st->landing2support_transition_time;
+  i_param.support_phase_min_time = st->support_phase_min_time;
+  i_param.support2swing_transition_time = st->support2swing_transition_time;
   i_param.joint_control_mode = st->joint_control_mode;
   i_param.joint_servo_control_parameters.length(st->stikp.size());
   for (size_t i = 0; i < st->stikp.size(); i++) {
@@ -3437,11 +3453,15 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
       jscp.support_dgain.length(st->stikp[i].support_dgain.size());
       jscp.landing_pgain.length(st->stikp[i].landing_pgain.size());
       jscp.landing_dgain.length(st->stikp[i].landing_dgain.size());
+      jscp.swing_pgain.length(st->stikp[i].swing_pgain.size());
+      jscp.swing_dgain.length(st->stikp[i].swing_dgain.size());
       for (size_t j=0; j < st->stikp[i].support_pgain.size(); j++) {
           jscp.support_pgain[j] = st->stikp[i].support_pgain(j);
           jscp.support_dgain[j] = st->stikp[i].support_dgain(j);
           jscp.landing_pgain[j] = st->stikp[i].landing_pgain(j);
           jscp.landing_dgain[j] = st->stikp[i].landing_dgain(j);
+          jscp.swing_pgain[j] = st->stikp[i].swing_pgain(j);
+          jscp.swing_dgain[j] = st->stikp[i].swing_dgain(j);
       }
   }
 }

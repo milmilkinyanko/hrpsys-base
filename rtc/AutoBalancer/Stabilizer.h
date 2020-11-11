@@ -79,7 +79,7 @@ public:
     // joint servo control parameter
     cphase contact_phase;
     double phase_time;
-    hrp::dvector support_pgain,support_dgain,landing_pgain,landing_dgain;
+    hrp::dvector support_pgain,support_dgain,landing_pgain,landing_dgain, swing_pgain, swing_dgain;
   };
   enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
   // members
@@ -132,7 +132,7 @@ public:
   // Total foot moment around the foot origin coords (relative to foot origin coords)
   hrp::Vector3 ref_total_foot_origin_moment, act_total_foot_origin_moment;
   hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
-  double swing2landing_transition_time, landing_phase_time, landing2support_transition_time;
+  double swing2landing_transition_time, landing_phase_time, landing2support_transition_time, support_phase_min_time, support2swing_transition_time;
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
