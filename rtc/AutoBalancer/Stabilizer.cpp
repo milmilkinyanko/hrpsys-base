@@ -133,6 +133,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   swing2landing_transition_time = 0.05;
   landing_phase_time = 0.1;
   landing2support_transition_time = 0.5;
+  use_force_sensor = true;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -441,7 +442,7 @@ void Stabilizer::getActualParameters ()
   for (size_t i = 0; i < stikp.size(); i++) {
     std::string limb_name = stikp[i].ee_name;
     size_t idx = contact_states_index_map[limb_name];
-    act_contact_states[idx] = isContact(idx);
+    act_contact_states[idx] = use_force_sensor ? isContact(idx) : ref_contact_states[idx];
     // m_actContactStates.data[idx] = act_contact_states[idx];
   }
   // <= Actual world frame
@@ -452,6 +453,10 @@ void Stabilizer::getActualParameters ()
     // Actual foot_origin frame =>
     act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
     act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
+    if (!use_force_sensor) {
+      on_ground = true;
+      act_zmp = ref_zmp;
+    }
     //act_cogvel = foot_origin_rot.transpose() * act_cogvel;
     if ((foot_origin_pos - prev_act_foot_origin_pos).norm() > 1e-2) { // assume that origin_pos changes more than 1cm when contact states change
       act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;

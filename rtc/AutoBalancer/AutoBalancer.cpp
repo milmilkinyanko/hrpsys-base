@@ -3010,6 +3010,7 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   st->is_estop_while_walking = i_param.is_estop_while_walking;
   st->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
   st->use_zmp_truncation = i_param.use_zmp_truncation;
+  st->use_force_sensor = i_param.use_force_sensor;
   for (size_t i = 0; i < 2; i++) {
     st->limb_stretch_avoidance_vlimit[i] = i_param.limb_stretch_avoidance_vlimit[i];
     st->root_rot_compensation_limit[i] = i_param.root_rot_compensation_limit[i];
@@ -3384,6 +3385,7 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
   i_param.end_effector_list.length(st->stikp.size());
   i_param.use_limb_stretch_avoidance = st->use_limb_stretch_avoidance;
   i_param.use_zmp_truncation = st->use_zmp_truncation;
+  i_param.use_force_sensor = st->use_force_sensor;
   i_param.limb_stretch_avoidance_time_const = st->limb_stretch_avoidance_time_const;
   i_param.limb_length_margin.length(st->stikp.size());
   i_param.detection_time_to_air = st->detection_count_to_air * m_dt;

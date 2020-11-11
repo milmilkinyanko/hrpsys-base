@@ -598,6 +598,7 @@ module OpenHRP
       DblArray2 root_rot_compensation_limit;
       /// Whether truncate zmp according to foot support polygon or not
       boolean use_zmp_truncation;
+      boolean use_force_sensor;
       // For joint servo control parameter
       RobotHardwareService::JointControlMode joint_control_mode;
       double swing2landing_transition_time;
