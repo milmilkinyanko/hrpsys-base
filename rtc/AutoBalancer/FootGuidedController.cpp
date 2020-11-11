@@ -89,10 +89,11 @@ void foot_guided_control_base::calc_x_k()
   x_k = A * x_k + b * u_k;
 }
 
-void foot_guided_control_base::update_control(double& zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp)
+void foot_guided_control_base::update_control(double& zmp, double& feedforward_zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp)
 {
   calc_u(N, ref_dcm, ref_zmp, is_double, start_ref_zmp, goal_ref_zmp, double_N, double_whole_N, ad_ref_zmp);
   zmp = act_u_k;
+  feedforward_zmp = u_k;
 }
 
 void foot_guided_control_base::update_state(double& pos, const double fx)

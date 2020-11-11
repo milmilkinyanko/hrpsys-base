@@ -1180,21 +1180,21 @@ namespace rats
       }
     }
     // calc zmp
-    foot_guided_controller_ptr->update_control(zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
+    hrp::Vector3 feedforward_zmp;
+    foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // interpolate zmp when double support phase
-    if (use_act_states && is_interpolate_zmp_in_double) {
-      if (is_double_support_phase) {
-        double tmp_ratio = 0.0;
-        if (double_support_zmp_interpolator->isEmpty()) {
-          double_support_zmp_interpolator->set(&tmp_ratio);
-          tmp_ratio = 1.0;
-          double_support_zmp_interpolator->setGoal(&tmp_ratio, fg_step_count * double_support_ratio * dt, true);
-        }
-        double_support_zmp_interpolator->get(&tmp_ratio, true);
-        zmp = tmp_ratio * ad_ref_zmp + (1.0 - tmp_ratio) * zmp;
-      } else if (!double_support_zmp_interpolator->isEmpty()) {
-        double_support_zmp_interpolator->clear();
+    if (is_double_support_phase) {
+      double tmp_ratio = 0.0;
+      if (double_support_zmp_interpolator->isEmpty()) {
+        double_support_zmp_interpolator->set(&tmp_ratio);
+        tmp_ratio = 1.0;
+        double_support_zmp_interpolator->setGoal(&tmp_ratio, fg_step_count * double_support_ratio * dt, true);
       }
+      double_support_zmp_interpolator->get(&tmp_ratio, true);
+      hrp::Vector3 tmp_zmp = (use_act_states && is_interpolate_zmp_in_double) ? ad_ref_zmp : feedforward_zmp;
+      zmp = tmp_ratio * tmp_zmp + (1.0 - tmp_ratio) * zmp;
+    } else if (!double_support_zmp_interpolator->isEmpty()) {
+      double_support_zmp_interpolator->clear();
     }
     // truncate zmp (assume RLEG, LLEG)
     Eigen::Vector2d tmp_zmp(zmp.head(2));
@@ -1221,8 +1221,8 @@ namespace rats
     // for log
     tmp[0] = fg_ref_zmp(0);
     tmp[1] = fg_ref_zmp(1);
-    tmp[21] = ad_ref_zmp(0);
-    tmp[22] = ad_ref_zmp(1);
+    tmp[21] = feedforward_zmp(0);
+    tmp[22] = feedforward_zmp(1);
     tmp[2] = tmp_ref_dcm(0);
     tmp[3] = tmp_ref_dcm(1);
     tmp[4] = refzmp(0);
