@@ -444,7 +444,7 @@ void Stabilizer::getActualParameters ()
   for (size_t i = 0; i < stikp.size(); i++) {
     std::string limb_name = stikp[i].ee_name;
     size_t idx = contact_states_index_map[limb_name];
-    act_contact_states[idx] = use_force_sensor ? isContact(idx) : ref_contact_states[idx];
+    act_contact_states[idx] = (use_force_sensor || limb_name.find("leg") == std::string::npos) ? isContact(idx) : ref_contact_states[idx];
     // m_actContactStates.data[idx] = act_contact_states[idx];
   }
   // <= Actual world frame
