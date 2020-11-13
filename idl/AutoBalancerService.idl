@@ -338,6 +338,7 @@ module OpenHRP
       boolean is_interpolate_zmp_in_double;
       /// whether gostop after becoming stable
       boolean is_stable_go_stop_mode;
+      boolean use_flywheel_balance;
     };
 
     /**

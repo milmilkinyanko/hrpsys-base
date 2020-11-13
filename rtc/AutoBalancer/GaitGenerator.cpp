@@ -1593,8 +1593,10 @@ namespace rats
       if (is_modify_pahse) {
         for (size_t i = 0; i < 2; i++) {
           if(std::fabs(short_of_footstep(i)) > 1e-3) { // > 1mm
-            if (i == 0) use_pitch_flywheel = true;
-            else use_roll_flywheel = true;
+            if (use_flywheel_balance) {
+              if (i == 0) use_pitch_flywheel = true;
+              else use_roll_flywheel = true;
+            }
             // short_of_zmp(i) = -short_of_footstep(i) / (std::exp(omega * (remain_time - dt)) * omega * dt);
             short_of_zmp(i) = short_of_footstep(i) / (1 - std::exp(omega * remain_time));
           }
