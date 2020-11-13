@@ -1468,6 +1468,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
                     it->second.target_p0 = it->second.target_p0 + dif_p;
+                    it->second.handfix_target_p0 = it->second.target_p0;
                 }
             }
         }
@@ -1476,6 +1477,13 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
           it->second.target_p0 = it->second.target_p0 - limited_dif_cog;
+        }
+      }
+    } else if (is_after_walking) {
+      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+             && it->first.find("arm") != std::string::npos ) {
+          it->second.target_p0 = it->second.handfix_target_p0;
         }
       }
     }

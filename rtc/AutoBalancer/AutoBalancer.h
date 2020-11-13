@@ -263,7 +263,7 @@ class AutoBalancer
 
  private:
   struct ABCIKparam {
-    hrp::Vector3 target_p0, localPos, adjust_interpolation_target_p0, adjust_interpolation_org_p0;
+    hrp::Vector3 target_p0, localPos, adjust_interpolation_target_p0, adjust_interpolation_org_p0, handfix_target_p0;
     hrp::Matrix33 target_r0, localR, adjust_interpolation_target_r0, adjust_interpolation_org_r0;
     hrp::Link* target_link;
     bool is_active, has_toe_joint;
