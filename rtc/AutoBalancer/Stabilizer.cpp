@@ -701,6 +701,10 @@ void Stabilizer::getActualParametersForST ()
         ee_moment = foot_origin_rot.transpose() * ee_R * ee_moment;
         ikp.d_foot_rpy = foot_origin_rot.transpose() * ee_R * ikp.ee_d_foot_rpy;
         ikp.d_foot_pos = foot_origin_rot.transpose() * ee_R * ikp.ee_d_foot_pos;
+        if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+            ikp.d_foot_rpy = hrp::Vector3::Zero();
+            ikp.d_foot_pos = hrp::Vector3::Zero();
+        }
         // tilt Check : only flat plane is supported
         {
           hrp::Vector3 plane_x = target_ee_R[i].col(0);
