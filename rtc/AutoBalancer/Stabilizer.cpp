@@ -916,8 +916,10 @@ void Stabilizer::stopStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
   if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
-      m_robotHardwareService0->setServoGainPercentage("all",100);
-      usleep(5*200*dt* 1e6);
+      double tmp_time = 3.0;
+      m_robotHardwareService0->setServoPGainPercentageWithTime("all",100,tmp_time);
+      m_robotHardwareService0->setServoDGainPercentageWithTime("all",100,tmp_time);
+      usleep(tmp_time * 1e6);
       m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
   }
   {
