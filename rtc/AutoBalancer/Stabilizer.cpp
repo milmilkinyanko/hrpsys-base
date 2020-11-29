@@ -598,7 +598,7 @@ void Stabilizer::getActualParametersForST ()
       }
 
       // truncate ZMP
-      if (use_zmp_truncation) {
+      if (use_zmp_truncation && !is_walking) {
         Eigen::Vector2d tmp_new_refzmp(new_refzmp.head(2));
         szd->get_vertices(support_polygon_vetices);
         szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
