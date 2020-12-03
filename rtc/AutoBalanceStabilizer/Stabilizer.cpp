@@ -1622,6 +1622,8 @@ void Stabilizer::stopStabilizer()
             // servo_tqdgains[i] = 0;
             gains_transition_times[i] = DEFAULT_TRANSITION_TIME;
         }
+        servo_pgains[0] = servo_pgains[6] = 5;
+        servo_dgains[0] = servo_dgains[6] = 30;
         change_servo_gains = true;
     }
 
