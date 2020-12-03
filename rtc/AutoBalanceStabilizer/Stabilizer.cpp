@@ -803,8 +803,8 @@ void Stabilizer::storeCurrentStates()
     const size_t num_joints = m_robot->numJoints();
     for (size_t i = 0; i < num_joints; ++i) {
         const double prev_dq = m_robot->joint(i)->dq;
-        m_robot->joint(i)->dq  = (cur_q[i] - qorg[i]) / dt;
-        m_robot->joint(i)->ddq = (m_robot->joint(i)->dq - prev_dq) / dt;
+        // m_robot->joint(i)->dq  = (cur_q[i] - qorg[i]) / dt;
+        // m_robot->joint(i)->ddq = (m_robot->joint(i)->dq - prev_dq) / dt;
     }
 
     m_robot->rootLink()->v = (current_root_p - prev_root_p) / dt;
