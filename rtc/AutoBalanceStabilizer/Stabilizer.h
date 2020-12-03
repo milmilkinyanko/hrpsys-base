@@ -117,7 +117,8 @@ class Stabilizer
         }
 
         return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog,
-                servo_pgains, servo_dgains, gains_transition_times};
+                servo_pgains, servo_dgains, servo_tqpgains, gains_transition_times};
+                // servo_pgains, servo_dgains, servo_tqpgains, servo_tqdgains, gains_transition_times};
     }
 
     // Setter for AutoBalanceStabilizer

@@ -1565,7 +1565,8 @@ void Stabilizer::startStabilizer()
         for (size_t i = 0; i < m_robot->numJoints(); ++i) {
             servo_pgains[i] = 100;
             servo_dgains[i] = 100;
-            // TODO: servo Torque
+            servo_tqpgains[i] = 100;
+            // servo_tqdgains[i] = 100;
             gains_transition_times[i] = DEFAULT_TRANSITION_TIME;
         }
 
@@ -1603,6 +1604,20 @@ void Stabilizer::stopStabilizer()
         }
     }
     waitSTTransition();
+
+    if (joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE) {
+        std::cerr << "[" << comp_name << "] " << "Sync to Position mode"  << std::endl;
+        constexpr double DEFAULT_TRANSITION_TIME = 2.0;
+        for (size_t i = 0; i < m_robot->numJoints(); ++i) {
+            servo_pgains[i] = 100;
+            servo_dgains[i] = 100;
+            servo_tqpgains[i] = 0;
+            // servo_tqdgains[i] = 0;
+            gains_transition_times[i] = DEFAULT_TRANSITION_TIME;
+        }
+        change_servo_gains = true;
+    }
+
     std::cerr << "[" << comp_name << "] " << "Stop ST DONE"  << std::endl;
 }
 
