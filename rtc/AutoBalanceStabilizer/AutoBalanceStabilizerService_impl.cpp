@@ -76,6 +76,11 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::setHeelContactPoints(const COR
     return m_autobalancestabilizer->setHeelContactPoints(link_id, points);
 }
 
+void AutoBalanceStabilizerService_impl::setWalkingMode(const OpenHRP::AutoBalanceStabilizerService::WalkingMode mode)
+{
+    m_autobalancestabilizer->setWalkingMode(mode);
+}
+
 CORBA::Boolean AutoBalanceStabilizerService_impl::goPos( CORBA::Double x,  CORBA::Double y,  CORBA::Double th)
 {
     return m_autobalancestabilizer->goPos(x, y, th);

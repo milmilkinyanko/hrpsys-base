@@ -143,6 +143,15 @@ module OpenHRP
     };
 
     /**
+     * @enum WalkingMode
+     * @brief Walking mode for cog trajectory generation.
+     */
+    enum WalkingMode {
+      PREVIEW_CONTROL,
+      FOOT_GUIDED_WALK
+    };
+
+    /**
      * @enum UseForceMode
      * @brief Mode of use_force
      */
@@ -591,6 +600,7 @@ module OpenHRP
     void setHeelContactAngle(in double angle_rad);
     boolean setToeContactPoints(in long link_id, in DblSeq3Seq contact_points);
     boolean setHeelContactPoints(in long link_id, in DblSeq3Seq contact_points);
+    void setWalkingMode(in WalkingMode mode);
 
     /**
      * @brief Walk to the goal position and orientation. Returns without waiting for whole steps to be executed.

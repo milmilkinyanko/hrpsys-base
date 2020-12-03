@@ -279,6 +279,8 @@ class GaitGenerator
     bool setHeelContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points);
     // void setGaitGeneratorParam(); // TODO: 作るかも
 
+    void setWalkingMode(const WalkingMode mode)      { walking_mode = mode; }
+
     bool goPos(const Eigen::Isometry3d& target,
                const std::vector<int>& support_link_cycle,
                const std::vector<int>& swing_link_cycle);

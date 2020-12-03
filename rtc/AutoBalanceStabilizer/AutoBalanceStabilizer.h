@@ -103,6 +103,20 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
         return gg->setHeelContactPoints(link_id, contact_points);
     }
 
+    void setWalkingMode(const OpenHRP::AutoBalanceStabilizerService::WalkingMode mode) {
+        // check abc mode
+        switch (mode) {
+        case OpenHRP::AutoBalanceStabilizerService::PREVIEW_CONTROL:
+            gg->setWalkingMode(hrp::GaitGenerator::PREVIEW_CONTROL);
+            break;
+        case OpenHRP::AutoBalanceStabilizerService::FOOT_GUIDED_WALK:
+            gg->setWalkingMode(hrp::GaitGenerator::FOOT_GUIDED_WALK);
+            break;
+        default:
+            break;
+        }
+    }
+
     bool goPos(const double x, const double y, const double th);
     bool goVelocity(const double& vx, const double& vy, const double& vth);
     bool goStop();
