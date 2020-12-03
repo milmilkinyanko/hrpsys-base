@@ -781,9 +781,9 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_originNewRefZmpOut.write();
 
     m_originActZmp.tm = m_qRef.tm;
-    m_originActZmp.data.x = st_port_data.rel_act_zmp(0);
-    m_originActZmp.data.y = st_port_data.rel_act_zmp(1);
-    m_originActZmp.data.z = st_port_data.rel_act_zmp(2);
+    m_originActZmp.data.x = st_port_data.act_zmp(0);
+    m_originActZmp.data.y = st_port_data.act_zmp(1);
+    m_originActZmp.data.z = st_port_data.act_zmp(2);
     m_originActZmpOut.write();
 
     m_footOriginRefCog.tm = m_qRef.tm;
