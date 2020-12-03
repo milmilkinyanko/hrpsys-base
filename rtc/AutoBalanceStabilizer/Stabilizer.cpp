@@ -1477,6 +1477,12 @@ void Stabilizer::calcTorque(const hrp::Matrix33& rot)
 {
     m_robot->calcForwardKinematics(true, true);
 
+    hrp::Vector3 root_w_x_v;
+    hrp::Vector3 g(0, 0, 9.80665);
+    root_w_x_v = m_robot->rootLink()->w.cross(m_robot->rootLink()->vo + m_robot->rootLink()->w.cross(m_robot->rootLink()->p));
+    m_robot->rootLink()->dvo = g - root_w_x_v; // dv = g, dw = 0
+    m_robot->rootLink()->dw.setZero();
+
     hrp::Vector3 root_f;
     hrp::Vector3 root_tau;
     m_robot->calcInverseDynamics(m_robot->rootLink(), root_f, root_tau);
@@ -1489,6 +1495,7 @@ void Stabilizer::calcTorque(const hrp::Matrix33& rot)
 
             hrp::dvector6 ft;
             ft << rot * ikp.ref_force, rot * ikp.ref_moment;
+            ft.tail(3) += (- target->R * ikp.localp).cross(ft.head<3>());
             const hrp::dvector tq_from_extft = JJ.transpose() * ft; // size: jm.numJoints()
 
             const size_t jm_num_joints = jm.numJoints();
