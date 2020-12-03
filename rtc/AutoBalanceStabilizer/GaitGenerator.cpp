@@ -817,8 +817,14 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
 
         const size_t min_num_steps = 1 + std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
                                                   static_cast<size_t>(std::ceil(dr.angle() / max_rot_angle)));
-        new_constraints.reserve(min_num_steps + 3);
-        new_constraints.push_back(cur_constraints);
+        new_constraints.reserve(min_num_steps + 1 + 3);
+        for (size_t i = 0; i < 2; ++i) {
+            new_constraints.push_back(cur_constraints);
+            ConstraintsWithCount& added_constraints = new_constraints.back();
+            if (i == 1) {
+                added_constraints.start_count = cur_constraints.start_count + default_single_support_count;
+            }
+        }
     }
 
     const auto notdpZero = [&dp]() -> bool { return !eps_eq(dp.head<2>().squaredNorm(), 0.0, 1e-3 * 0.1); };
@@ -828,9 +834,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
                                      const size_t support_idx, const Eigen::Isometry3d& landing_target,
                                      const bool use_toe_heel) {
         // Take longer time for first moving
-        const size_t swing_start_count = last_constraints.start_count +
-        (new_constraints.size() == 1 ?
-         (default_single_support_count + default_double_support_count) : default_double_support_count);
+        const size_t swing_start_count = last_constraints.start_count + default_double_support_count; // only double support count
         const std::vector<size_t> swing_indices{swing_idx};
         const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
         const std::vector<size_t> toe_support_indices{support_idx};
