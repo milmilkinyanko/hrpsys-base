@@ -994,6 +994,14 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
         constraint.setHeelContactPoints(getHeelContactPoints(contact_points));
         constraint.calcLinkLocalPos();
 
+        const hrp::Link* const link = m_robot->link(constraint.getLinkId());
+        hrp::Vector3 cop_offset;
+        if      (link->name == "RLEG_JOINT5") cop_offset = hrp::Vector3(0,0.03,0);
+        else if (link->name == "LLEG_JOINT5") cop_offset = hrp::Vector3(0,-0.03,0);
+        else                                  cop_offset = hrp::Vector3::Zero();
+        constraint.setCOPOffset(cop_offset);
+        constraint.setStartCOPOffset(cop_offset);
+
         std::array<double, 4> local_rot;
         for (size_t j = 0; j < 4; ++j) {
             local_rot[j] = std::stod(contact_str[i++]);
