@@ -37,8 +37,8 @@ target_link_libraries(testRefZMPGenerator PRIVATE ${libs} LinkConstraint)
 add_executable(testLimbTrajectoryGenerator test/testLimbTrajectoryGenerator.cpp)
 target_link_libraries(testLimbTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
 
-add_executable(testCOGTrajectoryGenerator test/testCOGTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
-target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
+# add_executable(testCOGTrajectoryGenerator test/testCOGTrajectoryGenerator.cpp COGTrajectoryGenerator.cpp)
+# target_link_libraries(testCOGTrajectoryGenerator PRIVATE ${libs} LinkConstraint)
 
 add_executable(testTwoDofControllerABS testTwoDofControllerABS.cpp TwoDofController.cpp Integrator.cpp)
 target_link_libraries(testTwoDofControllerABS ${libs})
@@ -59,7 +59,8 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test1 testZMPDistributorABS --jaxon_red --test1 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
-set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
+# set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
+set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin
