@@ -83,6 +83,8 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
       m_pgainOut("pgain", m_pgain),
       m_dgainOut("dgain", m_dgain),
+      m_tqpgainOut("tqpgain", m_tqpgain),
+      // m_dgainOut("tqdgain", m_tqdgain),
       m_gainTransitionTimeOut("gainTransitionTime", m_gainTransitionTime),
 
       // Out port for debugging
@@ -296,6 +298,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
 
         m_pgain.data.length(num_joints);
         m_dgain.data.length(num_joints);
+        m_tqpgain.data.length(num_joints);
+        // m_tqdgain.data.length(num_joints);
         m_gainTransitionTime.data.length(num_joints);
 
         // Debug
@@ -510,6 +514,8 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("emergencySignal", m_emergencySignalOut);
     addOutPort("pgain", m_pgainOut);
     addOutPort("dgain", m_dgainOut);
+    addOutPort("tqpgain", m_tqpgainOut);
+    // addOutPort("tqdgain", m_tqdgainOut);
     addOutPort("gainTransitionTime", m_gainTransitionTimeOut);
 
     // Out port for debugging
@@ -841,17 +847,23 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
 
         m_pgain.tm = m_qRef.tm;
         m_dgain.tm = m_qRef.tm;
+        m_tqpgain.tm = m_qRef.tm;
+        // m_tqdgain.tm = m_qRef.tm;
         m_gainTransitionTime.tm = m_qRef.tm;
 
         const size_t num_joints = m_pgain.data.length();
         for (size_t i = 0; i < num_joints; ++i) {
             m_pgain.data[i] = st_port_data.servo_pgains[i];
             m_dgain.data[i] = st_port_data.servo_dgains[i];
+            m_tqpgain.data[i] = st_port_data.servo_tqpgains[i];
+            // m_tqdgain.data[i] = st_port_data.servo_tqdgains[i];
             m_gainTransitionTime.data[i] = st_port_data.gains_transition_times[i];
         }
 
         m_pgainOut.write();
         m_dgainOut.write();
+        m_tqpgainOut.write();
+        // m_tqdgainOut.write();
         m_gainTransitionTimeOut.write();
     }
 }

@@ -192,6 +192,10 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedDoubleSeq> m_pgainOut;
     TimedDoubleSeq m_dgain;
     OutPort<TimedDoubleSeq> m_dgainOut;
+    TimedDoubleSeq m_tqpgain;
+    OutPort<TimedDoubleSeq> m_tqpgainOut;
+    // TimedDoubleSeq m_tqdgain;
+    // OutPort<TimedDoubleSeq> m_tqdgainOut;
     TimedDoubleSeq m_gainTransitionTime;
     OutPort<TimedDoubleSeq> m_gainTransitionTimeOut;
 

@@ -47,6 +47,8 @@ Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name
 
     servo_pgains.resize(num_joints, 100);
     servo_dgains.resize(num_joints, 100);
+    servo_tqpgains.resize(num_joints, 0);
+    // servo_tqdgains.resize(num_joints, 0);
     gains_transition_times.resize(num_joints, 2.0);
     szd = std::make_unique<SimpleZMPDistributor>(dt);
 }

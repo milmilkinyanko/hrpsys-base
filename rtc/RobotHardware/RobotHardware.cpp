@@ -53,6 +53,8 @@ RobotHardware::RobotHardware(RTC::Manager* manager)
     m_tauRefIn("tauRef", m_tauRef),
     m_pgainIn("pgain", m_pgain),
     m_dgainIn("dgain", m_dgain),
+    m_tqpgainIn("tqpgain", m_tqpgain),
+    // m_tqdgainIn("tqdgain", m_tqdgain),
     m_gainTransitionTimeIn("gainTransitionTime", m_gainTransitionTime),
     m_qOut("q", m_q),
     m_dqOut("dq", m_dq),
@@ -65,6 +67,8 @@ RobotHardware::RobotHardware(RTC::Manager* manager)
     // Debug
     m_pgainOut("pgainOut", m_pgain),
     m_dgainOut("dgainOut", m_dgain),
+    m_tqpgainOut("tqpgainOut", m_tqpgain),
+    // m_tqdgainOut("tqdgainOut", m_tqdgain),
 
     m_RobotHardwareServicePort("RobotHardwareService"),
     // </rtc-template>
@@ -88,6 +92,8 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   addInPort("tauRef", m_tauRefIn);
   addInPort("pgain", m_pgainIn);
   addInPort("dgain", m_dgainIn);
+  addInPort("tqpgain", m_tqpgainIn);
+  // addInPort("tqdgain", m_tqdgainIn);
   addInPort("gainTransitionTime", m_gainTransitionTimeIn);
 
   addOutPort("q", m_qOut);
@@ -100,6 +106,8 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   addOutPort("rstate2", m_rstate2Out);
   addOutPort("pgainOut", m_pgainOut);
   addOutPort("dgainOut", m_dgainOut);
+  addOutPort("tqpgainOut", m_tqpgainOut);
+  // addOutPort("tqdgainOut", m_tqdgainOut);
 
   // Set service provider to Ports
     m_RobotHardwareServicePort.registerProvider("service0", "RobotHardwareService", m_service0);
@@ -163,6 +171,8 @@ RTC::ReturnCode_t RobotHardware::onInitialize()
   m_tauRef.data.length(num_joints);
   m_pgain.data.length(num_joints);
   m_dgain.data.length(num_joints);
+  m_tqpgain.data.length(num_joints);
+  // m_tqdgain.data.length(num_joints);
   m_gainTransitionTime.data.length(num_joints);
 
   int ngyro = m_robot->numSensors(Sensor::RATE_GYRO);
@@ -311,6 +321,16 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
           m_dgainIn.read();
           m_robot->setServoGainPercentage("all", m_dgain.data.get_buffer(), m_gainTransitionTime.data.get_buffer(), false, true);
       }
+      if (m_tqpgainIn.isNew()) {
+          m_tqpgainIn.read();
+          // m_robot->setServoTorqueGainPercentage("all", m_tqpgain.data.get_buffer());
+          m_robot->setServoTorqueGainPercentage("all", m_tqpgain.data.get_buffer()[0]); // temporally use first gain
+      }
+      // if (m_tqdgainIn.isNew()) {
+      //     m_tqdgainIn.read();
+      //     // m_robot->setServoTorqueGainPercentage("all", m_tqdgain.data.get_buffer());
+      //     m_robot->setServoTorqueGainPercentage("all", m_tqdgain.data.get_buffer()[0]); // temporally use first gain
+      // }
   }
 
   // read from iob
@@ -328,9 +348,13 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
   for (unsigned int i = 0; i < m_pgain.data.length(); i++) {
       m_robot->readJointServoPgain(i, &m_pgain.data[i]);
       m_robot->readJointServoDgain(i, &m_dgain.data[i]);
+      m_robot->readJointTorquePgain(i, &m_tqpgain.data[i]);
+      // m_robot->readJointTorqueDgain(i, &m_tqdgain.data[i]);
   }
   m_pgain.tm = tm;
   m_dgain.tm = tm;
+  m_tqpgain.tm = tm;
+  // m_tqdgain.tm = tm;
 
   for (unsigned int i=0; i<m_rate.size(); i++){
       double rate[3];
@@ -386,6 +410,8 @@ RTC::ReturnCode_t RobotHardware::onExecute(RTC::UniqueId ec_id)
   m_pdtauOut.write();
   m_pgainOut.write();
   m_dgainOut.write();
+  m_tqpgainOut.write();
+  // m_tqdgainOut.write();
   m_servoStateOut.write();
   for (unsigned int i=0; i<m_rateOut.size(); i++){
       m_rateOut[i]->write();

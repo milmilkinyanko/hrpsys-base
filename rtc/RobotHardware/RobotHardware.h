@@ -150,6 +150,16 @@ class RobotHardware
   */
   TimedDoubleSeq m_dgain;
   InPort<TimedDoubleSeq> m_dgainIn;
+  /**
+     \brief array of proportional torque gains
+  */
+  TimedDoubleSeq m_tqpgain;
+  InPort<TimedDoubleSeq> m_tqpgainIn;
+  // /**
+  //    \brief array of derivative torque gains
+  // */
+  // TimedDoubleSeq m_tqdgain;
+  // InPort<TimedDoubleSeq> m_tqdgainIn;
 
   /**
      \brief gain transition time
@@ -205,6 +215,8 @@ class RobotHardware
   OutPort<TimedDoubleSeq> m_pdtauOut;
   OutPort<TimedDoubleSeq> m_pgainOut;
   OutPort<TimedDoubleSeq> m_dgainOut;
+  OutPort<TimedDoubleSeq> m_tqpgainOut;
+  // OutPort<TimedDoubleSeq> m_tqdgainOut;
   std::vector<OutPort<TimedAcceleration3D> *> m_accOut;
   std::vector<OutPort<TimedAngularVelocity3D> *> m_rateOut;
   std::vector<OutPort<TimedDoubleSeq> *> m_forceOut;

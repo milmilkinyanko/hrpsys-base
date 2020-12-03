@@ -55,6 +55,8 @@ struct stabilizerPortData
     hrp::Vector3 origin_act_cog;
     std::vector<double> servo_pgains;
     std::vector<double> servo_dgains;
+    std::vector<double> servo_tqpgains;
+    // std::vector<double> servo_tqdgains;
     std::vector<double> gains_transition_times;
 };
 
@@ -402,6 +404,8 @@ class Stabilizer
     bool change_servo_gains = false;
     std::vector<double> servo_pgains;
     std::vector<double> servo_dgains;
+    std::vector<double> servo_tqpgains;
+    // std::vector<double> servo_tqdgains;
     std::vector<double> gains_transition_times;
 };
 

@@ -430,6 +430,8 @@ class HrpsysConfigurator(object):
             connectPorts(self.abst.port("tau"),                self.rh.port("tauRef"))
             connectPorts(self.abst.port("pgain"),              self.rh.port("pgain"))
             connectPorts(self.abst.port("dgain"),              self.rh.port("dgain"))
+            connectPorts(self.abst.port("tqpgain"),            self.rh.port("tqpgain"))
+            # connectPorts(self.abst.port("tqdgain"),            self.rh.port("tqdgain"))
             connectPorts(self.abst.port("gainTransitionTime"), self.rh.port("gainTransitionTime"))
             if self.es:
                 connectPorts(self.abst.port("emergencySignal"), self.es.port("emergencySignal"))
@@ -949,6 +951,8 @@ class HrpsysConfigurator(object):
                                    'emergencySignal')
             self.connectLoggerPort(self.rh, 'pgainOut', 'pgain')
             self.connectLoggerPort(self.rh, 'dgainOut', 'dgain')
+            self.connectLoggerPort(self.rh, 'tqpgainOut')
+            # self.connectLoggerPort(self.rh, 'tqdgainOut')
             self.connectLoggerPort(self.rh, 'servoState')
             if self.simulation_mode:
                 self.connectLoggerPort(self.rh, 'WAIST')
