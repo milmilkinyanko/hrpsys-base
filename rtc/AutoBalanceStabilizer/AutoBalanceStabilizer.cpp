@@ -98,12 +98,18 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_refAngularMomentumRPYOut("refAngularMomentumRPY", m_refAngularMomentumRPY),
       m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
+
+      // Data from Stabilizer
+      m_actBaseRpyOut("actBaseRpy", m_actBaseRpy),
+      m_baseOriginActZmpOut("baseOriginActZmp", m_baseOriginActZmp),
+      m_originRefZmpOut("originRefZmp", m_originRefZmp),
       m_originNewRefZmpOut("originNewRefZmp", m_originNewRefZmp),
       m_originActZmpOut("originActZmp", m_originActZmp),
       m_footOriginRefCogOut("footOriginRefCog", m_footOriginRefCog),
       m_footOriginActCogOut("footOriginActCog", m_footOriginActCog),
       m_refContactStatesOut("refContactStates", m_refContactStates),
       m_actContactStatesOut("actContactStates", m_actContactStates),
+      m_newRefWrenchesOut("newRefWrenches", m_newRefWrenches),
       m_refCPOut("refCapturePoint", m_refCP),
       m_actCPOut("actCapturePoint", m_actCP),
       m_COPInfoOut("COPInfo", m_COPInfo),
@@ -201,9 +207,14 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         }
 
         m_actContactStates.data.length(ee_num);
+        m_newRefWrenches.data.length(ee_num * 6);
         m_COPInfo.data.length(ee_num * 3);
         for (size_t i = 0; i < ee_num; i++) {
             m_actContactStates.data[i] = false;
+
+            for (size_t j = 0; j < 6; ++j) {
+                m_newRefWrenches.data[6*i+j] = 0.0;
+            }
 
             for (size_t j = 0; j < 3; ++j) {
                 m_COPInfo.data[i * 3 + j] = 0.0;
@@ -529,12 +540,17 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("refAngularMomentumRPYOut", m_refAngularMomentumRPYOut);
     addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
+    // Data from Stabilizer
+    addOutPort("actBaseRpy", m_actBaseRpyOut);
+    addOutPort("baseOriginActZmp", m_baseOriginActZmpOut);
+    addOutPort("originRefZmp", m_originRefZmpOut);
     addOutPort("originNewRefZmp", m_originNewRefZmpOut);
     addOutPort("originActZmp", m_originActZmpOut);
     addOutPort("footOriginRefCog", m_footOriginRefCogOut);
     addOutPort("footOriginActCog", m_footOriginActCogOut);
     addOutPort("refContactStates", m_refContactStatesOut);
     addOutPort("actContactStates", m_actContactStatesOut);
+    addOutPort("newRefWrenches", m_newRefWrenchesOut);
     addOutPort("refCapturePoint", m_refCPOut);
     addOutPort("actCapturePoint", m_actCPOut);
     addOutPort("COPInfo", m_COPInfoOut);
@@ -774,6 +790,24 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_controlSwingSupportTimeOut.write();
 
     // Data from Stabilizer
+    m_actBaseRpy.tm     = m_qRef.tm;
+    m_actBaseRpy.data.r = st_port_data.act_base_rpy(0);
+    m_actBaseRpy.data.p = st_port_data.act_base_rpy(1);
+    m_actBaseRpy.data.y = st_port_data.act_base_rpy(2);
+    m_actBaseRpyOut.write();
+
+    m_baseOriginActZmp.tm = m_qRef.tm;
+    m_baseOriginActZmp.data.x = st_port_data.rel_act_zmp(0);
+    m_baseOriginActZmp.data.y = st_port_data.rel_act_zmp(1);
+    m_baseOriginActZmp.data.z = st_port_data.rel_act_zmp(2);
+    m_baseOriginActZmpOut.write();
+
+    m_originRefZmp.tm = m_qRef.tm;
+    m_originRefZmp.data.x = st_port_data.ref_zmp(0);
+    m_originRefZmp.data.y = st_port_data.ref_zmp(1);
+    m_originRefZmp.data.z = st_port_data.ref_zmp(2);
+    m_originRefZmpOut.write();
+
     m_originNewRefZmp.tm = m_qRef.tm;
     m_originNewRefZmp.data.x = st_port_data.new_ref_zmp(0);
     m_originNewRefZmp.data.y = st_port_data.new_ref_zmp(1);
@@ -806,6 +840,15 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
             m_actContactStates.data[i] = act_contact_states[i];
         }
         m_actContactStatesOut.write();
+    }
+
+    {
+        m_newRefWrenches.tm = m_qRef.tm;
+        const size_t ref_wrenches_size = st_port_data.ref_wrenches.size();
+        for (size_t i = 0; i < ref_wrenches_size; ++i) {
+            m_newRefWrenches.data[i] = st_port_data.ref_wrenches[i];
+        }
+        m_newRefWrenchesOut.write();
     }
 
     m_emergencySignal.tm = m_qRef.tm;

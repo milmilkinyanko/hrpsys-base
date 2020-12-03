@@ -215,6 +215,13 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPoint3D> m_refCogAccOut;
     TimedPoint3D m_refAngularMomentumRPY;
     OutPort<TimedPoint3D> m_refAngularMomentumRPYOut;
+    // Data from Stabilizer
+    TimedOrientation3D m_actBaseRpy;
+    OutPort<TimedOrientation3D> m_actBaseRpyOut;
+    TimedPoint3D m_baseOriginActZmp;
+    OutPort<TimedPoint3D> m_baseOriginActZmpOut;
+    TimedPoint3D m_originRefZmp;
+    OutPort<TimedPoint3D> m_originRefZmpOut;
     TimedPoint3D m_originNewRefZmp;
     OutPort<TimedPoint3D> m_originNewRefZmpOut;
     TimedPoint3D m_originActZmp;
@@ -225,6 +232,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPoint3D> m_footOriginActCogOut;
     TimedBooleanSeq m_actContactStates;
     OutPort<TimedBooleanSeq> m_actContactStatesOut;
+    TimedDoubleSeq m_newRefWrenches;
+    OutPort<TimedDoubleSeq> m_newRefWrenchesOut;
     TimedPoint3D m_refCP;
     OutPort<TimedPoint3D> m_refCPOut;
     TimedPoint3D m_actCP;

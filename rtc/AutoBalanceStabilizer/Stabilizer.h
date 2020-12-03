@@ -47,9 +47,12 @@ struct paramsFromSensors
 
 struct stabilizerPortData
 {
+    hrp::Vector3 act_base_rpy;
     hrp::dvector joint_angles;
     hrp::dvector joint_torques;
+    hrp::Vector3 ref_zmp;
     hrp::Vector3 new_ref_zmp;
+    hrp::Vector3 act_zmp;
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
@@ -58,6 +61,7 @@ struct stabilizerPortData
     std::vector<double> servo_tqpgains;
     // std::vector<double> servo_tqdgains;
     std::vector<double> gains_transition_times;
+    hrp::dvector ref_wrenches;
 };
 
 class Stabilizer
@@ -116,9 +120,18 @@ class Stabilizer
             joint_torques(i) = m_robot->joint(i)->u;
         }
 
-        return stabilizerPortData{joint_angles, joint_torques, new_refzmp, rel_act_zmp, ref_cog, act_cog,
-                servo_pgains, servo_dgains, servo_tqpgains, gains_transition_times};
-                // servo_pgains, servo_dgains, servo_tqpgains, servo_tqdgains, gains_transition_times};
+        const size_t stikp_size = stikp.size();
+        hrp::dvector ref_wrenches(stikp_size*6);
+        for (size_t i = 0; i < stikp_size; ++i) {
+            for (size_t j = 0; j < 3; j++) {
+                ref_wrenches[6*i+j] = stikp[i].ref_force(j);
+                ref_wrenches[6*i+j+3] = stikp[i].ref_moment(j);
+            }
+        }
+
+        return stabilizerPortData{act_base_rpy, joint_angles, joint_torques, ref_zmp, new_refzmp, act_zmp, rel_act_zmp, ref_cog, act_cog,
+                servo_pgains, servo_dgains, servo_tqpgains, gains_transition_times, ref_wrenches};
+                // servo_pgains, servo_dgains, servo_tqpgains, servo_tqdgains, gains_transition_times, ref_wrenches};
     }
 
     // Setter for AutoBalanceStabilizer
