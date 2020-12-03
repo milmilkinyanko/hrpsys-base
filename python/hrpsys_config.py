@@ -949,8 +949,8 @@ class HrpsysConfigurator(object):
         if self.rh != None:
             self.connectLoggerPort(self.rh, 'emergencySignal',
                                    'emergencySignal')
-            self.connectLoggerPort(self.rh, 'pgainOut', 'pgain')
-            self.connectLoggerPort(self.rh, 'dgainOut', 'dgain')
+            self.connectLoggerPort(self.rh, 'pgainOut')
+            self.connectLoggerPort(self.rh, 'dgainOut')
             self.connectLoggerPort(self.rh, 'tqpgainOut')
             # self.connectLoggerPort(self.rh, 'tqdgainOut')
             self.connectLoggerPort(self.rh, 'servoState')
