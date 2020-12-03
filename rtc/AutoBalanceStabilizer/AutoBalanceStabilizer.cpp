@@ -372,6 +372,19 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // TODO: rootlink計算
         // TODO: IKを後ろに回す
         setIKConstraintsTarget();
+
+        // // reduce upper body weight
+        // fik->q_ref_constraint_weight.fill(2e-6);
+        // fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
+        // fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
+
+        // reduce chest joint movements
+        if(m_robot->link("CHEST_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT0")->jointId) = 1000;
+        if(m_robot->link("CHEST_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT1")->jointId) = 1000;
+        if(m_robot->link("CHEST_JOINT2") != NULL) fik->dq_weight_all(m_robot->link("CHEST_JOINT2")->jointId) = 1000;
+        // reduce head joint movements
+        if(m_robot->link("HEAD_JOINT0") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT0")->jointId) = 1000;
+        if(m_robot->link("HEAD_JOINT1") != NULL) fik->dq_weight_all(m_robot->link("HEAD_JOINT1")->jointId) = 1000;
         fik->solveFullbodyIKLoop(ik_constraints, max_ik_iteration);
         // std::cerr << "moment: " << fik->getComMomentum().transpose() << std::endl;
     }
@@ -1123,6 +1136,7 @@ void AutoBalanceStabilizer::setIKConstraintsTarget()
     hoge = hoge * 0.85 + ref_angular_momentum * 0.15;
     // ik_constraints[i].targetOmega.setZero(); // tmp
 
+    ik_constraints[i].constraint_weight.tail(3) = hrp::Vector3(1e-6, 1e-6, 1e-6);
     // ik_constraints[i].targetOmega.setZero();
     // ik_constraints[i].targetOmega = hrp::clamp(ik_constraints[i].targetOmega, hrp::Vector3(-150, -150, -100), hrp::Vector3(150, 150, 100));
     // ik_constraints[i].targetOmega = hrp::Vector3::Zero();
