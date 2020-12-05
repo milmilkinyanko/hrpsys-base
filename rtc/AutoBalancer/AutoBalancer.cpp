@@ -1134,7 +1134,7 @@ void AutoBalancer::setABCData2ST()
     st->qRef[i] =  m_robot->joint(i)->q;
     st->qRefSeq[i] =  m_qRefSeq.data[i];
   }
-  for (size_t i; i < m_contactStates.data.length(); i++) {
+  for (size_t i = 0; i < m_contactStates.data.length(); i++) {
     st->ref_contact_states[i] = m_contactStates.data[i];
     st->toeheel_ratio[i] = m_toeheelRatio.data[i];
     st->controlSwingSupportTime[i] = m_controlSwingSupportTime.data[i];
