@@ -793,7 +793,7 @@ namespace rats
               prev_p = steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j];
               steppable_region[cur_leg == RLEG ? LLEG : RLEG][i][j] += pos_off;
             }
-            if (is_nan) {
+            if (is_nan || steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].size() == 0) {
               steppable_region[cur_leg == RLEG ? LLEG : RLEG][i].resize(1);
             } else {
               steppable_region[cur_leg == RLEG ? LLEG : RLEG][i] = calc_intersect_convex(steppable_region[cur_leg == RLEG ? LLEG : RLEG][i], stride_limitation_polygon);
@@ -1324,11 +1324,12 @@ namespace rats
     leg_type cur_sup = prev_fs.l_r;
 
     double limit_r = std::min(safe_leg_margin[2], safe_leg_margin[3]), new_remain_time, tmp_dt = 1e10;
-    bool is_out = false;
+    bool is_out = false, is_read_stepable = false;
     Eigen::Vector2d tmp_pos = Eigen::Vector2d::Zero(), new_pos;
     hrp::Vector3 tmp_short, new_short;
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       if (steppable_region[cur_sup][i].size() < 3) continue;
+      is_read_stepable = true;
       new_remain_time = remain_count * dt;
       new_pos = cur_fs.worldcoords.pos.head(2);
       new_short = hrp::Vector3::Zero();
@@ -1353,6 +1354,7 @@ namespace rats
     // world frame
     cur_fs.worldcoords.pos = preprev_fs_pos + preprev_fs_rot * cur_fs.worldcoords.pos;
     short_of_footstep = preprev_fs_rot * short_of_footstep;
+    if (!is_read_stepable) cur_fs.worldcoords.pos = preprev_fs_pos;
 
     // check for touch wall
     // TODO: should consider the case where is_out = true while footstep is inside the limit_stride (like stepping stone)
