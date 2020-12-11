@@ -2501,6 +2501,11 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->cp_filter->setCutOffFreq(i_param.fg_cp_cutoff_freq);
   gg->set_sum_d_footstep_thre(hrp::Vector3(i_param.sum_d_footstep_thre[0], i_param.sum_d_footstep_thre[1], i_param.sum_d_footstep_thre[2]));
   gg->set_footstep_check_delta(hrp::Vector3(i_param.footstep_check_delta[0], i_param.footstep_check_delta[1], i_param.footstep_check_delta[2]));
+  gg->debug_set_landing_height = i_param.debug_set_landing_height;
+  gg->debug_landing_height = i_param.debug_landing_height;
+  for (size_t i = 0; i < 2; i++) {
+    gg->debug_landing_height_xrange[i] = i_param.debug_landing_height_xrange[i];
+  }
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2623,6 +2628,11 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
       i_param.sum_d_footstep_thre[i] = thre(i);
       i_param.footstep_check_delta[i] = delta(i);
     }
+  }
+  i_param.debug_set_landing_height = gg->debug_set_landing_height;
+  i_param.debug_landing_height = gg->debug_landing_height;
+  for (size_t i = 0; i < 2; i++) {
+    i_param.debug_landing_height_xrange[i] = gg->debug_landing_height_xrange[i];
   }
   return true;
 };

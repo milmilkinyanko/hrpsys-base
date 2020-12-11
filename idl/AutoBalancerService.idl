@@ -339,6 +339,9 @@ module OpenHRP
       /// whether gostop after becoming stable
       boolean is_stable_go_stop_mode;
       boolean use_flywheel_balance;
+      boolean debug_set_landing_height;
+      double debug_landing_height;
+      DblArray2 debug_landing_height_xrange;
     };
 
     /**

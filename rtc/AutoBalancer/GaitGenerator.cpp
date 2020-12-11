@@ -852,6 +852,7 @@ namespace rats
         if (fabs(des_fxy(i)) < fabs(prev_fxy(i))) tmp_gain *= 10;
         fxy(i) = prev_fxy(i) + tmp_gain * (des_fxy(i) - prev_fxy(i));
       }
+      if (debug_set_landing_height && lcg.get_footstep_index() == 0) debug_orig_height = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2);
       if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       if (use_act_states && modify_footsteps && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
@@ -1556,16 +1557,23 @@ namespace rats
         }
         d_footstep = cur_footstep_rot * d_footstep; // foot coords -> world coords
         d_footstep(2) = 0.0;
-        if (is_modify || is_vision_updated || lr_region[cur_sup]) {
+        if (is_modify || is_vision_updated || lr_region[cur_sup] || debug_set_landing_height) {
           step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front());
           footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos += d_footstep;
           short_of_footstep = d_footstep;
           if (lr_region[cur_sup]) limit_stride_vision(footstep_nodes_list[lcg.get_footstep_index()].front(), short_of_footstep, footstep_nodes_list[lcg.get_footstep_index()-1].front(), preprev_fs, omega, cur_footstep_pos + cur_footstep_rot * cur_cp);
           else limit_stride_rectangle(footstep_nodes_list[lcg.get_footstep_index()].front(), footstep_nodes_list[lcg.get_footstep_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
-          if (is_vision_updated) {
+          if (is_vision_updated || debug_set_landing_height) {
             footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
             calc_foot_origin_rot(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
+            if (debug_set_landing_height) {
+              if (footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(0) > debug_landing_height_xrange[0] && footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(0) < debug_landing_height_xrange[1]) {
+                footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = debug_orig_height + debug_landing_height;
+              } else {
+                footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = debug_orig_height;
+              }
+            }
             // TODO : why is yaw angle changed
             hrp::Vector3 tmp_rpy = hrp::rpyFromRot(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot);
             tmp_rpy(2) = hrp::rpyFromRot(orig_footstep_rot)(2);
