@@ -448,6 +448,7 @@ module OpenHRP
       boolean is_natural_walk;
       boolean is_stop_early_foot;
       double arm_swing_deg;
+      boolean debug_read_steppable_region;
     };
 
     /**

@@ -239,6 +239,8 @@ class AutoBalancer
   OutPort<TimedPoint3D> m_cogOut;
   OutPort<TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   OutPort<TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
+  OpenHRP::TimedSteppableRegion m_currentSteppableRegion;
+  OutPort<OpenHRP::TimedSteppableRegion> m_currentSteppableRegionOut;
 
   
   // </rtc-template>
@@ -383,6 +385,7 @@ class AutoBalancer
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
   double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
+  bool debug_read_steppable_region;
 };
 
 

@@ -1129,6 +1129,7 @@ namespace rats
     std::vector<Eigen::Vector2d> stride_limitation_polygon;
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height, rel_landing_normal;
     std::vector<std::vector<std::vector<hrp::Vector2> > > steppable_region;
+    std::vector<std::vector<std::vector<hrp::Vector2> > > debug_current_steppable_region;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
     boost::shared_ptr<interpolator> double_support_zmp_interpolator;
@@ -1192,6 +1193,7 @@ namespace rats
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
         stride_limitation_polygon.resize(4);
         steppable_region.resize(2);
+        debug_current_steppable_region.resize(2);
         for (size_t i = 0; i < 4; i++) leg_margin[i] = 0.1;
         for (size_t i = 0; i < 4; i++) safe_leg_margin[i] = 0.1;
         for (size_t i = 0; i < 5; i++) stride_limitation_for_circle_type[i] = 0.2;
@@ -1975,6 +1977,22 @@ namespace rats
       vel = end_cogvel;
       l_r = cur_supporting_foot;
     };
+    void get_current_steppable_region (OpenHRP::TimedSteppableRegion& _region) {
+      leg_type cur_sup = footstep_nodes_list[lcg.get_footstep_index()-1].front().l_r;
+      if (lcg.get_footstep_index() > 0 && lr_region[cur_sup]) {
+        _region.data.l_r = (cur_sup == RLEG ? 0 : 1);
+        hrp::Vector3 preprev_fs_pos = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front()).worldcoords.pos;
+        _region.data.region.length(steppable_region[cur_sup].size());
+        for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
+          _region.data.region[i].length(steppable_region[cur_sup][i].size()*2);
+          for (size_t j = 0; j < steppable_region[cur_sup][i].size(); j++) {
+            _region.data.region[i][2*j] = steppable_region[cur_sup][i][j](0) + preprev_fs_pos(0);
+            _region.data.region[i][2*j+1] = steppable_region[cur_sup][i][j](1) + preprev_fs_pos(1);
+          }
+        }
+      }
+    };
+
 
 #ifdef FOR_TESTGAITGENERATOR
     size_t get_one_step_count() const { return lcg.get_one_step_count(); };

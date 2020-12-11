@@ -109,6 +109,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_originActZmpOut("originActZmp", m_originActZmp),
       m_originActCogOut("originActCog", m_originActCog),
       m_originActCogVelOut("originActCogVel", m_originActCogVel),
+      m_currentSteppableRegionOut("currentSteppableRegion", m_currentSteppableRegion),
       // </rtc-template>
       gait_type(BIPED),
       m_robot(hrp::BodyPtr()),
@@ -185,6 +186,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("originActZmp", m_originActZmpOut);
     addOutPort("originActCog", m_originActCogOut);
     addOutPort("originActCogVel", m_originActCogVelOut);
+    addOutPort("currentSteppableRegion", m_currentSteppableRegionOut);
 
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -235,6 +237,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_originActZmp.data.x = m_originActZmp.data.y = m_originActZmp.data.z = 0.0;
     m_originActCog.data.x = m_originActCog.data.y = m_originActCog.data.z = 0.0;
     m_originActCogVel.data.x = m_originActCogVel.data.y = m_originActCogVel.data.z = 0.0;
+    m_currentSteppableRegion.data.region.length(1);
+    m_currentSteppableRegion.data.region[0].length(1);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -575,6 +579,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     cog_z_constraint = 1e-3;
     arm_swing_deg = 30.0;
+
+    debug_read_steppable_region = false;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -1086,6 +1092,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_actCP.data.x = st->rel_act_cp(0); m_actCP.data.y = st->rel_act_cp(1); m_actCP.data.z = st->rel_act_cp(2);
     for (size_t i = 0; i < m_actContactStates.data.length(); i++) m_actContactStates.data[i] = st->act_contact_states[i];
     for (size_t i = 0; i < m_COPInfo.data.length(); i++) m_COPInfo.data[i] = st->copInfo[i];
+    if (debug_read_steppable_region && gg_is_walking) {
+      gg->get_current_steppable_region(m_currentSteppableRegion);
+      m_currentSteppableRegion.tm = m_qRef.tm;
+      m_currentSteppableRegionOut.write();
+    }
     m_originRefZmp.tm = m_qRef.tm;
     m_originRefZmpOut.write();
     m_originRefCog.tm = m_qRef.tm;
@@ -2806,6 +2817,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   is_natural_walk = i_param.is_natural_walk;
   is_stop_early_foot = i_param.is_stop_early_foot;
   arm_swing_deg = i_param.arm_swing_deg;
+  debug_read_steppable_region = i_param.debug_read_steppable_region;
   return true;
 };
 
@@ -2896,6 +2908,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_natural_walk = is_natural_walk;
   i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
+  i_param.debug_read_steppable_region = debug_read_steppable_region;
   return true;
 };
 
