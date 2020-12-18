@@ -2082,6 +2082,10 @@ bool AutoBalancer::startWalking ()
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
     return false;
   }
+  if ( gg->use_act_states && st->control_mode != Stabilizer::MODE_ST ) {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ST. Please startStabilizer." << std::endl;
+    return false;
+  }
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   act_cog.head(2) += sbp_cog_offset.head(2);
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
