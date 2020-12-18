@@ -2136,8 +2136,10 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
 {
   if (control_mode == MODE_IDLE) {
     if (gg_is_walking) {
-      std::cerr << "[" << m_profile.instance_name << "] goStop before startAutoBalancer because gg_is_walking is true" << std::endl;
-      goStop();
+      // std::cerr << "[" << m_profile.instance_name << "] goStop before startAutoBalancer because gg_is_walking is true" << std::endl;
+      // goStop();
+      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_waking is true. Please goStop or wait for ending previous goPos." << std::endl;
+      return false;
     }
     fik->resetIKFailParam();
     startABCparam(limbs);
