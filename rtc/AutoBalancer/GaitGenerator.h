@@ -727,7 +727,7 @@ namespace rats
       // Index for current footstep. footstep_index should be [0,footstep_node_list.size()]. Current footstep is footstep_node_list[footstep_index].
       size_t footstep_index;
       // one_step_count is total counter num of current steps (= step_time/dt). lcg_count is counter for lcg. During one step, lcg_count decreases from one_step_count to 0.
-      size_t lcg_count, one_step_count, next_one_step_count;
+      size_t lcg_count, one_step_count, next_one_step_count, swing_rot_count_ratio;
       // Current support leg
       std::vector<leg_type> support_leg_types, swing_leg_types;
       orbit_type default_orbit_type;
@@ -777,7 +777,7 @@ namespace rats
           default_step_height(0.05), default_top_ratio(0.5), current_step_height(0.0), swing_ratio(0), dt(_dt),
           current_toe_angle(0), current_heel_angle(0),
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
-          footstep_index(0), lcg_count(0), default_orbit_type(CYCLOID),
+          footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), cdtg(),
           thp(), use_act_states(true),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),

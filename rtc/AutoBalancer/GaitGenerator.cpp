@@ -225,7 +225,7 @@ namespace rats
   {
     // interpolation
     int support_len_before = one_step_count * _default_double_support_ratio_before;
-    int support_len_after = one_step_count * _default_double_support_ratio_after;
+    int support_len_after = one_step_count * (_default_double_support_ratio_after + swing_rot_count_ratio);
     int current_swing_count = (one_step_count - lcg_count); // 0->one_step_count
     // swing foot rot interpolator interpolates difference from src to dst.
     if (current_swing_count == support_len_before) {
