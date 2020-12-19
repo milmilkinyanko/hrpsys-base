@@ -154,6 +154,7 @@ public:
   // joint servo control
   OpenHRP::RobotHardwareService::JointControlMode joint_control_mode;
   RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
+  bool is_reset_torque;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),

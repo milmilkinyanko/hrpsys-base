@@ -136,6 +136,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   support_phase_min_time = 0.1;
   support2swing_transition_time = 0.05;
   use_force_sensor = true;
+  is_reset_torque = false;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -241,6 +242,16 @@ void Stabilizer::execStabilizer()
     calcStateForEmergencySignal();
     switch (control_mode) {
     case MODE_IDLE:
+      if (!is_reset_torque) {
+        if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+          double tmp_time = 3.0;
+          m_robotHardwareService0->setServoPGainPercentageWithTime("all",100,tmp_time);
+          m_robotHardwareService0->setServoDGainPercentageWithTime("all",100,tmp_time);
+          usleep(tmp_time * 1e6);
+          m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
+          is_reset_torque = true;
+        }
+      }
       break;
     case MODE_AIR:
       if ( transition_count == 0 && on_ground ) sync_2_st();
@@ -910,6 +921,7 @@ void Stabilizer::startStabilizer(void)
               m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),3);
           }
       }
+      is_reset_torque = false;
   }
   std::cerr << "[" << print_str << "] " << "Start ST DONE"  << std::endl;
 }
@@ -923,6 +935,7 @@ void Stabilizer::stopStabilizer(void)
       m_robotHardwareService0->setServoDGainPercentageWithTime("all",100,tmp_time);
       usleep(tmp_time * 1e6);
       m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
+      is_reset_torque = true;
   }
   {
     Guard guard(m_mutex);
