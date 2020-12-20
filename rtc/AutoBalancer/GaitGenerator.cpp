@@ -770,18 +770,20 @@ namespace rats
           step_node preprev_fs = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front());
           hrp::Vector3 prev_fs_pos = footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
           hrp::Vector3 ez = hrp::Vector3::UnitZ();
+          double max_stride_forward = overwritable_stride_limitation[0]; // TODO : Only forward stepping up is assumed
+          if (prev_fs_pos(2) - preprev_fs_pos(2) > lcg.get_default_step_height()) max_stride_forward = 0.005; // 5mm
           calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
           calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot, ez);
           if (cur_leg == RLEG) {
             stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
-            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
-            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(max_stride_forward, -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(max_stride_forward, -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
           } else {
             stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
-            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
-            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(max_stride_forward, overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
+            stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(max_stride_forward, overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
           }
           for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
             bool is_nan = false;
