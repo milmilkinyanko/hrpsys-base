@@ -1249,6 +1249,8 @@ void AutoBalancer::getTargetParameters()
     updateWalkingVelocityFromHandError(tmp_fix_coords);
     calcReferenceJointAnglesForIK();
 
+    calcTouchoffRemainTime();
+
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
@@ -1620,17 +1622,28 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
-void AutoBalancer::stopFootForEarlyTouchDown ()
+// assume biped walking
+void AutoBalancer::calcTouchoffRemainTime()
 {
-  double remain_time = 0.0;
   bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
-      remain_time = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
+      touchoff_remain_time[i] = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
                                                      ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
                                                       ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
                                                      gg->get_default_step_time() + m_dt : 0);
-      if (st->stikp.size() > i) st->stikp[i].remain_time = remain_time;
+      if (st->stikp.size() > i) st->stikp[i].touchoff_remain_time = touchoff_remain_time[i];
+    } else {
+      touchoff_remain_time[i] = 0.0;
+    }
+  }
+}
+
+void AutoBalancer::stopFootForEarlyTouchDown ()
+{
+  bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
+  for (size_t i = 0; i < 2; i++) {
+    if (gg_is_walking) {
       if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
         if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
           double tmp_ratio = 1.0;
@@ -1638,14 +1651,14 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
           touchdown_transition_interpolator[leg_names[i]]->set(&tmp_ratio);
           ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i];
           tmp_ratio = 0.0;
-          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
           is_foot_touch[i] = true;
         }
       }
     }
     if (!touchdown_transition_interpolator[leg_names[i]]->isEmpty()) {
       double tmp_ratio = 0.0;
-      touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+      touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
       touchdown_transition_interpolator[leg_names[i]]->get(&tmp_ratio, true);
       ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i] * tmp_ratio + ikp[leg_names[i]].target_p0 * (1.0 - tmp_ratio);
     } else {

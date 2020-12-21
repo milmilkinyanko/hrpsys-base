@@ -71,7 +71,7 @@ public:
     // For swing ee modification
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > target_ee_diff_p_filter;
     hrp::Vector3 target_ee_diff_p, d_pos_swing, d_rpy_swing, prev_d_pos_swing, prev_d_rpy_swing;
-    double remain_time;
+    double touchoff_remain_time;
     // IK parameter
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;

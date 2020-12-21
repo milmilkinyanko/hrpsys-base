@@ -70,7 +70,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     ikp.eefm_swing_pos_spring_gain = hrp::Vector3(0.0, 0.0, 0.0);
     ikp.eefm_swing_pos_time_const = hrp::Vector3(1.5, 1.5, 1.5);
     ikp.eefm_ee_moment_limit = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
-    ikp.remain_time = 0.0;
+    ikp.touchoff_remain_time = 0.0;
     if (ikp.ee_name.find("leg") == std::string::npos) { // Arm default
       ikp.eefm_ee_forcemoment_distribution_weight = Eigen::Matrix<double, 6,1>::Zero();
     } else { // Leg default
@@ -1814,7 +1814,7 @@ void Stabilizer::calcSwingEEModification ()
         swing_modification_interpolator[stikp[i].ee_name]->clear();
         swing_modification_interpolator[stikp[i].ee_name]->set(&tmp_ratio);
         tmp_ratio = 0.0;
-        swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time, true);
+        swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].touchoff_remain_time, true);
         is_foot_touch[i] = true;
       }
     } else if (swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
@@ -1844,7 +1844,7 @@ void Stabilizer::calcSwingEEModification ()
     }
     if (!swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
       double tmp_ratio = 0.0;
-      swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time, true);
+      swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].touchoff_remain_time, true);
       swing_modification_interpolator[stikp[i].ee_name]->get(&tmp_ratio, true);
       stikp[i].d_pos_swing = touchdown_d_pos[i] * tmp_ratio;
       stikp[i].d_rpy_swing = touchdown_d_rpy[i] * tmp_ratio;

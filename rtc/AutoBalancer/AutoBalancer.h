@@ -311,6 +311,7 @@ class AutoBalancer
   void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
   void stopFootForEarlyTouchDown();
+  void calcTouchoffRemainTime();
   void limbStretchAvoidanceControl();
 
   // for gg
@@ -381,6 +382,7 @@ class AutoBalancer
   interpolator *touch_wall_transition_interpolator;
   hrp::Vector3 touchdown_foot_pos[2];
   bool is_foot_touch[2];
+  double touchoff_remain_time[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
