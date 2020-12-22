@@ -1344,7 +1344,7 @@ namespace rats
       new_pos = cur_fs.worldcoords.pos.head(2);
       new_short = hrp::Vector3::Zero();
       if (!is_inside_convex_hull(new_pos, new_remain_time, new_short, steppable_region[cur_sup][i], hrp::Vector3::Zero(), false, true, limit_r, omega, rel_cur_cp, prev_fs_pos, prev_fs_rot, cur_sup)) {
-        if (cur_fs.worldcoords.pos.head(2).dot(new_pos) > cur_fs.worldcoords.pos.head(2).dot(tmp_pos)) {
+        if (cur_fs.worldcoords.pos.head(2).dot(new_pos) > cur_fs.worldcoords.pos.head(2).dot(tmp_pos) || !is_out) {
           is_out = true;
           tmp_dt = new_remain_time - remain_count*dt;
           tmp_pos = new_pos;
