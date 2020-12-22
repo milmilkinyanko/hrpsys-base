@@ -1319,8 +1319,8 @@ namespace rats
 
   void gait_generator::limit_stride_vision (step_node& cur_fs, hrp::Vector3& short_of_footstep, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp)
   {
-    step_node fs_for_touch_wall = cur_fs;
-    limit_stride_rectangle(fs_for_touch_wall, prev_fs, overwritable_stride_limitation);
+    limit_stride_rectangle(cur_fs, prev_fs, overwritable_stride_limitation);
+    hrp::Vector3 fspos_for_touch_wall = cur_fs.worldcoords.pos;
     // preprev foot frame
     hrp::Matrix33 preprev_fs_rot, prev_fs_rot;
     hrp::Vector3 prev_fs_pos, preprev_fs_pos = preprev_fs.worldcoords.pos;
@@ -1368,7 +1368,7 @@ namespace rats
 
     // check for touch wall
     // TODO: should consider the case where is_out = true while footstep is inside the limit_stride (like stepping stone)
-    if (short_of_footstep.norm() > 5e-2 && (cur_fs.worldcoords.pos - fs_for_touch_wall.worldcoords.pos).norm() > 1e-2 && lcg.get_footstep_index() > 1) { // 1cm
+    if (short_of_footstep.norm() > 5e-2 && (cur_fs.worldcoords.pos - fspos_for_touch_wall).norm() > 1e-2 && lcg.get_footstep_index() > 1) { // 1cm
       is_emergency_touch_wall = true;
     }
   }
