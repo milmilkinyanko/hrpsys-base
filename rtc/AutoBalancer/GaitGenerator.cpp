@@ -773,11 +773,11 @@ namespace rats
           double max_stride_forward = overwritable_stride_limitation[0], max_stride_rear = overwritable_stride_limitation[3]; // TODO : Only forward and rear stepping up is assumed
           double stair_margin = 0.02;
           if (prev_fs_pos(2) - preprev_fs_pos(2) > lcg.get_default_step_height() - stair_margin) {
-              if (vel_param.velocity_x > 0) max_stride_forward = 0.005; // 5mm
-              else max_stride_rear = 0.005; // 5mm
+              if (vel_param.velocity_x >= 0.0) max_stride_forward = 0.005; // 5mm
+              if (vel_param.velocity_x <= 0.0) max_stride_rear = 0.005; // 5mm
           } else if (prev_fs_pos(2) - preprev_fs_pos(2) < -(lcg.get_default_step_height() - stair_margin)) {
-              if (vel_param.velocity_x > 0) max_stride_forward = 0.05; // 5cm
-              else max_stride_rear = 0.05; // 5cm
+              if (vel_param.velocity_x >= 0.0) max_stride_forward = 0.05; // 5cm
+              if (vel_param.velocity_x <= 0.0) max_stride_rear = 0.05; // 5cm
           }
           calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
           calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot, ez);
