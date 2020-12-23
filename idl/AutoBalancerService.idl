@@ -342,6 +342,8 @@ module OpenHRP
       boolean debug_set_landing_height;
       double debug_landing_height;
       DblArray2 debug_landing_height_xrange;
+      // (x, y) [m]
+      DblArray2 front_edge_offset_of_steppable_region;
     };
 
     /**

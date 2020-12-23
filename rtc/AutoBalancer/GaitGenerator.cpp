@@ -1356,7 +1356,11 @@ namespace rats
       }
     }
     if (is_out) {
-      cur_fs.worldcoords.pos.head(2) = tmp_pos;
+      if (cur_fs.worldcoords.pos(0) > tmp_pos(0)) { // when stride is limited by front edge of steppable region
+        cur_fs.worldcoords.pos.head(2) = tmp_pos + front_edge_offset_of_steppable_region;
+      } else {
+        cur_fs.worldcoords.pos.head(2) = tmp_pos;
+      }
       change_step_time(tmp_dt);
       short_of_footstep = tmp_short;
     }

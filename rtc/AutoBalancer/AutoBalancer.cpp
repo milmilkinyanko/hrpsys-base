@@ -2540,6 +2540,9 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   for (size_t i = 0; i < 2; i++) {
     gg->debug_landing_height_xrange[i] = i_param.debug_landing_height_xrange[i];
   }
+  for (size_t i = 0; i < 2; i++) {
+    gg->front_edge_offset_of_steppable_region[i] = i_param.front_edge_offset_of_steppable_region[i];
+  }
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2667,6 +2670,9 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.debug_landing_height = gg->debug_landing_height;
   for (size_t i = 0; i < 2; i++) {
     i_param.debug_landing_height_xrange[i] = gg->debug_landing_height_xrange[i];
+  }
+  for (size_t i = 0; i < 2; i++) {
+    i_param.front_edge_offset_of_steppable_region[i] = gg->front_edge_offset_of_steppable_region[i];
   }
   return true;
 };
