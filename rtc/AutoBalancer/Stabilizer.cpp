@@ -122,7 +122,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   detection_count_to_air = static_cast<int>(0.0 / dt);
   transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   transition_interpolator->setName(std::string(print_str)+" transition_interpolator");
-  is_foot_touch.resize(stikp.size(), false);
+  is_foot_touch.resize(stikp.size(), true);
   touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
   touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
   prev_ref_zmp = hrp::Vector3::Zero();
@@ -860,7 +860,7 @@ void Stabilizer::sync_2_st ()
     ikp.d_foot_pos = ikp.ee_d_foot_pos = ikp.d_foot_rpy = ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
     ikp.omega.angle() = 0.0;
     swing_modification_interpolator[ikp.ee_name]->clear();
-    is_foot_touch[i] = false;
+    is_foot_touch[i] = true;
   }
   if (on_ground) {
     transition_count = -1 * calcMaxTransitionCount();
