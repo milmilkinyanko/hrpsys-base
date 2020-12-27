@@ -809,7 +809,7 @@ namespace rats
       act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
       ref_cp = cur_refcog + cur_refcogvel / ref_omega;
       hrp::Vector3 act_cpvel = (act_cp - prev_act_cp) / dt;
-      if (use_act_states && (lcg.get_footstep_index() > 1 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) {
+      if (use_act_states && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) {
         tmp_fxy.head(2) = (total_mass * cur_omega * (act_cpvel - cur_omega * (act_cp - refzmp))).head(2);
         if (isfinite(tmp_fxy(0)) && isfinite(tmp_fxy(1))) {
           sum_fx += tmp_fxy;
