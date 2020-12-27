@@ -87,6 +87,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_tmpOut("tmp", m_tmp),
+      m_currentLandingPosOut("currentLandingPos", m_currentLandingPos),
       m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
@@ -161,6 +162,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
+    addOutPort("currentLandingPosOut", m_currentLandingPosOut);
     addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
@@ -996,6 +998,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_tmp.data[24] = gg->get_tmp(22);
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
+      if (gg_is_walking) {
+        m_currentLandingPos.data.x = gg->get_current_landing_pos(0);
+        m_currentLandingPos.data.y = gg->get_current_landing_pos(1);
+        m_currentLandingPos.data.z = gg->get_current_landing_pos(2);
+      } else {
+        m_currentLandingPos.data.x = 0.0;
+        m_currentLandingPos.data.y = 0.0;
+        m_currentLandingPos.data.z = 0.0;
+      }
+      m_currentLandingPos.tm = m_qRef.tm;
+      m_currentLandingPosOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
         for (size_t j = 0; j < 3; j++) {
           m_allEEComp.data[6*i+j] = st->stikp[i].d_pos_swing(j);

@@ -1966,6 +1966,9 @@ namespace rats
     double get_dc_gain () { return dc_gain; };
     double get_dcm_offset () { return dcm_offset; };
     double get_tmp (const size_t idx) {return tmp[idx];}
+    double get_current_landing_pos (const size_t idx) {
+      return footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(idx);
+    }
     double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
     void get_sum_d_footstep_thre (hrp::Vector3& thre) { thre = sum_d_footstep_thre; };
     void get_footstep_check_delta (hrp::Vector3& delta) { delta = footstep_check_delta; };

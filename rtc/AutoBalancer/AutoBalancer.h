@@ -189,6 +189,8 @@ class AutoBalancer
   OutPort<TimedDoubleSeq> m_qAbcOut;
   TimedDoubleSeq m_tmp;
   OutPort<TimedDoubleSeq> m_tmpOut;
+  TimedPoint3D m_currentLandingPos;
+  OutPort<TimedPoint3D> m_currentLandingPosOut;
   TimedPoint3D m_diffFootOriginExtMoment;
   OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
   TimedDoubleSeq m_allEEComp;
