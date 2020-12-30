@@ -985,7 +985,7 @@ namespace rats
     size_t double_remain_count;
     hrp::Vector3 ref_dcm(hrp::Vector3::Zero()), next_ref_dcm(hrp::Vector3::Zero()), tmp_start_ref_zmp, tmp_goal_ref_zmp;
     bool use_double_support(true), is_second_ver(true);
-    bool is_start_or_end_phase(false), is_start_phase(false), is_end2_phase(false);
+    bool is_start_or_end_phase(false), is_start_phase(false), is_end2_phase(false), is_end_phase(false);
     double double_support_ratio(default_double_support_ratio_before + default_double_support_ratio_after);
     fg_ref_zmp = hrp::Vector3::Zero();
     remain_count = lcg.get_lcg_count();
@@ -1033,6 +1033,7 @@ namespace rats
       else double_support_ratio = default_double_support_ratio_after;
       fg_ref_zmp = ref_dcm = (fg_ref_zmp + ref_dcm) / 2.0;
       is_start_or_end_phase = true;
+      is_end_phase = true;
       remain_count = fg_step_count - finalize_count;
       if (fg_step_count > finalize_count) {
         finalize_count++;
@@ -1184,12 +1185,13 @@ namespace rats
     hrp::Vector3 feedforward_zmp;
     foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // interpolate zmp when double support phase
-    if (is_double_support_phase) {
+    if (is_double_support_phase || is_end_phase) {
       double tmp_ratio = 0.0;
       if (double_support_zmp_interpolator->isEmpty()) {
+        double tmp_time = (is_double_support_phase ? fg_step_count * double_support_ratio * dt : fg_step_count * dt);
         double_support_zmp_interpolator->set(&tmp_ratio);
         tmp_ratio = 1.0;
-        double_support_zmp_interpolator->setGoal(&tmp_ratio, fg_step_count * double_support_ratio * dt, true);
+        double_support_zmp_interpolator->setGoal(&tmp_ratio, tmp_time, true);
       }
       double_support_zmp_interpolator->get(&tmp_ratio, true);
       hrp::Vector3 tmp_zmp = (use_act_states && is_interpolate_zmp_in_double) ? ad_ref_zmp : feedforward_zmp;
