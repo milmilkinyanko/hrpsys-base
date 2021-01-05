@@ -137,6 +137,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   support2swing_transition_time = 0.05;
   use_force_sensor = true;
   is_reset_torque = false;
+  is_after_walking = false;
+  after_walking_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
+  after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -542,6 +545,24 @@ void Stabilizer::getActualParametersForST ()
         new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
       }
     }
+    if (is_walking) {
+      is_after_walking = true;
+      if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
+      after_walking_refzmp = new_refzmp;
+    } else {
+      if (is_after_walking) {
+        double tmp_ratio = 1.0;
+        after_walking_interpolator->set(&tmp_ratio);
+        tmp_ratio = 0.0;
+        after_walking_interpolator->setGoal(&tmp_ratio, 0.5, true);
+        is_after_walking = false;
+      }
+      if (!after_walking_interpolator->isEmpty()) {
+        double tmp_ratio;
+        after_walking_interpolator->get(&tmp_ratio, true);
+        new_refzmp = tmp_ratio * after_walking_refzmp + (1.0 - tmp_ratio) * new_refzmp;
+      }
+    }
     if (DEBUGP) {
       // All state variables are foot_origin coords relative
       std::cerr << "[" << print_str << "] state values" << std::endl;
@@ -851,6 +872,8 @@ void Stabilizer::sync_2_st ()
   pdr = hrp::Vector3::Zero();
   pos_ctrl = hrp::Vector3::Zero();
   prev_ref_foot_origin_rot = hrp::Matrix33::Identity();
+  is_after_walking = false;
+  if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();

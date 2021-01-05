@@ -611,6 +611,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
   delete limit_cog_interpolator;
+  delete st->after_walking_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
