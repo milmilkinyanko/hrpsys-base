@@ -455,6 +455,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
     limit_cog_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
     limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
+    hand_fix_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
+    hand_fix_interpolator->setName(std::string(m_profile.instance_name)+" hand_fix_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -569,6 +571,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_after_walking = false;
     prev_roll_state = prev_pitch_state = false;
     prev_orig_cog = orig_cog = hrp::Vector3::Zero();
+    prev_orig_dif_p = orig_dif_p = hrp::Vector3::Zero();
 
     is_emergency_step_mode = false;
     is_emergency_touch_wall_mode = false;
@@ -611,6 +614,7 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
   delete limit_cog_interpolator;
+  delete hand_fix_interpolator;
   delete st->after_walking_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
@@ -1498,19 +1502,29 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                     it->second.handfix_target_p0 = it->second.target_p0;
                 }
             }
+            prev_orig_dif_p = orig_dif_p;
+            orig_dif_p = dif_p;
         }
-    } else if (!limit_cog_interpolator->isEmpty()) {
-      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
-             && it->first.find("arm") != std::string::npos ) {
-          it->second.target_p0 = it->second.target_p0 - limited_dif_cog;
-        }
-      }
     } else if (is_after_walking) {
+      std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
+      double tmp_time = 5.0;
+      for (size_t i = 0; i < 3; i++) {
+        start_pos[i] = orig_dif_p(i);
+        start_vel[i] = (orig_dif_p(i) - prev_orig_dif_p(i)) / m_dt;
+        goal_pos[i] = 0.0;
+      }
+      hand_fix_interpolator->set(start_pos.data(), start_vel.data());
+      hand_fix_interpolator->setGoal(goal_pos.data(), tmp_time, true);
+    }
+    if (!hand_fix_interpolator->isEmpty()) {
+      std::vector<double> tmp_v(3);
+      hand_fix_interpolator->get(tmp_v.data(), true);
       for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
-          it->second.target_p0 = it->second.handfix_target_p0;
+          for (size_t i = 0; i < 3; i++) {
+            it->second.target_p0(i) = it->second.target_p0(i) + tmp_v[i];
+          }
         }
       }
     }
@@ -1979,14 +1993,16 @@ void AutoBalancer::limit_cog (hrp::Vector3& cog)
     is_after_walking = false;
   }
   if (!limit_cog_interpolator->isEmpty()) {
-    limited_dif_cog = cog;
     std::vector<double> tmp_v(3);
+    double tmp_time = limit_cog_interpolator->get_remain_time();
+    for (size_t i = 0; i < 3; i++) {
+      tmp_v[i] = cog(i);
+    }
+    limit_cog_interpolator->setGoal(tmp_v.data(), tmp_time, true);
     limit_cog_interpolator->get(tmp_v.data(), true);
     for (size_t i = 0; i < 3; i++) {
       cog(i) = tmp_v[i];
     }
-    limited_dif_cog -= cog;
-    limited_dif_cog(2) = 0.0;
   }
 }
 
@@ -2050,12 +2066,14 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   prev_ref_zmp = ref_zmp;
   prev_roll_state = false;
   prev_pitch_state = false;
+  prev_orig_dif_p = hrp::Vector3::Zero();
   gg->set_is_emergency_step(false);
   angular_momentum_interpolator->clear();
   roll_weight_interpolator->clear();
   pitch_weight_interpolator->clear();
   limit_cog_interpolator->clear();
   fik->resetCollision();
+  hand_fix_interpolator->clear();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }

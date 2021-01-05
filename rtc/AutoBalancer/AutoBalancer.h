@@ -326,7 +326,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog, limited_dif_cog;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -352,6 +352,7 @@ class AutoBalancer
   interpolator *go_vel_interpolator;
   interpolator *cog_constraint_interpolator;
   interpolator *limit_cog_interpolator;
+  interpolator *hand_fix_interpolator;
   hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
   hrp::Matrix33 input_baseRot, ref_baseRot;
 
@@ -365,7 +366,7 @@ class AutoBalancer
   int loop;
   bool graspless_manip_mode;
   std::string graspless_manip_arm;
-  hrp::Vector3 graspless_manip_p_gain;
+  hrp::Vector3 graspless_manip_p_gain, orig_dif_p, prev_orig_dif_p;
   rats::coordinates graspless_manip_reference_trans_coords;
 
   hrp::InvDynStateBuffer idsb;

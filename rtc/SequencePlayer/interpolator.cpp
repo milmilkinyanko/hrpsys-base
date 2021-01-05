@@ -395,3 +395,8 @@ double interpolator::remain_time()
 {
   return dt*length;
 }
+
+double interpolator::get_remain_time()
+{
+  return remain_t;
+}

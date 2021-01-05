@@ -48,6 +48,7 @@ public:
 	    bool immediate=true, size_t offset1 = 0, size_t offset2 = 0);
   bool isEmpty();
   double remain_time();
+  double get_remain_time();
   double calc_interpolation_time(const double *g);
   bool setInterpolationMode (interpolation_mode i_mode_);
   // Set goal
