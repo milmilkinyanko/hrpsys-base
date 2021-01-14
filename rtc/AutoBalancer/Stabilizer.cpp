@@ -554,7 +554,7 @@ void Stabilizer::getActualParametersForST ()
         double tmp_ratio = 1.0;
         after_walking_interpolator->set(&tmp_ratio);
         tmp_ratio = 0.0;
-        after_walking_interpolator->setGoal(&tmp_ratio, 0.5, true);
+        after_walking_interpolator->setGoal(&tmp_ratio, 0.01, true);
         is_after_walking = false;
       }
       if (!after_walking_interpolator->isEmpty()) {
