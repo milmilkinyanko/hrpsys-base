@@ -800,6 +800,8 @@ namespace rats
             }
           }
         }
+
+        changed_step_time_stair = false;
       }
       // dc fxy
       hrp::Vector3 prev_fxy = fxy;
@@ -1481,6 +1483,17 @@ namespace rats
         !(act_contact_states[0] && act_contact_states[1])
         ) {
       is_modify_pahse = true;
+      // step timing extenstion for stair
+      if (is_slow_stair_mode && lcg.get_footstep_index() > 1) { // 1st step is not extended
+        double stair_margin = 0.02;
+        if (!changed_step_time_stair &&
+            std::fabs(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) - footstep_nodes_list[lcg.get_footstep_index()-2].front().worldcoords.pos(2)) > std::fabs(lcg.get_default_step_height() - stair_margin) &&
+          default_step_time + stair_step_time > footstep_nodes_list[lcg.get_footstep_index()].front().step_time) {
+          double tmp_dt = default_step_time + stair_step_time - footstep_nodes_list[lcg.get_footstep_index()].front().step_time;
+          change_step_time(tmp_dt);
+          changed_step_time_stair = true;
+        }
+      }
       // step timing modification
       {
         double tmp_dt = 0.0;

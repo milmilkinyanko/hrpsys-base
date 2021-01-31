@@ -344,6 +344,8 @@ module OpenHRP
       DblArray2 debug_landing_height_xrange;
       // (x, y) [m]
       DblArray2 front_edge_offset_of_steppable_region;
+      boolean is_slow_stair_mode;
+      double stair_step_time;
     };
 
     /**
