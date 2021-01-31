@@ -1726,6 +1726,8 @@ namespace rats
     size_t orig_lcg_cnt = lcg.get_lcg_count();
     lcg.set_lcg_count(lcg.get_lcg_count() + static_cast<size_t>(tmp_dt/dt));
     lcg.set_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt);
+    rg.set_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt);
+    rg.set_refzmp_count(lcg.get_lcg_count());
     lcg.reset_one_step_count(lcg.get_lcg_count() - orig_lcg_cnt, default_double_support_ratio_before, default_double_support_ratio_after);
     modified_d_step_time += tmp_dt;
   }

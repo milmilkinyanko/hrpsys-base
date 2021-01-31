@@ -355,6 +355,7 @@ namespace rats
       void update_refzmp ();
       // setter
       void set_indices (const size_t idx) { refzmp_index = idx; };
+      void set_one_step_count (const size_t d_cnt) { one_step_count += d_cnt; };
       void set_refzmp_count(const size_t _refzmp_count) { refzmp_count = _refzmp_count; };
       void set_default_zmp_offsets(const std::vector<hrp::Vector3>& tmp) { default_zmp_offsets = tmp; };
       void set_toe_zmp_offset_x (const double _off) { toe_zmp_offset_x = _off; };
