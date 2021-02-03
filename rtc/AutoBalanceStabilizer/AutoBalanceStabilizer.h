@@ -217,6 +217,12 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     TimedDoubleSeq m_baseTform;
     OutPort<TimedDoubleSeq> m_baseTformOut;
     OutPort<TimedPoint3D> m_refZmpOut;
+    TimedPoint3D m_nominalZmp;
+    OutPort<TimedPoint3D> m_nominalZmpOut;
+    TimedPoint3D m_refEndCp;
+    OutPort<TimedPoint3D> m_refEndCpOut;
+    TimedPoint3D m_newRefCp;
+    OutPort<TimedPoint3D> m_newRefCpOut;
     TimedPoint3D m_refCmp; // Calculated by cog trajectory
     OutPort<TimedPoint3D> m_refCmpOut;
     TimedPoint3D m_baseOriginRefZmp;
@@ -300,6 +306,9 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     inline void writeOutPortData(const hrp::Vector3& base_pos,
                                  const hrp::Matrix33& base_rot,
                                  const hrp::Vector3& ref_zmp_global,
+                                 const hrp::Vector3& nominal_zmp_global,
+                                 const hrp::Vector3& ref_end_cp_global,
+                                 const hrp::Vector3& new_ref_cp_global,
                                  const hrp::Vector3& ref_zmp_base_frame,
                                  // const hrp::Vector3& ref_cmp,
                                  const hrp::Vector3& ref_cog,
@@ -384,6 +393,11 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     hrp::Vector3 ref_zmp = hrp::Vector3::Zero();
     hrp::Vector3 prev_ref_zmp = hrp::Vector3::Zero();
     hrp::Vector3 ref_angular_momentum = hrp::Vector3::Zero();
+
+    // for abc log
+    hrp::Vector3 nominal_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 ref_end_cp = hrp::Vector3::Zero();
+    hrp::Vector3 new_ref_cp = hrp::Vector3::Zero();
 
     hrp::Vector3 prev_imu_sensor_pos = hrp::Vector3::Zero();
     hrp::Vector3 prev_imu_sensor_vel = hrp::Vector3::Zero();

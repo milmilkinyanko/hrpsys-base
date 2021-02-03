@@ -89,6 +89,9 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
 
       // Out port for debugging
       m_refZmpOut("refZmpOut", m_refZmp), // global
+      m_nominalZmpOut("nominalZmpOut", m_nominalZmp), // global
+      m_refEndCpOut("refEndCpOut", m_refEndCp), // global
+      m_newRefCpOut("newRefCpOut", m_newRefCp), // global
       m_refCmpOut("refCmpOut", m_refCmp),
       m_baseOriginRefZmpOut("baseOriginRefZmp", m_baseOriginRefZmp),
       m_baseTformOut("baseTformOut", m_baseTform),
@@ -368,6 +371,9 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         gg->forwardTimeStep(loop);
         gg->calcCogAndLimbTrajectory(loop, m_dt);
         ref_zmp = gg->getRefZMP();
+        nominal_zmp = gg->getNominalZMP();
+        ref_end_cp = gg->getRefEndCP();
+        new_ref_cp = gg->getNewRefCP();
 
         // TODO: rootlink計算
         // TODO: IKを後ろに回す
@@ -490,7 +496,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
                                           sbp_cog_offset},
                        hrp::paramsFromSensors{q_act, act_rpy, act_wrenches});
 
-    writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, ref_zmp_base_frame,
+    writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, nominal_zmp, ref_end_cp, new_ref_cp, ref_zmp_base_frame,
                      gg->getCog(), gg->getCogVel(), gg->getCogAcc(),
                      ref_angular_momentum, sbp_cog_offset,
                      kf_acc_ref, st->getStabilizerPortData());
@@ -544,6 +550,9 @@ void AutoBalanceStabilizer::setupBasicPort()
 
     // Out port for debugging
     addOutPort("refZmpOut", m_refZmpOut);
+    addOutPort("nominalZmpOut", m_nominalZmpOut);
+    addOutPort("refEndCpOut", m_refEndCpOut);
+    addOutPort("newRefCpOut", m_newRefCpOut);
     addOutPort("refCmpOut", m_refCmpOut);
     addOutPort("baseOriginRefZmp", m_baseOriginRefZmpOut);
     addOutPort("baseTformOut", m_baseTformOut);
@@ -669,6 +678,9 @@ void AutoBalanceStabilizer::readInportData()
 void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
                                              const hrp::Matrix33& base_rot,
                                              const hrp::Vector3& ref_zmp_global,
+                                             const hrp::Vector3& nominal_zmp_global,
+                                             const hrp::Vector3& ref_end_cp_global,
+                                             const hrp::Vector3& new_ref_cp_global,
                                              const hrp::Vector3& ref_zmp_base_frame,
                                              // const hrp::Vector3& ref_cmp,
                                              const hrp::Vector3& ref_cog,
@@ -725,6 +737,24 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_refZmp.data.y = ref_zmp_global(1);
     m_refZmp.data.z = ref_zmp_global(2);
     m_refZmpOut.write();
+
+    m_nominalZmp.tm     = m_qRef.tm;
+    m_nominalZmp.data.x = nominal_zmp_global(0);
+    m_nominalZmp.data.y = nominal_zmp_global(1);
+    m_nominalZmp.data.z = nominal_zmp_global(2);
+    m_nominalZmpOut.write();
+
+    m_refEndCp.tm     = m_qRef.tm;
+    m_refEndCp.data.x = ref_end_cp_global(0);
+    m_refEndCp.data.y = ref_end_cp_global(1);
+    m_refEndCp.data.z = ref_end_cp_global(2);
+    m_refEndCpOut.write();
+
+    m_newRefCp.tm     = m_qRef.tm;
+    m_newRefCp.data.x = new_ref_cp_global(0);
+    m_newRefCp.data.y = new_ref_cp_global(1);
+    m_newRefCp.data.z = new_ref_cp_global(2);
+    m_newRefCpOut.write();
 
     m_baseOriginRefZmp.tm     = m_qRef.tm;
     m_baseOriginRefZmp.data.x = ref_zmp_base_frame(0);
