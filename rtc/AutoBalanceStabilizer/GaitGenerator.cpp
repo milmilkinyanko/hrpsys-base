@@ -815,9 +815,10 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const Eigen::Isometry3d& swing_target = cur_constraints.constraints[swing_idx].targetCoord();
         sup_to_swing_trans = support_target.inverse() * swing_target;
 
-        const size_t min_num_steps = 1 + std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
+        const size_t min_num_steps = std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
                                                   static_cast<size_t>(std::ceil(dr.angle() / max_rot_angle)));
-        new_constraints.reserve(min_num_steps + 1 + 3);
+        new_constraints.reserve(2 * min_num_steps + 5);
+
         for (size_t i = 0; i < 2; ++i) {
             new_constraints.push_back(cur_constraints);
             ConstraintsWithCount& added_constraints = new_constraints.back();
