@@ -255,6 +255,8 @@ inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount
 inline int getNextStableConstraints(const std::vector<ConstraintsWithCount>& constraints_list, const size_t current_idx = 0)
 {
     const size_t constraint_list_size = constraints_list.size();
+    if (constraint_list_size > 1 && current_idx == 0) return 2;
+
     for (int i = current_idx + 1; i < constraint_list_size; ++i) {
         if (constraints_list[i].is_stable) return i;
     }
