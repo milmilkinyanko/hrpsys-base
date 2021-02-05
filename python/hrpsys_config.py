@@ -973,6 +973,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abst, 'nominalZmpOut')
             self.connectLoggerPort(self.abst, 'refEndCpOut')
             self.connectLoggerPort(self.abst, 'newRefCpOut')
+            self.connectLoggerPort(self.abst, 'remainTimeOut')
             self.connectLoggerPort(self.abst, 'baseOriginRefZmp')
             self.connectLoggerPort(self.abst, 'refCogOut')
             self.connectLoggerPort(self.abst, 'refCogVelOut')
