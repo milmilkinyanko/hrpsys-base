@@ -271,6 +271,14 @@ class GaitGenerator
     void setDefaultStepHeight(const double height)   { default_step_height = height; }
     void setMaxStride(const double stride)           { max_stride = stride; }
     void setMaxRotAngle(const double angle_rad)      { max_rot_angle = angle_rad; }
+    void setDefaultTakeOffZ(const double take_off_z) {
+        default_take_off_z = take_off_z;
+        std::cerr << "[GaitGenerator] default_take_off_z is set to : " << default_take_off_z << std::endl;
+    }
+    void setDefaultJumpHeight(const double jump_height) {
+        default_jump_height = jump_height;
+        std::cerr << "[GaitGenerator] default_jump_height is set to : " << default_jump_height << std::endl;
+    }
 
     void setUseToeHeel(const bool use_toe_heel)      { default_use_toe_heel = use_toe_heel; }
     void setToeKickAngle(const double angle_rad)     { toe_kick_angle = angle_rad; }
