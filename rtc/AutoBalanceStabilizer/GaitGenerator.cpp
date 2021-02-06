@@ -815,14 +815,16 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const Eigen::Isometry3d& swing_target = cur_constraints.constraints[swing_idx].targetCoord();
         sup_to_swing_trans = support_target.inverse() * swing_target;
 
-        const size_t min_num_steps = 1 + std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
+        const size_t min_num_steps = std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
                                                   static_cast<size_t>(std::ceil(dr.angle() / max_rot_angle)));
-        new_constraints.reserve(min_num_steps + 1 + 3);
+        new_constraints.reserve(2 * min_num_steps + 5);
+
         for (size_t i = 0; i < 2; ++i) {
             new_constraints.push_back(cur_constraints);
             ConstraintsWithCount& added_constraints = new_constraints.back();
-            if (i == 1) {
+            if (i == 1) { // 二足歩行の場合は最初の両足支持期に相当
                 added_constraints.start_count = cur_constraints.start_count + default_single_support_count;
+                added_constraints.is_stable = false;
             }
         }
     }
@@ -891,6 +893,10 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     const Eigen::Isometry3d landing_target = last_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
 
     addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, false);
+    new_constraints.back().is_stable = false;
+
+    new_constraints.push_back(new_constraints.back());
+    new_constraints.back().start_count += default_double_support_count;
     new_constraints.back().is_stable = true;
 
     // Update constraints_list

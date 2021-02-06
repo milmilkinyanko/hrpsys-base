@@ -153,6 +153,11 @@ class GaitGenerator
 
     const hrp::Vector3& getCogMoment() const { return cog_moment; }
     const hrp::Vector3& getRefZMP() const { return ref_zmp; }
+    const hrp::Vector3& getNominalZMP() const { return cog_gen->getNominalZMP(); }
+    const hrp::Vector3& getRefEndCP() const { return cog_gen->getRefEndCP(); }
+    const hrp::Vector3& getNewRefCP() const { return cog_gen->getNewRefCP(); }
+    const double& getStepRemainTime() const { return cog_gen->getStepRemainTime(); }
+    const double& getConstRemainTime() const { return cog_gen->getConstRemainTime(); }
 
     // Todo: Private ?
     hrp::Vector3 calcReferenceCOPFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
