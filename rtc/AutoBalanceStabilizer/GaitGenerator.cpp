@@ -15,6 +15,8 @@
 
 namespace hrp {
 
+#define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
+
 GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
                              std::mutex& _mutex,
                              const double _dt,

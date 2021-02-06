@@ -361,6 +361,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     readInportData();
     updateBodyParams();
 
+    gg->setDebugLevel(m_debugLevel);
+
     if (control_mode != MODE_IDLE) {
         // adjustCOPCoordToTarget();
 

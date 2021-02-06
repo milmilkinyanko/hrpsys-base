@@ -42,6 +42,8 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
 
+    unsigned int m_debugLevel = 0;
+
     LocomotionMode locomotion_mode = WALK;
     WalkingMode walking_mode = FOOT_GUIDED_WALK;
     RunningMode running_mode = FOOT_GUIDED_RUN;
@@ -261,6 +263,7 @@ class GaitGenerator
                                  const double max_step_length, const double max_rotate_angle /*[rad]*/,
                                  const int support_id, const int swing_id);
 
+    void setDebugLevel(const unsigned int _m_debugLevel) { m_debugLevel = _m_debugLevel; }
 
     /* Service below */
     std::vector<int> getConstraintLinkIds();
