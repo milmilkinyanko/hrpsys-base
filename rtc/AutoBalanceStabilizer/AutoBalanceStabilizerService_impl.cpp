@@ -106,10 +106,25 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::goStop()
 //   return m_autobalancestabilizer->setFootSteps(fss, overwrite_fs_idx);
 // }
 
+CORBA::Boolean AutoBalanceStabilizerService_impl::setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss)
+{
+    return m_autobalancestabilizer->setFootSteps(fss);
+};
+
 // CORBA::Boolean AutoBalanceStabilizerService_impl::setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
 // {
 //   return m_autobalancestabilizer->setFootStepsWithParam(fss, spss, overwrite_fs_idx);
 // }
+
+CORBA::Boolean AutoBalanceStabilizerService_impl::setRunningFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss)
+{
+    return m_autobalancestabilizer->setRunningFootSteps(fss);
+};
+
+CORBA::Boolean AutoBalanceStabilizerService_impl::setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss)
+{
+    return m_autobalancestabilizer->setJumpingFootSteps(fss);
+};
 
 void AutoBalanceStabilizerService_impl::waitFootSteps()
 {
