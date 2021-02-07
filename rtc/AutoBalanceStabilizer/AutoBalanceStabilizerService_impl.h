@@ -32,6 +32,9 @@ class AutoBalanceStabilizerService_impl
     void setUseToeHeel(const CORBA::Boolean use_toe_heel);
     void setToeKickAngle(const CORBA::Double angle_rad);
     void setHeelContactAngle(const CORBA::Double angle_rad);
+    void setDefaultTakeOffZ(const CORBA::Double take_off_z);
+    void setDefaultJumpHeight(const CORBA::Double jump_height);
+    // void setDefaultSupportCountRun(const CORBA::Double count);time?
     CORBA::Boolean setToeContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points);
     CORBA::Boolean setHeelContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points);
 
@@ -42,7 +45,10 @@ class AutoBalanceStabilizerService_impl
     CORBA::Boolean goStop();
     // CORBA::Boolean emergencyStop();
     // CORBA::Boolean setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
+    CORBA::Boolean setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
     // CORBA::Boolean setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
+    CORBA::Boolean setRunningFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
+    CORBA::Boolean setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
     void waitFootSteps();
     // void waitFootStepsEarly(CORBA::Double tm);
     CORBA::Boolean startAutoBalancer(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs);

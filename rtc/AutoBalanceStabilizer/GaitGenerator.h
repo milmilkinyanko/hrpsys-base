@@ -42,6 +42,8 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
 
+    unsigned int m_debugLevel = 0;
+
     LocomotionMode locomotion_mode = WALK;
     WalkingMode walking_mode = FOOT_GUIDED_WALK;
     RunningMode running_mode = FOOT_GUIDED_RUN;
@@ -266,6 +268,7 @@ class GaitGenerator
                                  const double max_step_length, const double max_rotate_angle /*[rad]*/,
                                  const int support_id, const int swing_id);
 
+    void setDebugLevel(const unsigned int _m_debugLevel) { m_debugLevel = _m_debugLevel; }
 
     /* Service below */
     std::vector<int> getConstraintLinkIds();
@@ -276,6 +279,14 @@ class GaitGenerator
     void setDefaultStepHeight(const double height)   { default_step_height = height; }
     void setMaxStride(const double stride)           { max_stride = stride; }
     void setMaxRotAngle(const double angle_rad)      { max_rot_angle = angle_rad; }
+    void setDefaultTakeOffZ(const double take_off_z) {
+        default_take_off_z = take_off_z;
+        std::cerr << "[GaitGenerator] default_take_off_z is set to : " << default_take_off_z << std::endl;
+    }
+    void setDefaultJumpHeight(const double jump_height) {
+        default_jump_height = jump_height;
+        std::cerr << "[GaitGenerator] default_jump_height is set to : " << default_jump_height << std::endl;
+    }
 
     void setUseToeHeel(const bool use_toe_heel)      { default_use_toe_heel = use_toe_heel; }
     void setToeKickAngle(const double angle_rad)     { toe_kick_angle = angle_rad; }
@@ -289,6 +300,22 @@ class GaitGenerator
     bool goPos(const Eigen::Isometry3d& target,
                const std::vector<int>& support_link_cycle,
                const std::vector<int>& swing_link_cycle);
+    bool setFootSteps(const std::vector<int>& support_link_cycle,
+                      const std::vector<int>& swing_link_cycle,
+                      hrp::Vector3 footsteps_pos[],
+                      Eigen::Quaterniond footsteps_rot[],
+                      int fs_side[],
+                      int length);
+    bool setRunningFootSteps(hrp::Vector3 footsteps_pos[],
+                             Eigen::Quaterniond footsteps_rot[],
+                             int fs_side[],
+                             int length,
+                             const double dt,
+                             const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    bool setJumpingFootSteps(const double dt, std::vector<std::vector<hrp::Vector3> > footsteps_pos,
+                             std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot,
+                             std::vector<std::vector<int> > fs_side,
+                             const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startRunning(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startJumping(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startRunJumpDemo(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);

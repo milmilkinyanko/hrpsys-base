@@ -598,6 +598,8 @@ module OpenHRP
     void setUseToeHeel(in boolean use_toe_heel);
     void setToeKickAngle(in double angle_rad);
     void setHeelContactAngle(in double angle_rad);
+    void setDefaultTakeOffZ(in double take_off_z);
+    void setDefaultJumpHeight(in double jump_height);
     boolean setToeContactPoints(in long link_id, in DblSeq3Seq contact_points);
     boolean setHeelContactPoints(in long link_id, in DblSeq3Seq contact_points);
     void setWalkingMode(in WalkingMode mode);
@@ -637,6 +639,7 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     // boolean setFootSteps(in FootstepsSequence fss, in long overwrite_fs_idx);
+    boolean setFootSteps(in FootstepsSequence fss);
 
     /**
      * @brief Set footsteps. Returns without waiting for whole steps to be executed.
@@ -645,6 +648,20 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     // boolean setFootStepsWithParam(in FootstepsSequence fss, in StepParamsSequence spss, in long overwrite_fs_idx);
+
+    /**
+     * @brief Set footsteps for run. Returns without waiting for whole steps to be executed.
+     * @param fss is sequence of FootStep structure.
+     * @return true if set successfully, false otherwise
+     */
+    boolean setRunningFootSteps(in FootstepsSequence fss);
+
+    /**
+     * @brief Set footsteps for jump. Returns without waiting for whole steps to be executed.
+     * @param fss is sequence of FootStep structure.
+     * @return true if set successfully, false otherwise
+     */
+    boolean setJumpingFootSteps(in FootstepsSequence fss);
 
     /**
      * @brief Wait for whole footsteps are executed.

@@ -94,6 +94,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     void setUseToeHeel(const bool use_toe_heel)      { gg->setUseToeHeel(use_toe_heel); }
     void setToeKickAngle(const double angle_rad)     { gg->setToeKickAngle(angle_rad); }
     void setHeelContactAngle(const double angle_rad) { gg->setHeelContactAngle(angle_rad); }
+    void setDefaultTakeOffZ(const double take_off_z) { gg->setDefaultTakeOffZ(take_off_z); }
+    void setDefaultJumpHeight(const double jump_height) { gg->setDefaultJumpHeight(jump_height); }
     bool setToeContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points)
     {
         return gg->setToeContactPoints(link_id, contact_points);
@@ -128,9 +130,14 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
         return true;
     }
     bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
-    bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
+    bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
+    // bool setFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
     bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepSequence& fs, const OpenHRP::AutoBalanceStabilizerService::StepParamSequence& sps, CORBA::Long overwrite_fs_idx);
     bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
+    bool setRunningFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
+    // TODO setRunningFootStepsWithParam ?
+    bool setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
+    // TODO setJumpingFootStepsWithParam ?
     void waitFootSteps();
     void waitFootStepsEarly(const double tm);
     bool setGaitGeneratorParam(const OpenHRP::AutoBalanceStabilizerService::GaitGeneratorParam& i_param);
