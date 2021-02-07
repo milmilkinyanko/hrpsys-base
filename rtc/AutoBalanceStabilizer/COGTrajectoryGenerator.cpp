@@ -1,4 +1,4 @@
-]0;10;1c// -*- mode: C++; coding: utf-8-unix; -*-
+// -*- mode: C++; coding: utf-8-unix; -*-
 
 /**
  * @file  COGTrajectoryGenerator.h
