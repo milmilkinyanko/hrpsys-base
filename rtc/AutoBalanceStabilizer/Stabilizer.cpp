@@ -29,10 +29,11 @@ inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 =
 
 namespace hrp {
 
-Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt)
+Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex)
     : m_robot(boost::make_shared<hrp::Body>(*_robot)),
       comp_name(_comp_name),
-      dt(_dt)
+      dt(_dt),
+      m_mutex(_mutex)
 {
     limb_stretch_avoidance_vlimit[0] = -100 * 1e-3 * dt; // lower limit
     limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
@@ -1569,6 +1570,7 @@ void Stabilizer::startStabilizer()
         std::cerr << "[" << comp_name << "] " << "Moved to ST command pose and sync to TORQUE mode"  << std::endl;
         constexpr double DEFAULT_TRANSITION_TIME = 2.0;
 
+        std::lock_guard<std::mutex> lock(m_mutex);
         for (size_t i = 0; i < m_robot->numJoints(); ++i) {
             servo_pgains[i] = 100;
             servo_dgains[i] = 100;

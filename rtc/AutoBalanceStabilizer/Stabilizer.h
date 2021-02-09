@@ -67,7 +67,7 @@ struct stabilizerPortData
 class Stabilizer
 {
   public:
-    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt);
+    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
@@ -275,7 +275,7 @@ class Stabilizer
     };
 
     hrp::BodyPtr m_robot;
-    std::mutex m_mutex;
+    std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
     const std::string comp_name;
     const double dt;
     unsigned int loop = 0;
