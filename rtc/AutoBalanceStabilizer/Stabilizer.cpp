@@ -1570,6 +1570,7 @@ void Stabilizer::startStabilizer()
         std::cerr << "[" << comp_name << "] " << "Moved to ST command pose and sync to TORQUE mode"  << std::endl;
         constexpr double DEFAULT_TRANSITION_TIME = 2.0;
 
+        std::lock_guard<std::mutex> lock(m_mutex);
         for (size_t i = 0; i < m_robot->numJoints(); ++i) {
             servo_pgains[i] = 100;
             servo_dgains[i] = 100;
