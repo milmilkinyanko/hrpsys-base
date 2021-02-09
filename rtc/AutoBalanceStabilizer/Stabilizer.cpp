@@ -29,10 +29,11 @@ inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 =
 
 namespace hrp {
 
-Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt)
+Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex)
     : m_robot(boost::make_shared<hrp::Body>(*_robot)),
       comp_name(_comp_name),
-      dt(_dt)
+      dt(_dt),
+      m_mutex(_mutex)
 {
     limb_stretch_avoidance_vlimit[0] = -100 * 1e-3 * dt; // lower limit
     limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
