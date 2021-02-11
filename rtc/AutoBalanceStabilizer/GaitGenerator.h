@@ -106,6 +106,7 @@ class GaitGenerator
 
     void addFootStepVelocityMode(const size_t cur_count);
     hrp::Vector3 calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, const double total_mass, const double z_acc = 0);
+    bool getSupportSwingIndex(int& support_idx, int& swing_idx, const ConstraintsWithCount& constraints, const size_t _cur_cycle, const std::vector<int>& support_link_cycle, const std::vector<int>& swing_link_cycle);
 
   public:
     GaitGenerator(const hrp::BodyPtr& _robot,

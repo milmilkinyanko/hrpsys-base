@@ -397,6 +397,17 @@ hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, co
 //     return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
 // }
 
+bool GaitGenerator::getSupportSwingIndex(int& support_idx, int& swing_idx, const ConstraintsWithCount& constraints, const size_t _cur_cycle, const std::vector<int>& support_link_cycle, const std::vector<int>& swing_link_cycle)
+{
+    support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
+    swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
+    if (support_idx == -1 || swing_idx == -1) {
+        std::cerr << "[GaitGenerator] Error" << std::endl; // TODO: error message
+        return false;
+    }
+    return true;
+}
+
 void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
                                             const size_t cwc_idx_from_current,
                                             const size_t modif_const_idx,
@@ -876,19 +887,6 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     Eigen::Isometry3d sup_to_swing_trans;
     std::vector<Eigen::Isometry3d> translationFromLimbToCOP;
 
-    const auto getSupportSwingIndex = [&](int& support_idx, int& swing_idx,
-                                          const ConstraintsWithCount& constraints,
-                                          const size_t _cur_cycle)
-        -> bool {
-        support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
-        swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
-        if (support_idx == -1 || swing_idx == -1) {
-            std::cerr << "Error" << std::endl; // TODO: error message
-            return false;
-        }
-        return true;
-    };
-
     const auto calcdpAnddr = [&dp, &dr, &target, &translationFromLimbToCOP](const Eigen::Isometry3d& support_coord,
                                                                             const int limb_idx) {
         const Eigen::Isometry3d diff_coord = (support_coord * translationFromLimbToCOP[limb_idx]).inverse() * target;
@@ -901,7 +899,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         cur_constraints.start_count = loop;
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         translationFromLimbToCOP.reserve(cur_constraints.constraints.size());
         const Eigen::Isometry3d init_cop = cur_constraints.calcCOPCoord();
@@ -958,7 +956,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const ConstraintsWithCount& last_constraints = new_constraints.back();
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         if (notdpZero()) {
             std::cerr << "dp: " << dp.transpose() << std::endl;
@@ -989,7 +987,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     // Finalize, TODO: biped only
     const ConstraintsWithCount& last_constraints = new_constraints.back();
     int support_idx, swing_idx;
-    if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle)) return false;
+    if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
     const Eigen::Isometry3d landing_target = last_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
 
     addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, false);
@@ -1026,25 +1024,12 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
     Eigen::Isometry3d sup_to_swing_trans;
     std::vector<Eigen::Isometry3d> translationFromLimbToCOP;
 
-    const auto getSupportSwingIndex = [&](int& support_idx, int& swing_idx,
-                                          const ConstraintsWithCount& constraints,
-                                          const size_t _cur_cycle)
-        -> bool {
-        support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
-        swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
-        if (support_idx == -1 || swing_idx == -1) {
-            std::cerr << "[GaitGenerator] Error" << std::endl; // TODO: error message
-            return false;
-        }
-        return true;
-    };
-
     {                           // 一歩目？
         ConstraintsWithCount cur_constraints = getCurrentConstraints(loop);
         cur_constraints.start_count = loop;
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         translationFromLimbToCOP.reserve(cur_constraints.constraints.size());
         const Eigen::Isometry3d init_cop = cur_constraints.calcCOPCoord();
@@ -1087,7 +1072,7 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
         const ConstraintsWithCount& next_constraints = new_constraints.back();
         int support_idx, swing_idx;
         cur_cycle = fs_side[step];
-        if (!getSupportSwingIndex(support_idx, swing_idx, next_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, next_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         Eigen::Isometry3d landing_target;
         landing_target.linear() = footsteps_rot[step].normalized().toRotationMatrix();
