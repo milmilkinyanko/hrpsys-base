@@ -16,6 +16,13 @@
 
 namespace hrp {
 
+void COGTrajectoryGenerator::updateCogState(const hrp::Vector3& input_zmp, const double dt, const double g_acc)
+{
+    cog_acc = omega * omega * (cog - input_zmp) + hrp::Vector3(0, 0, -g_acc);
+    cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
+    cog_vel += cog_acc * dt;
+}
+
 void COGTrajectoryGenerator::initPreviewController(const double dt, const hrp::Vector3& cur_ref_zmp) // TODO: dt後にする?
 {
     // std::cerr << "cog z: " << cog(2) << " ref cog z: " << cog(2) - cur_ref_zmp(2) << std::endl;
@@ -39,11 +46,11 @@ void COGTrajectoryGenerator::calcCogFromZMP(const std::deque<hrp::Vector3>& refz
 
 hrp::Vector3 COGTrajectoryGenerator::calcCogForFlightPhase(const double dt, const double g_acc)
 {
-    cog_acc = hrp::Vector3(0, 0, -g_acc);
-    cog += cog_vel * dt + cog_acc * dt * dt * 0.5;
-    cog_vel += cog_acc * dt;
-    return hrp::Vector3::Zero();
- }
+    hrp::Vector3 input_zmp = cog;
+    updateCogState(input_zmp, dt, g_acc);
+
+    return input_zmp;
+}
 
 // 使わない？
 hrp::Vector3 COGTrajectoryGenerator::calcCogForRun(const hrp::Vector3& support_point,
@@ -673,10 +680,8 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
     // const hrp::Vector3 min_zmp = support_point + hrp::Vector3(-0.06, -0.5, 0);
     // const hrp::Vector3 max_zmp = support_point + hrp::Vector3(0.16, 0.5, 0);
     // input_zmp = hrp::clamp(input_zmp, min_zmp, max_zmp);
+    updateCogState(input_zmp, dt, g_acc);
 
-    cog_acc.head<2>() = (omega * omega * (cog - input_zmp)).head<2>();
-    cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
-    cog_vel.head<2>() += cog_acc.head<2>() * dt;
 
     return input_zmp;
     // return ref_zmp;
@@ -733,10 +738,9 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
 
     hrp::Vector3 input_zmp = ref_zmp;
     input_zmp.head<2>() += tmp_zmp.head<2>();
+    input_zmp(2) = cog(2) - ref_cog_z; // constant height
 
-    cog_acc.head<2>() = (omega * omega * (cog - input_zmp)).head<2>();
-    cog.head<2>() += cog_vel.head<2>() * dt + cog_acc.head<2>() * dt * dt * 0.5;
-    cog_vel.head<2>() += cog_acc.head<2>() * dt;
+    updateCogState(input_zmp, dt);
 
     // for log
     nominal_zmp = ref_zmp;

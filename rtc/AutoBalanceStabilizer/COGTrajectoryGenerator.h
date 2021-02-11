@@ -48,6 +48,8 @@ class COGTrajectoryGenerator
     CogCalculationType calculation_type = PREVIEW_CONTROL;
     std::unique_ptr<ExtendedPreviewController> preview_controller;
 
+    void updateCogState(const hrp::Vector3& input_zmp, const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
     // Foot guided run variables
   public:
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
