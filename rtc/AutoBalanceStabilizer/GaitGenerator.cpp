@@ -397,6 +397,64 @@ hrp::Vector3 GaitGenerator::calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, co
 //     return hrp::Vector3(-(ref_cmp[1] - closest_point[1]), ref_cmp[0] - closest_point[0], 0) * f_z;
 // }
 
+bool GaitGenerator::getSupportSwingIndex(int& support_idx, int& swing_idx, const ConstraintsWithCount& constraints, const size_t _cur_cycle, const std::vector<int>& support_link_cycle, const std::vector<int>& swing_link_cycle)
+{
+    support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
+    swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
+    if (support_idx == -1 || swing_idx == -1) {
+        std::cerr << "[GaitGenerator] Error" << std::endl; // TODO: error message
+        return false;
+    }
+    return true;
+}
+
+void GaitGenerator::addNewFootSteps(std::vector<ConstraintsWithCount>& new_constraints, const ConstraintsWithCount& last_constraints, const size_t swing_idx, const size_t support_idx, const Eigen::Isometry3d& landing_target, const bool use_toe_heel)
+{
+    // Take longer time for first moving
+    const size_t swing_start_count = last_constraints.start_count + default_double_support_count; // only double support count
+    const std::vector<size_t> swing_indices{swing_idx};
+    const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
+    const std::vector<size_t> toe_support_indices{support_idx};
+
+    const std::vector<ConstraintsWithCount> footstep_constraints =
+        calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
+                                swing_start_count, default_single_support_count,
+                                use_toe_heel, toe_support_indices,
+                                default_toe_support_count, default_heel_support_count);
+
+    for (const auto& footstep : footstep_constraints) {
+        new_constraints.push_back(footstep);
+    }
+}
+
+void GaitGenerator::finalizeFootSteps(std::vector<ConstraintsWithCount>& new_constraints)
+{
+    new_constraints.push_back(new_constraints.back());
+    new_constraints.back().start_count += default_double_support_count;
+    new_constraints.back().is_stable = true;
+
+    // Update constraints_list
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const size_t diff_count = loop - new_constraints[0].start_count + 1;
+    for (auto& constraints : new_constraints) {
+        constraints.start_count += diff_count;
+    }
+    setConstraintsList(std::move(new_constraints));
+    setRefZMPList(loop);
+}
+
+void GaitGenerator::addFirstTwoConstraints(std::vector<ConstraintsWithCount>& new_constraints, const ConstraintsWithCount& cur_constraints)
+{
+    for (size_t i = 0; i < 2; ++i) {
+        new_constraints.push_back(cur_constraints);
+        ConstraintsWithCount& added_constraints = new_constraints.back();
+        if (i == 1) { // 二足歩行の場合は最初の両足支持期に相当
+            added_constraints.start_count = cur_constraints.start_count + default_single_support_count;
+            added_constraints.is_stable = false;
+        }
+    }
+}
+
 void GaitGenerator::modifyConstraintsTarget(const size_t cur_count,
                                             const size_t cwc_idx_from_current,
                                             const size_t modif_const_idx,
@@ -876,19 +934,6 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     Eigen::Isometry3d sup_to_swing_trans;
     std::vector<Eigen::Isometry3d> translationFromLimbToCOP;
 
-    const auto getSupportSwingIndex = [&](int& support_idx, int& swing_idx,
-                                          const ConstraintsWithCount& constraints,
-                                          const size_t _cur_cycle)
-        -> bool {
-        support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
-        swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
-        if (support_idx == -1 || swing_idx == -1) {
-            std::cerr << "Error" << std::endl; // TODO: error message
-            return false;
-        }
-        return true;
-    };
-
     const auto calcdpAnddr = [&dp, &dr, &target, &translationFromLimbToCOP](const Eigen::Isometry3d& support_coord,
                                                                             const int limb_idx) {
         const Eigen::Isometry3d diff_coord = (support_coord * translationFromLimbToCOP[limb_idx]).inverse() * target;
@@ -901,7 +946,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         cur_constraints.start_count = loop;
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         translationFromLimbToCOP.reserve(cur_constraints.constraints.size());
         const Eigen::Isometry3d init_cop = cur_constraints.calcCOPCoord();
@@ -918,39 +963,11 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const size_t min_num_steps = std::max(static_cast<size_t>(std::ceil(dp.head<2>().norm() / max_stride)),
                                                   static_cast<size_t>(std::ceil(dr.angle() / max_rot_angle)));
         new_constraints.reserve(2 * min_num_steps + 5);
-
-        for (size_t i = 0; i < 2; ++i) {
-            new_constraints.push_back(cur_constraints);
-            ConstraintsWithCount& added_constraints = new_constraints.back();
-            if (i == 1) { // 二足歩行の場合は最初の両足支持期に相当
-                added_constraints.start_count = cur_constraints.start_count + default_single_support_count;
-                added_constraints.is_stable = false;
-            }
-        }
+        addFirstTwoConstraints(new_constraints, cur_constraints);
     }
 
     const auto notdpZero = [&dp]() -> bool { return !eps_eq(dp.head<2>().squaredNorm(), 0.0, 1e-3 * 0.1); };
     const auto notdrZero = [&dr]() -> bool { return !eps_eq(dr.angle(), 0.0, deg2rad(0.5)); };
-
-    const auto addNewFootSteps = [&](const ConstraintsWithCount& last_constraints, const size_t swing_idx,
-                                     const size_t support_idx, const Eigen::Isometry3d& landing_target,
-                                     const bool use_toe_heel) {
-        // Take longer time for first moving
-        const size_t swing_start_count = last_constraints.start_count + default_double_support_count; // only double support count
-        const std::vector<size_t> swing_indices{swing_idx};
-        const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
-        const std::vector<size_t> toe_support_indices{support_idx};
-
-        const std::vector<ConstraintsWithCount> footstep_constraints =
-        calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
-                                swing_start_count, default_single_support_count,
-                                use_toe_heel, toe_support_indices,
-                                default_toe_support_count, default_heel_support_count);
-
-        for (const auto& footstep : footstep_constraints) {
-            new_constraints.push_back(footstep);
-        }
-    };
 
     const double squared_max_stride = max_stride * max_stride;
 
@@ -958,7 +975,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
         const ConstraintsWithCount& last_constraints = new_constraints.back();
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         if (notdpZero()) {
             std::cerr << "dp: " << dp.transpose() << std::endl;
@@ -979,7 +996,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
 
         if (default_use_toe_heel) std::cerr << "default true" << std::endl;
         else std::cerr << "default false" << std::endl;
-        addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
+        addNewFootSteps(new_constraints, last_constraints, swing_idx, support_idx, landing_target, default_use_toe_heel);
         // Update to next step
         calcdpAnddr(landing_target, swing_idx);
         sup_to_swing_trans = sup_to_swing_trans.inverse(); // TODO: biped
@@ -989,25 +1006,13 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
     // Finalize, TODO: biped only
     const ConstraintsWithCount& last_constraints = new_constraints.back();
     int support_idx, swing_idx;
-    if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle)) return false;
+    if (!getSupportSwingIndex(support_idx, swing_idx, last_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
     const Eigen::Isometry3d landing_target = last_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
 
-    addNewFootSteps(last_constraints, swing_idx, support_idx, landing_target, false);
+    addNewFootSteps(new_constraints, last_constraints, swing_idx, support_idx, landing_target, false);
     new_constraints.back().is_stable = false;
 
-    new_constraints.push_back(new_constraints.back());
-    new_constraints.back().start_count += default_double_support_count;
-    new_constraints.back().is_stable = true;
-
-    // Update constraints_list
-    std::lock_guard<std::mutex> lock(m_mutex);
-    const size_t diff_count = loop - new_constraints[0].start_count + 1;
-    for (auto& constraints : new_constraints) {
-        constraints.start_count += diff_count;
-    }
-    setConstraintsList(std::move(new_constraints));
-    setRefZMPList(loop);
-
+    finalizeFootSteps(new_constraints);
     return true;
 }
 
@@ -1022,72 +1027,24 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
     std::vector<ConstraintsWithCount> new_constraints;
 
     size_t cur_cycle = fs_side[0];  // 0->右、1->左
-    const size_t cycle_size = support_link_cycle.size(); // TODO: エラーチェック support == swing
-    Eigen::Isometry3d sup_to_swing_trans;
-    std::vector<Eigen::Isometry3d> translationFromLimbToCOP;
-
-    const auto getSupportSwingIndex = [&](int& support_idx, int& swing_idx,
-                                          const ConstraintsWithCount& constraints,
-                                          const size_t _cur_cycle)
-        -> bool {
-        support_idx = constraints.getConstraintIndexFromLinkId(support_link_cycle[_cur_cycle]);
-        swing_idx   = constraints.getConstraintIndexFromLinkId(swing_link_cycle[_cur_cycle]);
-        if (support_idx == -1 || swing_idx == -1) {
-            std::cerr << "[GaitGenerator] Error" << std::endl; // TODO: error message
-            return false;
-        }
-        return true;
-    };
 
     {                           // 一歩目？
         ConstraintsWithCount cur_constraints = getCurrentConstraints(loop);
         cur_constraints.start_count = loop;
 
         int support_idx, swing_idx;
-        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, cur_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
-        translationFromLimbToCOP.reserve(cur_constraints.constraints.size());
-        const Eigen::Isometry3d init_cop = cur_constraints.calcCOPCoord();
-        for (const auto& constraint : cur_constraints.constraints) {
-            translationFromLimbToCOP.push_back(constraint.targetCoord().inverse() * init_cop);
-        }
-
-        const Eigen::Isometry3d& support_target = cur_constraints.constraints[support_idx].targetCoord();
-
-        const Eigen::Isometry3d& swing_target = cur_constraints.constraints[swing_idx].targetCoord();
-        sup_to_swing_trans = support_target.inverse() * swing_target;
-
-        new_constraints.push_back(cur_constraints);
+        new_constraints.reserve(length);
+        addFirstTwoConstraints(new_constraints, cur_constraints);
     }
-
-    const auto addNewFootSteps = [&](const ConstraintsWithCount& last_constraints, const size_t swing_idx,
-                                     const size_t support_idx, const Eigen::Isometry3d& landing_target,
-                                     const bool use_toe_heel) {
-        // Take longer time for first moving
-        const size_t swing_start_count = last_constraints.start_count +
-        (new_constraints.size() == 1 ?
-         (default_single_support_count + default_double_support_count) : default_double_support_count);
-        const std::vector<size_t> swing_indices{swing_idx};
-        const std::vector<Eigen::Isometry3d> landing_targets{landing_target};
-        const std::vector<size_t> toe_support_indices{support_idx};
-
-        const std::vector<ConstraintsWithCount> footstep_constraints =
-        calcFootStepConstraints(last_constraints, swing_indices, landing_targets,
-                                swing_start_count, default_single_support_count,
-                                use_toe_heel, toe_support_indices,
-                                default_toe_support_count, default_heel_support_count);
-
-        for (const auto& footstep : footstep_constraints) {
-            new_constraints.push_back(footstep);
-        }
-    };
 
     // footstep
     for (size_t step = 1; step < length; ++step) { // 踏み出すfootstepから
         const ConstraintsWithCount& next_constraints = new_constraints.back();
         int support_idx, swing_idx;
         cur_cycle = fs_side[step];
-        if (!getSupportSwingIndex(support_idx, swing_idx, next_constraints, cur_cycle)) return false;
+        if (!getSupportSwingIndex(support_idx, swing_idx, next_constraints, cur_cycle, support_link_cycle, swing_link_cycle)) return false;
 
         Eigen::Isometry3d landing_target;
         landing_target.linear() = footsteps_rot[step].normalized().toRotationMatrix();
@@ -1095,19 +1052,11 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
         landing_target.translation().y() = footsteps_pos[step].y();
         landing_target.translation().z() = footsteps_pos[step].z();
 
-        addNewFootSteps(next_constraints, swing_idx, support_idx, landing_target, false);
+        addNewFootSteps(new_constraints, next_constraints, swing_idx, support_idx, landing_target, false);
     }
+    new_constraints.back().is_stable = false;
 
-    new_constraints.back().is_stable = true;
-
-    // Update constraints_list
-    std::lock_guard<std::mutex> lock(m_mutex);
-    const size_t diff_count = loop - new_constraints[0].start_count + 1;
-    for (auto& constraints : new_constraints) {
-        constraints.start_count += diff_count;
-    }
-    setConstraintsList(std::move(new_constraints)); // motion
-    setRefZMPList(loop);
+    finalizeFootSteps(new_constraints);
 
     return true;
 }
