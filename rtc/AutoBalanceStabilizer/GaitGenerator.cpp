@@ -150,6 +150,14 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         last_flight = constraints_list[cur_const_idx - 1].isFlightPhase();
     }
 
+    if (cur_count == constraints_list[cur_const_idx].start_count &&
+        constraints_list[cur_const_idx].is_stable) {
+        // TODO: 空中をなんとかしてforward timestepにいれる
+        // TODO: ref_zmp_goalsが更新されていない場合があって，その接続が問題になるかも
+        std::cerr << "ref_zmp_goals.back().first: " << ref_zmp_goals.back().first.transpose() << std::endl;
+        ref_zmp_goals = zmp_gen->calcZMPGoalsFromConstraints(constraints_list, cur_const_idx, ref_zmp_goals.back().first, constraints_list[cur_const_idx].start_count);
+    }
+
     // const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
     const bool is_flight = constraints_list[cur_const_idx].isFlightPhase();
     // Update ref zmp TODO: わかりづらい
@@ -166,14 +174,6 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         }
         else if (walking_mode == FOOT_GUIDED_WALK) {
             if (DEBUGP) std::cerr << "[GaitGenerator] foot_guided_walk" << std::endl;
-            if (cur_count == constraints_list[cur_const_idx].start_count &&
-                constraints_list[cur_const_idx].is_stable) {
-                // TODO: 空中をなんとかしてforward timestepにいれる
-                // TODO: ref_zmp_goalsが更新されていない場合があって，その接続が問題になるかも
-                std::cerr << "ref_zmp_goals.back().first: " << ref_zmp_goals.back().first.transpose() << std::endl;
-                ref_zmp_goals = zmp_gen->calcZMPGoalsFromConstraints(constraints_list, cur_const_idx, ref_zmp_goals.back().first, constraints_list[cur_const_idx].start_count);
-            }
-
             const hrp::Vector3 offset = hrp::Vector3::Zero();
             // ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, zmp_gen->getCurrentRefZMP(), zmp_gen->getRefZMPVel(), cur_const_idx, cur_count, dt, offset);
             ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, ref_zmp_goals, cur_const_idx, cur_count, dt);
@@ -218,7 +218,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                 std::cerr << "cur  cp: " << cog_gen->calcCP().transpose() << std::endl;
                 std::cerr << "diff cp: " << (cog_gen->calcCP() - support_point).transpose() << std::endl;
 
-                if (cur_const_idx < constraints_list.size() - 4) {
+                if (cur_const_idx < constraints_list.size() - 6) {
                     const auto next_landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
                     const auto last_landing_point = constraints_list[cur_const_idx + 4].calcCOPFromConstraints();
 
@@ -227,8 +227,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
 
                     hrp::Vector3 last_ref_zmp = last_landing_point;
                     last_ref_zmp[1] += (last_landing_point[1] < 0) ? y_offset : -y_offset;
-
-                    hrp::Vector3 target_cp = last_landing_point;
+                    hrp::Vector3 target_cp = next_landing_point;
                     // target_cp[0] += (last_landing_point[0] - next_landing_point[0] > 0) ? 0.1 : 0.0;
                     // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
                     // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
@@ -247,7 +246,6 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                     next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
 
                     hrp::Vector3 target_cp = landing_point;
-                    target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
                     // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
                     // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
 
@@ -348,7 +346,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         calcCogMomentFromCMP(ref_zmp, robot_mass, cog_gen->getCogAcc()[2]) : hrp::Vector3::Zero();
     // std::cerr << "cog_moment: " << cog_moment.transpose() << std::endl;
 
-    constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt);
+    constraints_list[cur_const_idx].calcLimbTrajectory(cur_count, dt); // TODO: 跳躍直後の足を下す途中で一度着地してしまう
 
     root_coord.translation() += cog_gen->getCog() - prev_ref_cog;
     // TODO: 手が追加された時やその他の時にも対応できるように

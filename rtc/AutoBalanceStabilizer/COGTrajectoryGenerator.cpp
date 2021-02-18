@@ -49,6 +49,9 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForFlightPhase(const double dt, cons
     hrp::Vector3 input_zmp = cog;
     updateCogState(input_zmp, dt, g_acc);
 
+    nominal_zmp = input_zmp;
+    new_ref_cp = calcCP();
+
     return input_zmp;
 }
 
@@ -264,6 +267,9 @@ void COGTrajectoryGenerator::calcCogListForRun(const hrp::Vector3 target_cp,
     }
 
     for (int i = 0; i < dim; ++i) cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
+
+    nominal_zmp = ref_zmp;
+    ref_end_cp = target_cp;
 }
 
 void COGTrajectoryGenerator::calcCogListForRunLast(const hrp::Vector3 target_cp,
@@ -559,6 +565,9 @@ void COGTrajectoryGenerator::calcCogListForRun2Step(const hrp::Vector3 target_cp
         cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
     }
 
+    nominal_zmp = ref_zmp;
+    ref_end_cp = target_cp;
+
     // for (int xy = 0; xy <= 1; ++xy) {
     //     Eigen::VectorXd ref_vec(ref_dim);
     //     ref_vec.setConstant(ref_zmp[xy]);
@@ -676,15 +685,13 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& suppo
         input_zmp.head<2>() = ref_zmp.head<2>() + omega2_lambda;
     }
 
-    // hrp::Vector3 input_zmp = ref_zmp + omega * omega * lambda;
-    // const hrp::Vector3 min_zmp = support_point + hrp::Vector3(-0.06, -0.5, 0);
-    // const hrp::Vector3 max_zmp = support_point + hrp::Vector3(0.16, 0.5, 0);
-    // input_zmp = hrp::clamp(input_zmp, min_zmp, max_zmp);
     updateCogState(input_zmp, dt, g_acc);
 
+    nominal_zmp = support_point;
+    ref_end_cp = landing_point;
+    new_ref_cp = calcCP();
 
     return input_zmp;
-    // return ref_zmp;
 }
 
 hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<ConstraintsWithCount>& constraints_list,
@@ -736,14 +743,22 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
 
     tmp_zmp /= 1 - std::exp(-2 * omega * step_remain_time);
 
+    /*
+      TODO: 跳躍直後の重心高さ遷移が滑らかになるように
+      ZMP 高さも "杉原ら, ZMPの 3 次元的操作による可捕性規範凹凸地面上二脚運動制御"
+      を用いて制御する．
+      歩行だけの場合は重心高さ一定になるような軌道がでるだけなので統一的に実装可能
+    */
     hrp::Vector3 input_zmp = ref_zmp;
     input_zmp.head<2>() += tmp_zmp.head<2>();
     input_zmp(2) = cog(2) - ref_cog_z; // constant height
+    cog_vel(2) = 0.0;
 
     updateCogState(input_zmp, dt);
 
     // for log
     nominal_zmp = ref_zmp;
+    nominal_zmp(2) = input_zmp(2);
     ref_end_cp = landing_point;
     new_ref_cp = calcCP();
 

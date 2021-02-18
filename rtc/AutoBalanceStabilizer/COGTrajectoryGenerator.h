@@ -115,6 +115,7 @@ class COGTrajectoryGenerator
             cog[i]     = ref_cog;
         }
         std::cerr << "acc: " << cog_acc.transpose() << std::endl;
+        new_ref_cp = calcCP();
     }
 
     void calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list, const double dt);
