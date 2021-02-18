@@ -710,6 +710,7 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     size_t cur_zmp_idx = 0;
     hrp::Vector3 ref_zmp_a = hrp::Vector3::Zero();
     hrp::Vector3 ref_zmp_b = hrp::Vector3::Zero();
+    const hrp::Vector3 nominal_height = hrp::Vector3(0, 0, ref_cog_z);
     const ConstraintsWithCount& landing_constraints = constraints_list[landing_idx];
     const auto landing_point = landing_constraints.calcCOPFromConstraints(); // TODO: need inculude cp_offset
 
@@ -730,7 +731,7 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     const double rel_cur_time = (cur_count - constraints_list[cur_const_idx].start_count) * dt;
     const hrp::Vector3 ref_zmp = ref_zmp_a * rel_cur_time + ref_zmp_b;
 
-    const hrp::Vector3 rel_cp = calcCP() - ref_zmp;
+    const hrp::Vector3 rel_cp = calcCP() - ref_zmp - nominal_height;
     const hrp::Vector3 rel_landing_point = landing_point - constraints_list[landing_idx].calcStartCOPFromConstraints();
     hrp::Vector3 tmp_zmp = 2 * (rel_cp - rel_landing_point * std::exp(-omega * step_remain_time) + ref_zmp_a / omega * (std::exp(-omega * step_remain_time) - 1));
 
@@ -743,22 +744,12 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
 
     tmp_zmp /= 1 - std::exp(-2 * omega * step_remain_time);
 
-    /*
-      TODO: 跳躍直後の重心高さ遷移が滑らかになるように
-      ZMP 高さも "杉原ら, ZMPの 3 次元的操作による可捕性規範凹凸地面上二脚運動制御"
-      を用いて制御する．
-      歩行だけの場合は重心高さ一定になるような軌道がでるだけなので統一的に実装可能
-    */
-    hrp::Vector3 input_zmp = ref_zmp;
-    input_zmp.head<2>() += tmp_zmp.head<2>();
-    input_zmp(2) = cog(2) - ref_cog_z; // constant height
-    cog_vel(2) = 0.0;
+    hrp::Vector3 input_zmp = ref_zmp + tmp_zmp;
 
     updateCogState(input_zmp, dt);
 
     // for log
     nominal_zmp = ref_zmp;
-    nominal_zmp(2) = input_zmp(2);
     ref_end_cp = landing_point;
     new_ref_cp = calcCP();
 

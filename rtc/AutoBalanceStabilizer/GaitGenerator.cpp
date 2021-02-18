@@ -58,7 +58,7 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
 
     prev_ref_cog = _robot->calcCM();
     zmp_gen = std::make_unique<RefZMPGenerator>(_dt, preview_window, constraints_list[0]);
-    cog_gen = std::make_unique<COGTrajectoryGenerator>(prev_ref_cog);
+    cog_gen = std::make_unique<COGTrajectoryGenerator>(prev_ref_cog, zmp_gen->getCurrentRefZMP());
 
     cog_gen->initPreviewController(_dt, zmp_gen->getCurrentRefZMP());
     ref_zmp = zmp_gen->getCurrentRefZMP();

@@ -53,19 +53,21 @@ class COGTrajectoryGenerator
     // Foot guided run variables
   public:
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
+                           const hrp::Vector3& cur_ref_zmp,
                            const CogCalculationType type = PREVIEW_CONTROL) :
         cog(init_cog), calculation_type(type)
     {
-        setOmega(init_cog[2]);
+        setOmega(init_cog[2] - cur_ref_zmp[2]);
     }
 
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
                            const hrp::Vector3& init_cog_vel,
                            const hrp::Vector3& init_cog_acc,
+                           const hrp::Vector3& cur_ref_zmp,
                            const CogCalculationType type = PREVIEW_CONTROL) :
         cog(init_cog), cog_vel(init_cog_vel), cog_acc(init_cog_acc), calculation_type(type)
     {
-        setOmega(init_cog[2]);
+        setOmega(init_cog[2] - cur_ref_zmp[2]);
     }
 
     const hrp::Vector3& getCog()    const { return cog; }

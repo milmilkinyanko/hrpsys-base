@@ -184,7 +184,7 @@ class GaitGenerator
     {
         std::cerr << "init_cog: "<< init_cog.transpose() << std::endl;
         std::cerr << "init_zmp: " << zmp_gen->getCurrentRefZMP().transpose() << std::endl;
-        cog_gen.reset(new COGTrajectoryGenerator(init_cog));
+        cog_gen.reset(new COGTrajectoryGenerator(init_cog, zmp_gen->getCurrentRefZMP()));
         cog_gen->initPreviewController(dt, zmp_gen->getCurrentRefZMP());
     }
     const hrp::Vector3& getCog()    const { return cog_gen->getCog(); }
