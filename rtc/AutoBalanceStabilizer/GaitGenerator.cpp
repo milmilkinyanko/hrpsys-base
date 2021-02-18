@@ -180,7 +180,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
             // cog_gen->retreiveCogZ(dt); // TODO: 衝撃を吸収は出来ていない
             // cog_gen->calcCogZForJump(800, 0, cog_gen->getRefCogZ(), dt); // TODO: Zの引き戻し．跳ぶ高さを0にしている.最初に無駄に上下する
         }
-    } else if (cur_const_idx < constraints_list.size() - 2) {
+    } else {
         const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
         if (running_mode == FOOT_GUIDED_RUN) {
             if (DEBUGP) std::cerr << "[GaitGenerator] foot_guided_run" << std::endl;
@@ -258,88 +258,6 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
             cog_gen->getCogFromCogList(cur_count, dt);
             ref_zmp = cog_gen->calcPointMassZMP();
         }
-    }
-    else {
-        const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
-        if (running_mode == FOOT_GUIDED_RUN) {
-            if (DEBUGP) std::cerr << "[GaitGenerator] foot_guided_run LAST" << std::endl;
-            // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
-            // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
-            // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
-
-            const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-            const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
-            const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
-            // const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
-            const hrp::Vector3 offset = hrp::Vector3::Zero();
-            ref_zmp = cog_gen->calcFootGuidedCog(support_point,
-                                                 landing_point,
-                                                 offset,
-                                                 offset,
-                                                 hrp::Vector3::Zero(),
-                                                 default_jump_height,
-                                                 constraints_list[cur_const_idx].start_count,
-                                                 supporting_count,
-                                                 constraints_list[cur_const_idx + 2].start_count,
-                                                 cur_count,
-                                                 dt,
-                                                 COGTrajectoryGenerator::FIX);
-            cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
-        } else if (running_mode == EXTENDED_MATRIX) {
-            if (DEBUGP) std::cerr << "[GaitGenerator] extended_matrix landing step" << std::endl;
-            if (cur_count == constraints_list[cur_const_idx].start_count) {
-                const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-                ref_zmp = support_point;
-                // const double y_offset = 0.015;
-                const double y_offset = 0.0;
-                ref_zmp[1] += (support_point[1] < 0) ? y_offset : -y_offset; // TODO: Body相対か何かを使う
-
-                std::cerr << "cur  cp: " << cog_gen->calcCP().transpose() << std::endl;
-                std::cerr << "diff cp: " << (cog_gen->calcCP() - support_point).transpose() << std::endl;
-
-                if (cur_const_idx < constraints_list.size() - 4) { // 要らない
-                    const auto next_landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
-                    const auto last_landing_point = constraints_list[cur_const_idx + 4].calcCOPFromConstraints();
-
-                    hrp::Vector3 next_ref_zmp = next_landing_point;
-                    next_ref_zmp[1] += (next_landing_point[1] < 0) ? y_offset : -y_offset;
-
-                    hrp::Vector3 last_ref_zmp = last_landing_point;
-                    last_ref_zmp[1] += (last_landing_point[1] < 0) ? y_offset : -y_offset;
-
-                    hrp::Vector3 target_cp = last_landing_point;
-                    // target_cp[0] += (last_landing_point[0] - next_landing_point[0] > 0) ? 0.1 : 0.0;
-                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
-                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
-
-                    const size_t count_to_jump2 = constraints_list[cur_const_idx + 3].start_count - constraints_list[cur_const_idx + 2].start_count;
-
-                    // Memo:  [ms] 程度
-                    cog_gen->calcCogListForRun2Step(target_cp, ref_zmp, next_ref_zmp, last_ref_zmp,
-                                                    count_to_jump, count_to_jump2, cur_count,
-                                                    default_jump_height, default_jump_height,
-                                                    default_take_off_z, default_take_off_z, dt);
-                } else {
-                    // const auto landing_point = constraints_list[cur_const_idx + 1].calcCOPFromConstraints();
-                    const auto landing_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-
-                    hrp::Vector3 next_ref_zmp = landing_point;
-                    next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
-
-                    hrp::Vector3 target_cp = landing_point;
-                    target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
-                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
-                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
-                    // Memo: 0.03608 [ms] 程度
-                    cog_gen->calcCogListForRunLast(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
-                                                   default_jump_height, default_take_off_z, dt);
-                }
-            }
-
-            cog_gen->getCogFromCogList(cur_count, dt);
-            ref_zmp = cog_gen->calcPointMassZMP();
-        }
-
     }
 
     cog_moment = (if_compensate_cog_moment) ?
