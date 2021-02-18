@@ -98,6 +98,12 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
     }
 
     cur_const_idx = getConstraintIndexFromCount(constraints_list, cur_count);
+
+    if (cur_count == constraints_list[cur_const_idx].start_count &&
+        constraints_list[cur_const_idx].is_stable) {
+        ref_zmp_goals = zmp_gen->calcZMPGoalsFromConstraints(constraints_list, cur_const_idx, ref_zmp_goals.back().first, constraints_list[cur_const_idx].start_count);
+    }
+
     ConstraintsWithCount& cur_cwc = constraints_list[cur_const_idx];
     if (cur_cwc.start_count != cur_count || cur_const_idx == 0) return;
 
@@ -148,14 +154,6 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     bool last_flight = false;
     if (cur_const_idx > 0) {
         last_flight = constraints_list[cur_const_idx - 1].isFlightPhase();
-    }
-
-    if (cur_count == constraints_list[cur_const_idx].start_count &&
-        constraints_list[cur_const_idx].is_stable) {
-        // TODO: 空中をなんとかしてforward timestepにいれる
-        // TODO: ref_zmp_goalsが更新されていない場合があって，その接続が問題になるかも
-        std::cerr << "ref_zmp_goals.back().first: " << ref_zmp_goals.back().first.transpose() << std::endl;
-        ref_zmp_goals = zmp_gen->calcZMPGoalsFromConstraints(constraints_list, cur_const_idx, ref_zmp_goals.back().first, constraints_list[cur_const_idx].start_count);
     }
 
     // const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
