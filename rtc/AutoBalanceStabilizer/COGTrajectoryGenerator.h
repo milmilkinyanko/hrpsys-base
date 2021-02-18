@@ -79,7 +79,7 @@ class COGTrajectoryGenerator
     const double& getStepRemainTime() const { return step_remain_time; }
     const double& getConstRemainTime() const { return const_remain_time; }
     const double getRefCogZ() const { return ref_cog_z; }
-    hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / std::sqrt(g_acc / cog[2]); }
+    hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / omega; }
     hrp::Vector3 calcPointMassZMP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const
     {
         hrp::Vector3 zmp = cog;
