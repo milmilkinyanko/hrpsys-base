@@ -49,6 +49,7 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForFlightPhase(const double dt, cons
     hrp::Vector3 input_zmp = cog;
     updateCogState(input_zmp, dt, g_acc);
 
+    step_remain_time -= dt;
     nominal_zmp = input_zmp;
     new_ref_cp = calcCP();
 
@@ -76,9 +77,10 @@ hrp::Vector3 COGTrajectoryGenerator::calcCogForRun(const hrp::Vector3& support_p
     const size_t rel_cur_count = cur_count - start_count;
     if (supporting_count <= rel_cur_count) return calcCogForFlightPhase(dt, g_acc);
 
-    const hrp::Vector3 ref_zmp = calcFootGuidedCog(support_point, landing_point, start_zmp_offset, end_zmp_offset,
-                                                   target_cp_offset, jump_height, start_count, supporting_count,
-                                                   landing_count, cur_count, dt, ref_zmp_type, g_acc);
+    // const hrp::Vector3 ref_zmp = calcFootGuidedCog(support_point, landing_point, start_zmp_offset, end_zmp_offset,
+    //                                                target_cp_offset, jump_height, start_count, supporting_count,
+    //                                                landing_count, cur_count, dt, ref_zmp_type, g_acc);
+    const hrp::Vector3 ref_zmp = hrp::Vector3::Zero(); // TODO: そもそもこの関数いらない気がする
     calcCogZForJump(supporting_count - rel_cur_count, jump_height, take_off_z, dt, g_acc);
     return ref_zmp;
 }
@@ -588,102 +590,48 @@ void COGTrajectoryGenerator::calcCogListForRun2Step(const hrp::Vector3 target_cp
     // for (int i = 0; i < cog_list_dim; ++i) cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
 }
 
-hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const hrp::Vector3& support_point,
-                                                       const hrp::Vector3& landing_point,
-                                                       const hrp::Vector3& start_zmp_offset,
-                                                       const hrp::Vector3& end_zmp_offset,
-                                                       const hrp::Vector3& target_cp_offset,
-                                                       const double jump_height,
-                                                       const size_t start_count,
-                                                       const size_t supporting_count,
-                                                       const size_t landing_count,
-                                                       const size_t cur_count,
-                                                       const double dt,
-                                                       const FootGuidedRefZMPType ref_zmp_type,
-                                                       const double g_acc)
+hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCog(const std::vector<ConstraintsWithCount>& constraints_list,
+                               const double jump_height,
+                               const int cur_const_idx,
+                               const size_t cur_count,
+                               const double dt,
+                               const double takeoff_height_offset,
+                               const double landing_height_offset,
+                               const double g_acc)
 {
-    const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
-    const double flight_time = 2 * take_off_z_vel / g_acc;
+    // // 高さ基準で計算
+    // const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+    // const double flight_time = 2 * take_off_z_vel / g_acc;
+    // 跳躍時間基準で計算
+    const double flight_time = (constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count) * dt;
+    const double take_off_z_vel = (landing_height_offset - takeoff_height_offset) / flight_time + g_acc * flight_time / 2;
 
-    const hrp::Vector2 target_cp = landing_point.head<2>() + target_cp_offset.head<2>();
-    const double rel_cur_time = (cur_count - start_count) * dt;
-    const double rel_land_time = (landing_count - start_count) * dt;
+    const ConstraintsWithCount& support_constraints = constraints_list[cur_const_idx];
+    const ConstraintsWithCount& landing_constraints = constraints_list[cur_const_idx + 2];
+    const auto support_point = support_constraints.calcCOPFromConstraints();
+    const auto landing_point = landing_constraints.calcCOPFromConstraints();
+    step_remain_time = (landing_constraints.start_count - cur_count) * dt;
+    const_remain_time = (constraints_list[cur_const_idx + 1].start_count - std::min(cur_count, constraints_list[cur_const_idx + 1].start_count)) * dt;
 
-    const hrp::Vector2 cp = cog.head<2>() + cog_vel.head<2>() / omega; // TODO: calcCP() ?
-    const double omega_T = omega * flight_time;
-    hrp::Vector3 ref_zmp = support_point;
-    hrp::Vector3 input_zmp = ref_zmp;
+    hrp::Vector3 input_zmp = support_point;
 
-    hrp::Vector2 A_t;
-    hrp::Vector2 Atau_dAtauT;
+    // hirozontal control
+    double r_f = omega * flight_time / 2;
+    hrp::Vector3 x_dp = cog + cog_vel / omega - support_point;
+    hrp::Vector3 x_cp = cog - cog_vel / omega - support_point;
+    hrp::Vector3 x_sp = landing_point - support_point;
+    double takeoff_time = constraints_list[cur_const_idx + 1].start_count * dt;
+    hrp::Vector3 tmp_zmp =
+        -2 * (x_sp - std::exp(omega * const_remain_time) * x_dp - r_f * (std::exp(omega * const_remain_time) * x_dp - std::exp(-omega * const_remain_time) * x_cp))
+        / (std::exp(omega * const_remain_time) - std::exp(-omega * const_remain_time) + r_f * (std::exp(omega * const_remain_time) - std::exp(-omega * const_remain_time) + 2 * omega * std::exp(-omega * const_remain_time) * const_remain_time));
+    input_zmp.head(2) += tmp_zmp.head(2);
 
-    if (ref_zmp_type == FIX) {
-        A_t         = support_point.head<2>();
-        Atau_dAtauT = support_point.head<2>();
-        ref_zmp     = support_point;
-    } else if (ref_zmp_type == CUBIC) {
-        const double tau = supporting_count * dt;
-        const double tau2 = tau * tau;
-        const double tau3 = tau2 * tau;
-        const double omega2 = omega * omega;
-        const double omega3 = omega2 * omega;
-
-        hrp::Vector2 a_var = hrp::Vector2::Zero();
-        hrp::Vector2 b_var = hrp::Vector2::Zero();
-        hrp::Vector2 c_var = hrp::Vector2::Zero();
-        hrp::Vector2 d_var = hrp::Vector2::Zero();
-
-        {
-            Eigen::Matrix<double, 6, 6> A;
-            A <<
-                0, 0, 0, 1, 0, 0,
-                tau3, tau2, tau, 1, 0, 0,
-                6 / omega3, 2 / omega2, 1 / omega, 1, 0, 2,
-                (flight_time + 1 / omega) * (3 * tau2 + 6 / omega2), 2 * (flight_time + 1 / omega) * tau, flight_time + 1 / omega, 0, (omega_T + 1) * std::exp(omega * tau), -(omega_T + 1) * std::exp(-omega * tau),
-                0, 2 / omega2, 0, 0, 1, 1,
-                6 * tau / omega2, 2 / omega2, 0, 0, std::exp(omega * tau), std::exp(-omega * tau);
-
-            const auto A_lu = A.partialPivLu();
-            for (size_t i = 0; i < 1; ++i) {
-                Eigen::Matrix<double, 6, 1> B;
-                B <<
-                    support_point(i) + start_zmp_offset(i),
-                    support_point(i) + end_zmp_offset(i),
-                    support_point(i),
-                    target_cp(i) - (support_point(i) + end_zmp_offset(i)),
-                    0,
-                    0;
-                const Eigen::Matrix<double, 6, 1> ans = A_lu.solve(B);
-
-                a_var(i) = ans(0);
-                b_var(i) = ans(1);
-                c_var(i) = ans(2);
-                d_var(i) = ans(3);
-            }
-        }
-
-        const auto calcA = [&](const double t) { return d_var + (t + 1 / omega) * c_var + (t * t + 2 * t / omega + 2 / omega2) * b_var + (t * t * t + 3 * t * t / omega + 6 * t / omega2 + 6 / omega3) * a_var; };
-
-        const double supporting_time = supporting_count * dt;
-        A_t = calcA(rel_cur_time);
-        Atau_dAtauT = (c_var + 2 * b_var * (tau + 1 / omega) + 3 * a_var * (tau2 + 2 * tau / omega + 2 / omega2)) * flight_time;
-        Atau_dAtauT += calcA(supporting_time);
-
-        ref_zmp.head<2>() = a_var * rel_cur_time * rel_cur_time * rel_cur_time + b_var * rel_cur_time * rel_cur_time + c_var * rel_cur_time + d_var;
-    }
-
-    {
-        const size_t rel_cur_count = cur_count - start_count;
-        const double time_to_flight = (supporting_count - rel_cur_count) * dt;
-        const double time_to_land = (landing_count - cur_count) * dt;
-        const double omega2 = omega * omega;
-
-        const double C_t = -2 * flight_time * time_to_flight * omega2 / (omega_T + 2) - 2 * flight_time * flight_time * omega2 / ((omega_T + 2) * (omega_T + 1)) - std::exp(2 * omega * time_to_land) - (omega_T - 1) * std::exp(2 * omega_T) / (omega_T + 1);
-        const hrp::Vector2 D_t = cp - A_t - (landing_point.head<2>() - Atau_dAtauT) / (omega_T + 1) * std::exp(-omega * time_to_flight);
-        const hrp::Vector2 omega2_lambda = -(2 * omega2 * flight_time / (omega_T + 2) + 2 * std::exp(2 * omega * time_to_land)) * D_t / C_t;
-
-        input_zmp.head<2>() = ref_zmp.head<2>() + omega2_lambda;
-    }
+    // vertical control
+    double z_d = ref_cog_z + takeoff_height_offset - (cog - support_point)(2) + (std::exp(-omega * const_remain_time) * take_off_z_vel - cog_vel(2)) / omega;
+    double z_c = ref_cog_z + takeoff_height_offset - (cog - support_point)(2) - (std::exp(omega * const_remain_time) * take_off_z_vel - cog_vel(2)) / omega;
+    double t_d = (std::exp(2 * omega * const_remain_time) - 1) / (2 * omega);
+    double t_c = (std::exp(-2 * omega * const_remain_time) - 1) / (2 * omega);
+    input_zmp(2) -= ( (const_remain_time - t_d) * z_d - (const_remain_time + t_c) * z_c ) / ( omega * (const_remain_time * const_remain_time + t_c * t_d) );
 
     updateCogState(input_zmp, dt, g_acc);
 

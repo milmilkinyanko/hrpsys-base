@@ -31,8 +31,8 @@ GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
     default_toe_support_count(static_cast<size_t>(0.5 / _dt)),
     default_heel_support_count(static_cast<size_t>(0.15 / _dt)),
     // default_support_count_run(static_cast<size_t>(0.85 / _dt))
-    // default_support_count_run(static_cast<size_t>(0.65 / _dt))
-    default_support_count_run(static_cast<size_t>(0.235 / _dt))
+    default_support_count_run(static_cast<size_t>(0.65 / _dt))
+    // default_support_count_run(static_cast<size_t>(0.235 / _dt))
     // default_support_count_run(static_cast<size_t>(0.335 / _dt))
     // default_support_count_run(static_cast<size_t>(0.285 / _dt))
 {
@@ -172,40 +172,21 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         }
         else if (walking_mode == FOOT_GUIDED_WALK) {
             if (DEBUGP) std::cerr << "[GaitGenerator] foot_guided_walk" << std::endl;
-            const hrp::Vector3 offset = hrp::Vector3::Zero();
-            // ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, zmp_gen->getCurrentRefZMP(), zmp_gen->getRefZMPVel(), cur_const_idx, cur_count, dt, offset);
+
             ref_zmp = cog_gen->calcFootGuidedCogWalk(constraints_list, ref_zmp_goals, cur_const_idx, cur_count, dt);
-            // cog_gen->retreiveCogZ(dt); // TODO: 衝撃を吸収は出来ていない
-            // cog_gen->calcCogZForJump(800, 0, cog_gen->getRefCogZ(), dt); // TODO: Zの引き戻し．跳ぶ高さを0にしている.最初に無駄に上下する
         }
     } else {
         const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
         if (running_mode == FOOT_GUIDED_RUN) {
             if (DEBUGP) std::cerr << "[GaitGenerator] foot_guided_run" << std::endl;
-            // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
-            // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
-            // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
 
-            const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
-            const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
-            const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
-            // const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
-            const hrp::Vector3 offset = hrp::Vector3::Zero();
-            ref_zmp = cog_gen->calcFootGuidedCog(support_point,
-                                                 landing_point,
-                                                 offset,
-                                                 offset,
-                                                 hrp::Vector3::Zero(),
-                                                 default_jump_height,
-                                                 constraints_list[cur_const_idx].start_count,
-                                                 supporting_count,
-                                                 constraints_list[cur_const_idx + 2].start_count,
-                                                 cur_count,
-                                                 dt,
-                                                 COGTrajectoryGenerator::FIX);
-            cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
+            // const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
+            // const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+            // const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
+            ref_zmp = cog_gen->calcFootGuidedCog(constraints_list, default_jump_height, cur_const_idx, cur_count, dt);
         } else if (running_mode == EXTENDED_MATRIX) {
             if (DEBUGP) std::cerr << "[GaitGenerator] extended_matrix" << std::endl;
+
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
                 ref_zmp = support_point;

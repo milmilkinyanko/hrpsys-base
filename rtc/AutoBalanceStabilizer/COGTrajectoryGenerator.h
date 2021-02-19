@@ -150,19 +150,15 @@ class COGTrajectoryGenerator
      * @fn
      * @return reference zmp
      */
-    hrp::Vector3 calcFootGuidedCog(const hrp::Vector3& support_point,
-                                   const hrp::Vector3& landing_points,
-                                   const hrp::Vector3& start_zmp_offset,
-                                   const hrp::Vector3& end_zmp_offset,
-                                   const hrp::Vector3& target_cp_offset,
+    hrp::Vector3 calcFootGuidedCog(const std::vector<ConstraintsWithCount>& constraints_list,
                                    const double jump_height,
-                                   const size_t start_count,
-                                   const size_t supporting_count,
-                                   const size_t landing_count,
+                                   const int cur_const_idx,
                                    const size_t cur_count,
                                    const double dt,
-                                   const FootGuidedRefZMPType ref_zmp_type = FIX,
+                                   const double takeoff_height_offset = 0,
+                                   const double landing_height_offset = 0,
                                    const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
 
     void calcCogListForRun(const hrp::Vector3 target_cp,
                            const hrp::Vector3 ref_zmp,
