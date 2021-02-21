@@ -153,7 +153,11 @@ class LinkConstraint
     void copyLimbTrajectoryGenerator(const LinkConstraint& lc) { limb_traj = lc.limb_traj; }
     void copyLimbState(const LinkConstraint& lc) // TODO: 名前もはやこれじゃない
     {
-        if (limb_traj.isViaPointsEmpty()) limb_traj = lc.limb_traj;
+        if (limb_traj.isViaPointsEmpty()) {
+            double tmp_offset = limb_traj.getDelayTimeOffset();
+            limb_traj = lc.limb_traj;
+            limb_traj.setDelayTimeOffset(tmp_offset);
+        }
         const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
         // limb_traj.copyState(lc.limb_traj, move_pos);
         targetPos() = lc.targetPos() + move_pos;
