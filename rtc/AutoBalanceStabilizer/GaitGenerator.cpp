@@ -109,7 +109,7 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 
     // if (cur_cwc.start_count == cur_count && cur_const_idx > 0) {
     // TODO: 最初のStateを変更しておかないと, ToeHeelの切り替え
-    cur_cwc.copyLimbState(constraints_list[cur_const_idx - 1]);
+    cur_cwc.copyLimbState(constraints_list[getPrevValidConstraintIndex(constraints_list, cur_const_idx)]);
 
     for (size_t idx = 0; idx < cur_cwc.constraints.size(); ++idx) {
         LinkConstraint& cur_const = cur_cwc.constraints[idx];
@@ -614,7 +614,7 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
 {
     std::vector<ConstraintsWithCount> footstep_constraints;
     {
-        const size_t num_constraints = is_start ? 3 : (is_end ? 1 : 2);
+        const size_t num_constraints = is_start ? 3 : 2;
         footstep_constraints.reserve(num_constraints);
         footstep_constraints.push_back(last_constraints);
     }
@@ -647,7 +647,7 @@ GaitGenerator::calcFootStepConstraintsForRun(const ConstraintsWithCount& last_co
     }
 
     {
-        footstep_constraints.push_back(footstep_constraints.back());
+        footstep_constraints.push_back(footstep_constraints.back()); // 歩行時のconstraintは毎歩2つ以上ほしいのでis_endのときは同じものを1つ多めに入れて2つにしている
         ConstraintsWithCount& landing_phase_constraints = footstep_constraints.back();
 
         landing_phase_constraints.start_count = landing_count;
