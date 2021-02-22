@@ -290,10 +290,10 @@ void LimbTrajectoryGenerator::calcRectangleViaPoints(const hrp::Vector3& start, 
     via_points[0].count = start_count;
 
     via_points[1].point = hrp::Vector3(start(0), start(1), max_height);
-    via_points[1].count = start_count + static_cast<size_t>(first_distance / sum_distance * diff_count);
+    via_points[1].count = via_points[0].count + static_cast<size_t>(first_distance / sum_distance * diff_count);
 
     via_points[2].point = hrp::Vector3(goal(0), goal(1), max_height);
-    via_points[2].count = start_count + static_cast<size_t>(second_distance / sum_distance * diff_count);
+    via_points[2].count = via_points[1].count + static_cast<size_t>(second_distance / sum_distance * diff_count);
 
     via_points[3].point = goal;
     via_points[3].count = goal_count;
