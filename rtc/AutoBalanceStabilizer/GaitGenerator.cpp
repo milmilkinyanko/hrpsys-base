@@ -113,7 +113,10 @@ void GaitGenerator::forwardTimeStep(const size_t cur_count)
 
     for (size_t idx = 0; idx < cur_cwc.constraints.size(); ++idx) {
         LinkConstraint& cur_const = cur_cwc.constraints[idx];
-        if (cur_const.getConstraintType() == LinkConstraint::FIX || cur_const.getConstraintType() == LinkConstraint::FREE) continue;
+        if (cur_const.getConstraintType() == LinkConstraint::FIX ||
+            cur_const.getConstraintType() == LinkConstraint::FREE ||
+            cur_const.isLimbInterpolating(cur_count) // すでに跳躍時の遊脚
+            ) continue;
 
         size_t goal_idx = cur_const_idx + 1;
         while (goal_idx < constraints_list.size()) {

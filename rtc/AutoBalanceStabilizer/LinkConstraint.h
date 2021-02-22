@@ -197,6 +197,7 @@ class LinkConstraint
         }
     }
     void setDelayTimeOffset(const double offset) { limb_traj.setDelayTimeOffset(offset); }
+    bool isLimbInterpolating(const size_t count) { return limb_traj.isInterpolating(count); }
 };
 
 struct ConstraintsWithCount
