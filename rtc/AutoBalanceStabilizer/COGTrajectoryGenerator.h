@@ -48,22 +48,26 @@ class COGTrajectoryGenerator
     CogCalculationType calculation_type = PREVIEW_CONTROL;
     std::unique_ptr<ExtendedPreviewController> preview_controller;
 
+    void updateCogState(const hrp::Vector3& input_zmp, const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
     // Foot guided run variables
   public:
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
+                           const hrp::Vector3& cur_ref_zmp,
                            const CogCalculationType type = PREVIEW_CONTROL) :
         cog(init_cog), calculation_type(type)
     {
-        setOmega(init_cog[2]);
+        setOmega(init_cog[2] - cur_ref_zmp[2]);
     }
 
     COGTrajectoryGenerator(const hrp::Vector3& init_cog,
                            const hrp::Vector3& init_cog_vel,
                            const hrp::Vector3& init_cog_acc,
+                           const hrp::Vector3& cur_ref_zmp,
                            const CogCalculationType type = PREVIEW_CONTROL) :
         cog(init_cog), cog_vel(init_cog_vel), cog_acc(init_cog_acc), calculation_type(type)
     {
-        setOmega(init_cog[2]);
+        setOmega(init_cog[2] - cur_ref_zmp[2]);
     }
 
     const hrp::Vector3& getCog()    const { return cog; }
@@ -75,7 +79,7 @@ class COGTrajectoryGenerator
     const double& getStepRemainTime() const { return step_remain_time; }
     const double& getConstRemainTime() const { return const_remain_time; }
     const double getRefCogZ() const { return ref_cog_z; }
-    hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / std::sqrt(g_acc / cog[2]); }
+    hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / omega; }
     hrp::Vector3 calcPointMassZMP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const
     {
         hrp::Vector3 zmp = cog;
@@ -113,6 +117,7 @@ class COGTrajectoryGenerator
             cog[i]     = ref_cog;
         }
         std::cerr << "acc: " << cog_acc.transpose() << std::endl;
+        new_ref_cp = calcCP();
     }
 
     void calcCogFromZMP(const std::deque<hrp::Vector3>& refzmp_list, const double dt);
@@ -145,19 +150,15 @@ class COGTrajectoryGenerator
      * @fn
      * @return reference zmp
      */
-    hrp::Vector3 calcFootGuidedCog(const hrp::Vector3& support_point,
-                                   const hrp::Vector3& landing_points,
-                                   const hrp::Vector3& start_zmp_offset,
-                                   const hrp::Vector3& end_zmp_offset,
-                                   const hrp::Vector3& target_cp_offset,
+    hrp::Vector3 calcFootGuidedCog(const std::vector<ConstraintsWithCount>& constraints_list,
                                    const double jump_height,
-                                   const size_t start_count,
-                                   const size_t supporting_count,
-                                   const size_t landing_count,
+                                   const int cur_const_idx,
                                    const size_t cur_count,
                                    const double dt,
-                                   const FootGuidedRefZMPType ref_zmp_type = FIX,
+                                   const double takeoff_height_offset = 0,
+                                   const double landing_height_offset = 0,
                                    const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+
 
     void calcCogListForRun(const hrp::Vector3 target_cp,
                            const hrp::Vector3 ref_zmp,

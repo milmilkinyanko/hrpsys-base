@@ -1629,7 +1629,7 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
     }
 
     // if (!gg->setRunningFootSteps(support_link_cycle, swing_link_cycle, footsteps_pos, footsteps_rot, fs_side, length, m_dt)) return false;
-    if (!gg->setRunningFootSteps(footsteps_pos, footsteps_rot, fs_side, length, m_dt)) return false;
+    if (!gg->setRunningFootSteps(support_link_cycle, swing_link_cycle, footsteps_pos, footsteps_rot, fs_side, length, m_dt)) return false;
 
     Guard guard(m_mutex);
     gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear

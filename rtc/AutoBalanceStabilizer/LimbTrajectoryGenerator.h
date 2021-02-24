@@ -91,6 +91,7 @@ class LimbTrajectoryGenerator
                         double& rot_acc);
     void setDelayTimeOffset(const double offset) { delay_time_offset = offset; }
     double getDelayTimeOffset() const { return delay_time_offset; }
+    bool isInterpolating(const size_t count) const { return !via_points.empty() && via_points.back().count > count; }
 };
 
 }

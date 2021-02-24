@@ -153,7 +153,11 @@ class LinkConstraint
     void copyLimbTrajectoryGenerator(const LinkConstraint& lc) { limb_traj = lc.limb_traj; }
     void copyLimbState(const LinkConstraint& lc) // TODO: 名前もはやこれじゃない
     {
-        if (limb_traj.isViaPointsEmpty()) limb_traj = lc.limb_traj;
+        if (limb_traj.isViaPointsEmpty()) {
+            double tmp_offset = limb_traj.getDelayTimeOffset();
+            limb_traj = lc.limb_traj;
+            limb_traj.setDelayTimeOffset(tmp_offset);
+        }
         const hrp::Vector3 move_pos = lc.targetRot() * lc.localRot() * (localPos() - lc.localPos());
         // limb_traj.copyState(lc.limb_traj, move_pos);
         targetPos() = lc.targetPos() + move_pos;
@@ -193,6 +197,7 @@ class LinkConstraint
         }
     }
     void setDelayTimeOffset(const double offset) { limb_traj.setDelayTimeOffset(offset); }
+    bool isLimbInterpolating(const size_t count) { return limb_traj.isInterpolating(count); }
 };
 
 struct ConstraintsWithCount
@@ -249,6 +254,15 @@ inline size_t getConstraintIndexFromCount(const std::vector<ConstraintsWithCount
         constraint_idx = i;
     }
     return constraint_idx;
+}
+
+inline size_t getPrevValidConstraintIndex(const std::vector<ConstraintsWithCount>& constraints_list, const size_t cur_idx)
+{
+    size_t prev_constraint_idx = cur_idx - 1;
+    for (size_t i = prev_constraint_idx; i >= 0 && constraints_list[i].start_count == constraints_list[cur_idx].start_count; --i) {
+        prev_constraint_idx = i - 1;
+    }
+    return prev_constraint_idx;
 }
 
 // Return next stable constraints index if it exists. If not, return current index if it is stable, else return -1.

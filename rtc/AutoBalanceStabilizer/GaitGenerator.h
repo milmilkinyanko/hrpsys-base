@@ -64,7 +64,7 @@ class GaitGenerator
     double default_take_off_z = 0.96;
     // double default_jump_height = 0.005;
     // double default_jump_height = 0.03;
-    double default_jump_height = 0.05;
+    double default_jump_height = 0.01;
     double default_support_count_run;
 
     std::vector<std::pair<hrp::Vector3, size_t>> ref_zmp_goals;
@@ -108,6 +108,7 @@ class GaitGenerator
     hrp::Vector3 calcCogMomentFromCMP(const hrp::Vector3& ref_cmp, const double total_mass, const double z_acc = 0);
     bool getSupportSwingIndex(int& support_idx, int& swing_idx, const ConstraintsWithCount& constraints, const size_t _cur_cycle, const std::vector<int>& support_link_cycle, const std::vector<int>& swing_link_cycle);
     void addNewFootSteps(std::vector<ConstraintsWithCount>& new_constraints, const ConstraintsWithCount& last_constraints, const size_t swing_idx, const size_t support_idx, const Eigen::Isometry3d& landing_target, const bool use_toe_heel);
+    void addNewRunningFootSteps(std::vector<ConstraintsWithCount>& new_constraints, const ConstraintsWithCount& last_constraints, const size_t jump_idx, const size_t land_idx, const Eigen::Isometry3d& landing_target, const size_t flight_phase_count, const bool is_start = false, const bool is_end = false);
     void addFirstTwoConstraints(std::vector<ConstraintsWithCount>& new_constraints, const ConstraintsWithCount& cur_constraints);
     void finalizeFootSteps(std::vector<ConstraintsWithCount>& new_constraints);
 
@@ -183,7 +184,7 @@ class GaitGenerator
     {
         std::cerr << "init_cog: "<< init_cog.transpose() << std::endl;
         std::cerr << "init_zmp: " << zmp_gen->getCurrentRefZMP().transpose() << std::endl;
-        cog_gen.reset(new COGTrajectoryGenerator(init_cog));
+        cog_gen.reset(new COGTrajectoryGenerator(init_cog, zmp_gen->getCurrentRefZMP()));
         cog_gen->initPreviewController(dt, zmp_gen->getCurrentRefZMP());
     }
     const hrp::Vector3& getCog()    const { return cog_gen->getCog(); }
@@ -247,7 +248,8 @@ class GaitGenerator
                                   const size_t jump_start_count,
                                   const size_t jumping_count,
                                   const bool is_start = false,
-                                  const size_t starting_count = 0);
+                                  const size_t starting_count = 0,
+                                  const bool is_end = false);
     std::vector<ConstraintsWithCount>
     calcFootStepConstraintsForJump(const ConstraintsWithCount& last_constraints,
                                    const std::vector<Eigen::Isometry3d>& targets,
@@ -310,7 +312,9 @@ class GaitGenerator
                       Eigen::Quaterniond footsteps_rot[],
                       int fs_side[],
                       int length);
-    bool setRunningFootSteps(hrp::Vector3 footsteps_pos[],
+    bool setRunningFootSteps(const std::vector<int>& support_link_cycle,
+                             const std::vector<int>& swing_link_cycle,
+                             hrp::Vector3 footsteps_pos[],
                              Eigen::Quaterniond footsteps_rot[],
                              int fs_side[],
                              int length,
