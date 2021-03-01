@@ -977,7 +977,6 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abst, 'refAngularMomentumRPY')
             self.connectLoggerPort(self.abst, 'sbpCogOffset')
             self.connectLoggerPort(self.abst, 'baseTformOut')
-            self.connectLoggerPort(self.abst, 'controlSwingSupportTime')
             self.connectLoggerPort(self.abst, 'actBaseRpy')
             self.connectLoggerPort(self.abst, 'baseOriginActZmp')
             self.connectLoggerPort(self.abst, 'originRefZmp')

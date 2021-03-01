@@ -97,7 +97,6 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_refCogVelOut("refCogVelOut", m_refCogVel),
       m_refCogAccOut("refCogAccOut", m_refCogAcc),
       m_refAngularMomentumRPYOut("refAngularMomentumRPY", m_refAngularMomentumRPY),
-      m_controlSwingSupportTimeOut("controlSwingSupportTime", m_controlSwingSupportTime),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
 
       // Data from Stabilizer
@@ -317,7 +316,6 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
 
         // Debug
         m_refContactStates.data.length(2);
-        m_controlSwingSupportTime.data.length(3 * 2);
     }
 
     storeRobotStatesForIK();
@@ -557,7 +555,6 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("refCogVelOut", m_refCogVelOut);
     addOutPort("refCogAccOut", m_refCogAccOut);
     addOutPort("refAngularMomentumRPYOut", m_refAngularMomentumRPYOut);
-    addOutPort("controlSwingSupportTime", m_controlSwingSupportTimeOut);
     addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
     // Data from Stabilizer
     addOutPort("actBaseRpy", m_actBaseRpyOut);
@@ -815,14 +812,6 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         }
         m_refContactStatesOut.write();
     }
-
-    m_controlSwingSupportTime.tm = m_qRef.tm;
-    for (size_t i = 0; i < 2; ++i) {
-        for (size_t j = 0; j < 3; ++j) {
-            m_controlSwingSupportTime.data[3 * i + j] = ik_constraints[i].targetPos[j];
-        }
-    }
-    m_controlSwingSupportTimeOut.write();
 
     // Data from Stabilizer
     m_actBaseRpy.tm     = m_qRef.tm;
