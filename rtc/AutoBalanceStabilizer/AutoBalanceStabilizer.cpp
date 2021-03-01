@@ -795,13 +795,6 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_accRef.data.az = acc_ref(2);
     m_accRefOut.write();
 
-    m_refCP.tm = m_qRef.tm;
-    const hrp::Vector3 ref_cp = gg->calcCP();
-    m_refCP.data.x = ref_cp(0);
-    m_refCP.data.y = ref_cp(1);
-    m_refCP.data.z = ref_cp(2);
-    m_refCPOut.write();
-
     // control parameters
     {
         m_refContactStates.tm = m_qRef.tm;
@@ -881,6 +874,13 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         m_emergencySignal.data = emergency_signal_pair.second;
         m_emergencySignalOut.write();
     }
+
+    m_refCP.tm = m_qRef.tm;
+    const hrp::Vector3 rel_ref_cp = st->getOriginRefCP();
+    m_refCP.data.x = rel_ref_cp(0);
+    m_refCP.data.y = rel_ref_cp(1);
+    m_refCP.data.z = rel_ref_cp(2);
+    m_refCPOut.write();
 
     m_actCP.tm = m_qRef.tm;
     const hrp::Vector3 rel_act_cp = st->getOriginActCP();
