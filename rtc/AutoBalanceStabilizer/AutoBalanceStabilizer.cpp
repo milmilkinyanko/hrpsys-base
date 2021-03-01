@@ -63,56 +63,56 @@ std::ostream& operator<<(std::ostream& os, const struct RTC::Time &tm)
 AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       // <rtc-template block="initializer">
-      m_qCurrentIn("qCurrent", m_qCurrent),
+      m_qActIn("qAct", m_qAct),
       m_qRefIn("qRef", m_qRef),
-      m_rpyIn("rpy", m_rpy), // from KF
-      m_basePosIn("basePosIn", m_basePos),
-      m_baseRpyIn("baseRpyIn", m_baseRpy),
-      m_refZmpIn("refZmpIn", m_refZmp),
-      m_optionalDataIn("optionalData", m_optionalData),
+      m_actImuRpyIn("actImuRpy", m_actImuRpy), // from KF
+      m_comBasePosIn("comBasePos", m_comBasePos),
+      m_comBaseRpyIn("comBaseRpy", m_comBaseRpy),
+      m_comZmpIn("comZmp", m_comZmp),
+      m_comOptionalDataIn("comOptionalData", m_comOptionalData),
 
       m_qOut("q", m_qRef),
-      m_tauOut("tau", m_tau),
-      m_basePosOut("basePosOut", m_basePos),
-      m_baseRpyOut("baseRpyOut", m_baseRpy),
-      m_basePoseOut("basePoseOut", m_basePose),
-      m_accRefOut("accRef", m_accRef),
+      m_genBasePosOut("genBasePos", m_genBasePos),
+      m_genBaseRpyOut("genBaseRpy", m_genBaseRpy),
+      m_genBasePoseOut("genBasePose", m_genBasePose),
+      m_ikImuAccOut("ikImuAcc", m_ikImuAcc),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
-      m_pgainOut("pgain", m_pgain),
-      m_dgainOut("dgain", m_dgain),
-      m_tqpgainOut("tqpgain", m_tqpgain),
-      // m_dgainOut("tqdgain", m_tqdgain),
-      m_gainTransitionTimeOut("gainTransitionTime", m_gainTransitionTime),
 
       // Out port for debugging
-      m_refZmpOut("refZmpOut", m_refZmp), // global
-      m_nominalZmpOut("nominalZmpOut", m_nominalZmp), // global
-      m_refEndCpOut("refEndCpOut", m_refEndCp), // global
-      m_newRefCpOut("newRefCpOut", m_newRefCp), // global
-      m_remainTimeOut("remainTimeOut", m_remainTime),
-      m_refCmpOut("refCmpOut", m_refCmp),
-      m_baseOriginRefZmpOut("baseOriginRefZmp", m_baseOriginRefZmp),
-      m_baseTformOut("baseTformOut", m_baseTform),
-      m_refCogOut("refCogOut", m_refCog),
-      m_refCogVelOut("refCogVelOut", m_refCogVel),
-      m_refCogAccOut("refCogAccOut", m_refCogAcc),
-      m_refAngularMomentumRPYOut("refAngularMomentumRPY", m_refAngularMomentumRPY),
-      m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
+      m_genBaseTformOut("genBaseTform", m_genBaseTform),
+      m_genZmpOut("genZmp", m_genZmp), // global
+      m_nominalZmpOut("nominalZmp", m_nominalZmp), // global
+      m_genEndCpOut("genEndCp", m_genEndCp), // global
+      m_genCpOut("genCp", m_genCp), // global
+      m_genRemainTimeOut("genRemainTime", m_genRemainTime),
+      m_genCmpOut("genCmp", m_genCmp),
+      m_baseFrameGenZmpOut("baseFrameGenZmp", m_baseFrameGenZmp),
+      m_genCogOut("genCog", m_genCog),
+      m_genCogVelOut("genCogVel", m_genCogVel),
+      m_genCogAccOut("genCogAcc", m_genCogAcc),
+      m_genAngularMomentumRpyOut("genAngularMomentumRpy", m_genAngularMomentumRpy),
+      m_genSbpCogOffsetOut("genSbpCogOffset", m_genSbpCogOffset),
+      m_genContactStatesOut("genContactStates", m_genContactStates),
 
       // Data from Stabilizer
+      m_modTauOut("modTau", m_modTau),
       m_actBaseRpyOut("actBaseRpy", m_actBaseRpy),
-      m_baseOriginActZmpOut("baseOriginActZmp", m_baseOriginActZmp),
-      m_originRefZmpOut("originRefZmp", m_originRefZmp),
-      m_originNewRefZmpOut("originNewRefZmp", m_originNewRefZmp),
-      m_originActZmpOut("originActZmp", m_originActZmp),
-      m_footOriginRefCogOut("footOriginRefCog", m_footOriginRefCog),
-      m_footOriginActCogOut("footOriginActCog", m_footOriginActCog),
-      m_refContactStatesOut("refContactStates", m_refContactStates),
+      m_baseFrameActZmpOut("baseFrameActZmp", m_baseFrameActZmp),
+      m_footFrameGenZmpOut("footFrameGenZmp", m_footFrameGenZmp),
+      m_footFrameModZmpOut("footFrameModZmp", m_footFrameModZmp),
+      m_footFrameActZmpOut("footFrameActZmp", m_footFrameActZmp),
+      m_footFrameGenCogOut("footFrameGenCog", m_footFrameGenCog),
+      m_footFrameActCogOut("footFrameActCog", m_footFrameActCog),
       m_actContactStatesOut("actContactStates", m_actContactStates),
-      m_newRefWrenchesOut("newRefWrenches", m_newRefWrenches),
-      m_refCPOut("refCapturePoint", m_refCP),
-      m_actCPOut("actCapturePoint", m_actCP),
-      m_COPInfoOut("COPInfo", m_COPInfo),
+      m_modWrenchesOut("modWrenches", m_modWrenches),
+      m_baseFrameGenCpOut("baseFrameGenCp", m_baseFrameGenCp),
+      m_baseFrameActCpOut("baseFrameActCp", m_baseFrameActCp),
+      m_eeOriginCopInfoOut("eeOriginCopInfo", m_eeOriginCopInfo),
+      m_modPgainOut("modPgain", m_modPgain),
+      m_modDgainOut("modDgain", m_modDgain),
+      m_modTqPgainOut("modTqPgain", m_modTqPgain),
+      // m_modTqDgainOut("modTqDgain", m_modTqDgain),
+      m_modGainTransitionTimeOut("modGainTransitionTime", m_modGainTransitionTime),
 
       m_AutoBalanceStabilizerServicePort("AutoBalanceStabilizerService")
       // </rtc-template>
@@ -207,17 +207,17 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         }
 
         m_actContactStates.data.length(ee_num);
-        m_newRefWrenches.data.length(ee_num * 6);
-        m_COPInfo.data.length(ee_num * 3);
+        m_modWrenches.data.length(ee_num * 6);
+        m_eeOriginCopInfo.data.length(ee_num * 3);
         for (size_t i = 0; i < ee_num; i++) {
             m_actContactStates.data[i] = false;
 
             for (size_t j = 0; j < 6; ++j) {
-                m_newRefWrenches.data[6*i+j] = 0.0;
+                m_modWrenches.data[6*i+j] = 0.0;
             }
 
             for (size_t j = 0; j < 3; ++j) {
-                m_COPInfo.data[i * 3 + j] = 0.0;
+                m_eeOriginCopInfo.data[i * 3 + j] = 0.0;
             }
         }
 
@@ -281,7 +281,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         registerInPort(sensor_names[i].c_str(), *m_wrenchesIn[i]);
     }
 
-    m_accRef.data.ax = m_accRef.data.ay = m_accRef.data.az = 0.0;
+    m_ikImuAcc.data.ax = m_ikImuAcc.data.ay = m_ikImuAcc.data.az = 0.0;
 
     {
         const hrp::Sensor* const gyro = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
@@ -295,11 +295,11 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     // allocate memory
     {
         const size_t num_joints = m_robot->numJoints();
-        m_qCurrent.data.length(num_joints);
+        m_qAct.data.length(num_joints);
         m_qRef.data.length(num_joints);
-        m_tau.data.length(num_joints);
-        m_baseTform.data.length(12);
-        m_remainTime.data.length(2);
+        m_modTau.data.length(num_joints);
+        m_genBaseTform.data.length(12);
+        m_genRemainTime.data.length(2);
 
         q_prev_ik = hrp::dvector::Zero(num_joints);
         q_act = hrp::dvector::Zero(num_joints);
@@ -308,14 +308,14 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
         ref_wrenches_for_st.resize(num_fsensors, hrp::dvector6::Zero());
         act_wrenches.resize(num_fsensors, hrp::dvector6::Zero());
 
-        m_pgain.data.length(num_joints);
-        m_dgain.data.length(num_joints);
-        m_tqpgain.data.length(num_joints);
-        // m_tqdgain.data.length(num_joints);
-        m_gainTransitionTime.data.length(num_joints);
+        m_modPgain.data.length(num_joints);
+        m_modDgain.data.length(num_joints);
+        m_modTqPgain.data.length(num_joints);
+        // m_modTqDgain.data.length(num_joints);
+        m_modGainTransitionTime.data.length(num_joints);
 
         // Debug
-        m_refContactStates.data.length(2);
+        m_genContactStates.data.length(2);
     }
 
     storeRobotStatesForIK();
@@ -520,56 +520,56 @@ void AutoBalanceStabilizer::setupBasicPort()
     // Registration: InPort/OutPort/Service
     // <rtc-template block="registration">
     // Set InPort buffers
-    addInPort("qCurrent", m_qCurrentIn);
+    addInPort("qAct", m_qActIn);
     addInPort("qRef", m_qRefIn);
-    addInPort("rpy", m_rpyIn);
-    addInPort("basePosIn", m_basePosIn);
-    addInPort("baseRpyIn", m_baseRpyIn);
-    addInPort("refZmpIn", m_refZmpIn);
-    addInPort("optionalData", m_optionalDataIn);
+    addInPort("actImuRpy", m_actImuRpyIn);
+    addInPort("comBasePos", m_comBasePosIn);
+    addInPort("comBaseRpy", m_comBaseRpyIn);
+    addInPort("comZmp", m_comZmpIn);
+    addInPort("comOptionalData", m_comOptionalDataIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
-    addOutPort("tau", m_tauOut);
-    addOutPort("basePosOut", m_basePosOut);
-    addOutPort("baseRpyOut", m_baseRpyOut);
-    addOutPort("basePoseOut", m_basePoseOut);
-    addOutPort("accRef", m_accRefOut);
+    addOutPort("genBasePos", m_genBasePosOut);
+    addOutPort("genBaseRpy", m_genBaseRpyOut);
+    addOutPort("genBasePose", m_genBasePoseOut);
+    addOutPort("ikImuAcc", m_ikImuAccOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
-    addOutPort("pgain", m_pgainOut);
-    addOutPort("dgain", m_dgainOut);
-    addOutPort("tqpgain", m_tqpgainOut);
-    // addOutPort("tqdgain", m_tqdgainOut);
-    addOutPort("gainTransitionTime", m_gainTransitionTimeOut);
 
     // Out port for debugging
-    addOutPort("refZmpOut", m_refZmpOut);
-    addOutPort("nominalZmpOut", m_nominalZmpOut);
-    addOutPort("refEndCpOut", m_refEndCpOut);
-    addOutPort("newRefCpOut", m_newRefCpOut);
-    addOutPort("remainTimeOut", m_remainTimeOut);
-    addOutPort("refCmpOut", m_refCmpOut);
-    addOutPort("baseOriginRefZmp", m_baseOriginRefZmpOut);
-    addOutPort("baseTformOut", m_baseTformOut);
-    addOutPort("refCogOut", m_refCogOut);
-    addOutPort("refCogVelOut", m_refCogVelOut);
-    addOutPort("refCogAccOut", m_refCogAccOut);
-    addOutPort("refAngularMomentumRPYOut", m_refAngularMomentumRPYOut);
-    addOutPort("sbpCogOffset", m_sbpCogOffsetOut);
+    addOutPort("genZmp", m_genZmpOut);
+    addOutPort("nominalZmp", m_nominalZmpOut);
+    addOutPort("genEndCp", m_genEndCpOut);
+    addOutPort("genCp", m_genCpOut);
+    addOutPort("genRemainTime", m_genRemainTimeOut);
+    addOutPort("genCmp", m_genCmpOut);
+    addOutPort("baseFrameGenZmp", m_baseFrameGenZmpOut);
+    addOutPort("genBaseTform", m_genBaseTformOut);
+    addOutPort("genCog", m_genCogOut);
+    addOutPort("genCogVel", m_genCogVelOut);
+    addOutPort("genCogAcc", m_genCogAccOut);
+    addOutPort("genAngularMomentumRpy", m_genAngularMomentumRpyOut);
+    addOutPort("genSbpCogOffset", m_genSbpCogOffsetOut);
+    addOutPort("baseFrameGenCp", m_baseFrameGenCpOut);
+    addOutPort("genContactStates", m_genContactStatesOut);
     // Data from Stabilizer
+    addOutPort("modTau", m_modTauOut);
     addOutPort("actBaseRpy", m_actBaseRpyOut);
-    addOutPort("baseOriginActZmp", m_baseOriginActZmpOut);
-    addOutPort("originRefZmp", m_originRefZmpOut);
-    addOutPort("originNewRefZmp", m_originNewRefZmpOut);
-    addOutPort("originActZmp", m_originActZmpOut);
-    addOutPort("footOriginRefCog", m_footOriginRefCogOut);
-    addOutPort("footOriginActCog", m_footOriginActCogOut);
-    addOutPort("refContactStates", m_refContactStatesOut);
+    addOutPort("baseFrameActZmp", m_baseFrameActZmpOut);
+    addOutPort("footFrameGenZmp", m_footFrameGenZmpOut);
+    addOutPort("footFrameModZmp", m_footFrameModZmpOut);
+    addOutPort("footFrameActZmp", m_footFrameActZmpOut);
+    addOutPort("footFrameGenCog", m_footFrameGenCogOut);
+    addOutPort("footFrameActCog", m_footFrameActCogOut);
     addOutPort("actContactStates", m_actContactStatesOut);
-    addOutPort("newRefWrenches", m_newRefWrenchesOut);
-    addOutPort("refCapturePoint", m_refCPOut);
-    addOutPort("actCapturePoint", m_actCPOut);
-    addOutPort("COPInfo", m_COPInfoOut);
+    addOutPort("modWrenches", m_modWrenchesOut);
+    addOutPort("baseFrameActCp", m_baseFrameActCpOut);
+    addOutPort("eeOriginCopInfo", m_eeOriginCopInfoOut);
+    addOutPort("modPgain", m_modPgainOut);
+    addOutPort("modDgain", m_modDgainOut);
+    addOutPort("modTqPgain", m_modTqPgainOut);
+    // addOutPort("modTqDgain", m_modTqDgainOut);
+    addOutPort("modGainTransitionTime", m_modGainTransitionTimeOut);
 
     // Set service provider to Ports
     m_AutoBalanceStabilizerServicePort.registerProvider("service0", "AutoBalanceStabilizerService", m_service0);
@@ -587,10 +587,10 @@ void AutoBalanceStabilizer::setupBasicPort()
 
 void AutoBalanceStabilizer::readInportData()
 {
-    if (m_qCurrentIn.isNew()) {
-        m_qCurrentIn.read();
+    if (m_qActIn.isNew()) {
+        m_qActIn.read();
         for (size_t i = 0; i < m_robot->numJoints(); ++i) {
-            q_act[i] = m_qCurrent.data[i];
+            q_act[i] = m_qAct.data[i];
         }
     }
 
@@ -601,30 +601,30 @@ void AutoBalanceStabilizer::readInportData()
         }
     }
 
-    if (m_rpyIn.isNew()) {
-        m_rpyIn.read();
-        act_rpy[0] = m_rpy.data.r;
-        act_rpy[1] = m_rpy.data.p;
-        act_rpy[2] = m_rpy.data.y;
+    if (m_actImuRpyIn.isNew()) {
+        m_actImuRpyIn.read();
+        act_rpy[0] = m_actImuRpy.data.r;
+        act_rpy[1] = m_actImuRpy.data.p;
+        act_rpy[2] = m_actImuRpy.data.y;
     }
 
-    if (m_basePosIn.isNew()) {
-        m_basePosIn.read();
-        ref_base_pos(0) = m_basePos.data.x;
-        ref_base_pos(1) = m_basePos.data.y;
-        ref_base_pos(2) = m_basePos.data.z;
+    if (m_comBasePosIn.isNew()) {
+        m_comBasePosIn.read();
+        ref_base_pos(0) = m_comBasePos.data.x;
+        ref_base_pos(1) = m_comBasePos.data.y;
+        ref_base_pos(2) = m_comBasePos.data.z;
     }
 
-    if (m_baseRpyIn.isNew()) {
-        m_baseRpyIn.read();
-        ref_base_rot = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);
+    if (m_comBaseRpyIn.isNew()) {
+        m_comBaseRpyIn.read();
+        ref_base_rot = hrp::rotFromRpy(m_comBaseRpy.data.r, m_comBaseRpy.data.p, m_comBaseRpy.data.y);
     }
 
-    if (m_refZmpIn.isNew()) {
-        m_refZmpIn.read();
-        input_ref_zmp(0) = m_refZmp.data.x;
-        input_ref_zmp(1) = m_refZmp.data.y;
-        input_ref_zmp(2) = m_refZmp.data.z;
+    if (m_comZmpIn.isNew()) {
+        m_comZmpIn.read();
+        input_ref_zmp(0) = m_comZmp.data.x;
+        input_ref_zmp(1) = m_comZmp.data.y;
+        input_ref_zmp(2) = m_comZmp.data.z;
     }
 
     const size_t num_fsensors = m_wrenchesIn.size();
@@ -654,7 +654,7 @@ void AutoBalanceStabilizer::readInportData()
         }
     }
 
-    if (m_optionalDataIn.isNew()) m_optionalDataIn.read(); // TODO
+    if (m_comOptionalDataIn.isNew()) m_comOptionalDataIn.read(); // TODO
 }
 
 void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
@@ -678,49 +678,49 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     const unsigned int qRef_length = m_qRef.data.length();
     for (unsigned int i = 0; i < qRef_length; i++) {
         m_qRef.data[i] = st_port_data.joint_angles(i);
-        m_tau.data[i]  = st_port_data.joint_torques(i);
+        m_modTau.data[i]  = st_port_data.joint_torques(i);
     }
-    m_tau.tm = m_qRef.tm;
+    m_modTau.tm = m_qRef.tm;
     if (qRef_length != 0) {
         m_qOut.write();
-        m_tauOut.write();
+        m_modTauOut.write();
     }
 
-    m_basePos.tm     = m_qRef.tm;
-    m_basePos.data.x = base_pos(0);
-    m_basePos.data.y = base_pos(1);
-    m_basePos.data.z = base_pos(2);
-    m_basePosOut.write();
+    m_genBasePos.tm     = m_qRef.tm;
+    m_genBasePos.data.x = base_pos(0);
+    m_genBasePos.data.y = base_pos(1);
+    m_genBasePos.data.z = base_pos(2);
+    m_genBasePosOut.write();
 
     const hrp::Vector3 base_rpy = hrp::rpyFromRot(base_rot);
-    m_baseRpy.tm     = m_qRef.tm;
-    m_baseRpy.data.r = base_rpy(0);
-    m_baseRpy.data.p = base_rpy(1);
-    m_baseRpy.data.y = base_rpy(2);
-    m_baseRpyOut.write();
+    m_genBaseRpy.tm     = m_qRef.tm;
+    m_genBaseRpy.data.r = base_rpy(0);
+    m_genBaseRpy.data.p = base_rpy(1);
+    m_genBaseRpy.data.y = base_rpy(2);
+    m_genBaseRpyOut.write();
 
-    double *tform_arr = m_baseTform.data.get_buffer();
-    m_baseTform.tm    = m_qRef.tm;
-    tform_arr[0]      = m_basePos.data.x;
-    tform_arr[1]      = m_basePos.data.y;
-    tform_arr[2]      = m_basePos.data.z;
+    double *tform_arr = m_genBaseTform.data.get_buffer();
+    m_genBaseTform.tm    = m_qRef.tm;
+    tform_arr[0]      = m_genBasePos.data.x;
+    tform_arr[1]      = m_genBasePos.data.y;
+    tform_arr[2]      = m_genBasePos.data.z;
     hrp::setMatrix33ToRowMajorArray(base_rot, tform_arr, 3);
-    m_baseTformOut.write();
+    m_genBaseTformOut.write();
 
-    m_basePose.tm                 = m_qRef.tm;
-    m_basePose.data.position.x    = m_basePos.data.x;
-    m_basePose.data.position.y    = m_basePos.data.y;
-    m_basePose.data.position.z    = m_basePos.data.z;
-    m_basePose.data.orientation.r = m_baseRpy.data.r;
-    m_basePose.data.orientation.p = m_baseRpy.data.p;
-    m_basePose.data.orientation.y = m_baseRpy.data.y;
-    m_basePoseOut.write();
+    m_genBasePose.tm                 = m_qRef.tm;
+    m_genBasePose.data.position.x    = m_genBasePos.data.x;
+    m_genBasePose.data.position.y    = m_genBasePos.data.y;
+    m_genBasePose.data.position.z    = m_genBasePos.data.z;
+    m_genBasePose.data.orientation.r = m_genBaseRpy.data.r;
+    m_genBasePose.data.orientation.p = m_genBaseRpy.data.p;
+    m_genBasePose.data.orientation.y = m_genBaseRpy.data.y;
+    m_genBasePoseOut.write();
 
-    m_refZmp.tm     = m_qRef.tm;
-    m_refZmp.data.x = ref_zmp_global(0);
-    m_refZmp.data.y = ref_zmp_global(1);
-    m_refZmp.data.z = ref_zmp_global(2);
-    m_refZmpOut.write();
+    m_genZmp.tm     = m_qRef.tm;
+    m_genZmp.data.x = ref_zmp_global(0);
+    m_genZmp.data.y = ref_zmp_global(1);
+    m_genZmp.data.z = ref_zmp_global(2);
+    m_genZmpOut.write();
 
     m_nominalZmp.tm     = m_qRef.tm;
     m_nominalZmp.data.x = nominal_zmp_global(0);
@@ -728,82 +728,82 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_nominalZmp.data.z = nominal_zmp_global(2);
     m_nominalZmpOut.write();
 
-    m_refEndCp.tm     = m_qRef.tm;
-    m_refEndCp.data.x = ref_end_cp_global(0);
-    m_refEndCp.data.y = ref_end_cp_global(1);
-    m_refEndCp.data.z = ref_end_cp_global(2);
-    m_refEndCpOut.write();
+    m_genEndCp.tm     = m_qRef.tm;
+    m_genEndCp.data.x = ref_end_cp_global(0);
+    m_genEndCp.data.y = ref_end_cp_global(1);
+    m_genEndCp.data.z = ref_end_cp_global(2);
+    m_genEndCpOut.write();
 
-    m_newRefCp.tm     = m_qRef.tm;
-    m_newRefCp.data.x = new_ref_cp_global(0);
-    m_newRefCp.data.y = new_ref_cp_global(1);
-    m_newRefCp.data.z = new_ref_cp_global(2);
-    m_newRefCpOut.write();
+    m_genCp.tm     = m_qRef.tm;
+    m_genCp.data.x = new_ref_cp_global(0);
+    m_genCp.data.y = new_ref_cp_global(1);
+    m_genCp.data.z = new_ref_cp_global(2);
+    m_genCpOut.write();
 
-    m_remainTime.tm   = m_qRef.tm;
-    m_remainTime.data[0] = step_remain_time;
-    m_remainTime.data[1] = const_remain_time;
-    m_remainTimeOut.write();
+    m_genRemainTime.tm   = m_qRef.tm;
+    m_genRemainTime.data[0] = step_remain_time;
+    m_genRemainTime.data[1] = const_remain_time;
+    m_genRemainTimeOut.write();
 
-    m_baseOriginRefZmp.tm     = m_qRef.tm;
-    m_baseOriginRefZmp.data.x = ref_zmp_base_frame(0);
-    m_baseOriginRefZmp.data.y = ref_zmp_base_frame(1);
-    m_baseOriginRefZmp.data.z = ref_zmp_base_frame(2);
-    m_baseOriginRefZmpOut.write();
+    m_baseFrameGenZmp.tm     = m_qRef.tm;
+    m_baseFrameGenZmp.data.x = ref_zmp_base_frame(0);
+    m_baseFrameGenZmp.data.y = ref_zmp_base_frame(1);
+    m_baseFrameGenZmp.data.z = ref_zmp_base_frame(2);
+    m_baseFrameGenZmpOut.write();
 
-    // m_refCmp.tm     = m_qRef.tm;
-    // m_refCmp.data.x = ref_cmp(0);
-    // m_refCmp.data.y = ref_cmp(1);
-    // m_refCmp.data.z = ref_cmp(2);
-    // m_refCmpOut.write();
+    // m_genCmp.tm     = m_qRef.tm;
+    // m_genCmp.data.x = ref_cmp(0);
+    // m_genCmp.data.y = ref_cmp(1);
+    // m_genCmp.data.z = ref_cmp(2);
+    // m_genCmpOut.write();
 
-    m_refCog.tm     = m_qRef.tm;
-    m_refCog.data.x = ref_cog(0);
-    m_refCog.data.y = ref_cog(1);
-    m_refCog.data.z = ref_cog(2);
-    m_refCogOut.write();
+    m_genCog.tm     = m_qRef.tm;
+    m_genCog.data.x = ref_cog(0);
+    m_genCog.data.y = ref_cog(1);
+    m_genCog.data.z = ref_cog(2);
+    m_genCogOut.write();
 
-    m_refCogVel.tm     = m_qRef.tm;
-    m_refCogVel.data.x = ref_cog_vel(0);
-    m_refCogVel.data.y = ref_cog_vel(1);
-    m_refCogVel.data.z = ref_cog_vel(2);
-    m_refCogVelOut.write();
+    m_genCogVel.tm     = m_qRef.tm;
+    m_genCogVel.data.x = ref_cog_vel(0);
+    m_genCogVel.data.y = ref_cog_vel(1);
+    m_genCogVel.data.z = ref_cog_vel(2);
+    m_genCogVelOut.write();
 
-    m_refCogAcc.tm     = m_qRef.tm;
-    m_refCogAcc.data.x = ref_cog_acc(0);
-    m_refCogAcc.data.y = ref_cog_acc(1);
-    m_refCogAcc.data.z = ref_cog_acc(2);
-    m_refCogAccOut.write();
+    m_genCogAcc.tm     = m_qRef.tm;
+    m_genCogAcc.data.x = ref_cog_acc(0);
+    m_genCogAcc.data.y = ref_cog_acc(1);
+    m_genCogAcc.data.z = ref_cog_acc(2);
+    m_genCogAccOut.write();
 
     {
-        m_refAngularMomentumRPY.tm = m_qRef.tm;
+        m_genAngularMomentumRpy.tm = m_qRef.tm;
         const hrp::Vector3 ref_momentum_rpy = hrp::rpyFromRot(hrp::rotationMatrixFromOmega(ref_momentum));
-        m_refAngularMomentumRPY.data.x = ref_momentum_rpy(0);
-        m_refAngularMomentumRPY.data.y = ref_momentum_rpy(1);
-        m_refAngularMomentumRPY.data.z = ref_momentum_rpy(2);
-        m_refAngularMomentumRPYOut.write();
+        m_genAngularMomentumRpy.data.x = ref_momentum_rpy(0);
+        m_genAngularMomentumRpy.data.y = ref_momentum_rpy(1);
+        m_genAngularMomentumRpy.data.z = ref_momentum_rpy(2);
+        m_genAngularMomentumRpyOut.write();
     }
 
-    m_sbpCogOffset.tm = m_qRef.tm;
-    m_sbpCogOffset.data.x = sbp_cog_offset(0);
-    m_sbpCogOffset.data.y = sbp_cog_offset(1);
-    m_sbpCogOffset.data.z = sbp_cog_offset(2);
-    m_sbpCogOffsetOut.write();
+    m_genSbpCogOffset.tm = m_qRef.tm;
+    m_genSbpCogOffset.data.x = sbp_cog_offset(0);
+    m_genSbpCogOffset.data.y = sbp_cog_offset(1);
+    m_genSbpCogOffset.data.z = sbp_cog_offset(2);
+    m_genSbpCogOffsetOut.write();
 
-    m_accRef.data.ax = acc_ref(0);
-    m_accRef.data.ay = acc_ref(1);
-    m_accRef.data.az = acc_ref(2);
-    m_accRefOut.write();
+    m_ikImuAcc.data.ax = acc_ref(0);
+    m_ikImuAcc.data.ay = acc_ref(1);
+    m_ikImuAcc.data.az = acc_ref(2);
+    m_ikImuAccOut.write();
 
     // control parameters
     {
-        m_refContactStates.tm = m_qRef.tm;
+        m_genContactStates.tm = m_qRef.tm;
         const auto& cs = gg->getCurrentConstraints(loop);
-        for (size_t i = 0; i < m_refContactStates.data.length(); ++i) {
-            m_refContactStates.data[i] = cs.constraints[i].getConstraintType();
-            // m_refContactStates.data[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
+        for (size_t i = 0; i < m_genContactStates.data.length(); ++i) {
+            m_genContactStates.data[i] = cs.constraints[i].getConstraintType();
+            // m_genContactStates.data[i] = (cs.constraints[i].getConstraintType() == hrp::LinkConstraint::FIX);
         }
-        m_refContactStatesOut.write();
+        m_genContactStatesOut.write();
     }
 
     // Data from Stabilizer
@@ -813,41 +813,41 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_actBaseRpy.data.y = st_port_data.act_base_rpy(2);
     m_actBaseRpyOut.write();
 
-    m_baseOriginActZmp.tm = m_qRef.tm;
-    m_baseOriginActZmp.data.x = st_port_data.rel_act_zmp(0);
-    m_baseOriginActZmp.data.y = st_port_data.rel_act_zmp(1);
-    m_baseOriginActZmp.data.z = st_port_data.rel_act_zmp(2);
-    m_baseOriginActZmpOut.write();
+    m_baseFrameActZmp.tm = m_qRef.tm;
+    m_baseFrameActZmp.data.x = st_port_data.rel_act_zmp(0);
+    m_baseFrameActZmp.data.y = st_port_data.rel_act_zmp(1);
+    m_baseFrameActZmp.data.z = st_port_data.rel_act_zmp(2);
+    m_baseFrameActZmpOut.write();
 
-    m_originRefZmp.tm = m_qRef.tm;
-    m_originRefZmp.data.x = st_port_data.ref_zmp(0);
-    m_originRefZmp.data.y = st_port_data.ref_zmp(1);
-    m_originRefZmp.data.z = st_port_data.ref_zmp(2);
-    m_originRefZmpOut.write();
+    m_footFrameGenZmp.tm = m_qRef.tm;
+    m_footFrameGenZmp.data.x = st_port_data.ref_zmp(0);
+    m_footFrameGenZmp.data.y = st_port_data.ref_zmp(1);
+    m_footFrameGenZmp.data.z = st_port_data.ref_zmp(2);
+    m_footFrameGenZmpOut.write();
 
-    m_originNewRefZmp.tm = m_qRef.tm;
-    m_originNewRefZmp.data.x = st_port_data.new_ref_zmp(0);
-    m_originNewRefZmp.data.y = st_port_data.new_ref_zmp(1);
-    m_originNewRefZmp.data.z = st_port_data.new_ref_zmp(2);
-    m_originNewRefZmpOut.write();
+    m_footFrameModZmp.tm = m_qRef.tm;
+    m_footFrameModZmp.data.x = st_port_data.new_ref_zmp(0);
+    m_footFrameModZmp.data.y = st_port_data.new_ref_zmp(1);
+    m_footFrameModZmp.data.z = st_port_data.new_ref_zmp(2);
+    m_footFrameModZmpOut.write();
 
-    m_originActZmp.tm = m_qRef.tm;
-    m_originActZmp.data.x = st_port_data.act_zmp(0);
-    m_originActZmp.data.y = st_port_data.act_zmp(1);
-    m_originActZmp.data.z = st_port_data.act_zmp(2);
-    m_originActZmpOut.write();
+    m_footFrameActZmp.tm = m_qRef.tm;
+    m_footFrameActZmp.data.x = st_port_data.act_zmp(0);
+    m_footFrameActZmp.data.y = st_port_data.act_zmp(1);
+    m_footFrameActZmp.data.z = st_port_data.act_zmp(2);
+    m_footFrameActZmpOut.write();
 
-    m_footOriginRefCog.tm = m_qRef.tm;
-    m_footOriginRefCog.data.x = st_port_data.origin_ref_cog(0);
-    m_footOriginRefCog.data.y = st_port_data.origin_ref_cog(1);
-    m_footOriginRefCog.data.z = st_port_data.origin_ref_cog(2);
-    m_footOriginRefCogOut.write();
+    m_footFrameGenCog.tm = m_qRef.tm;
+    m_footFrameGenCog.data.x = st_port_data.origin_ref_cog(0);
+    m_footFrameGenCog.data.y = st_port_data.origin_ref_cog(1);
+    m_footFrameGenCog.data.z = st_port_data.origin_ref_cog(2);
+    m_footFrameGenCogOut.write();
 
-    m_footOriginActCog.tm = m_qRef.tm;
-    m_footOriginActCog.data.x = st_port_data.origin_act_cog(0);
-    m_footOriginActCog.data.y = st_port_data.origin_act_cog(1);
-    m_footOriginActCog.data.z = st_port_data.origin_act_cog(2);
-    m_footOriginActCogOut.write();
+    m_footFrameActCog.tm = m_qRef.tm;
+    m_footFrameActCog.data.x = st_port_data.origin_act_cog(0);
+    m_footFrameActCog.data.y = st_port_data.origin_act_cog(1);
+    m_footFrameActCog.data.z = st_port_data.origin_act_cog(2);
+    m_footFrameActCogOut.write();
 
     {
         m_actContactStates.tm = m_qRef.tm;
@@ -860,12 +860,12 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     }
 
     {
-        m_newRefWrenches.tm = m_qRef.tm;
+        m_modWrenches.tm = m_qRef.tm;
         const size_t ref_wrenches_size = st_port_data.ref_wrenches.size();
         for (size_t i = 0; i < ref_wrenches_size; ++i) {
-            m_newRefWrenches.data[i] = st_port_data.ref_wrenches[i];
+            m_modWrenches.data[i] = st_port_data.ref_wrenches[i];
         }
-        m_newRefWrenchesOut.write();
+        m_modWrenchesOut.write();
     }
 
     m_emergencySignal.tm = m_qRef.tm;
@@ -875,56 +875,56 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         m_emergencySignalOut.write();
     }
 
-    m_refCP.tm = m_qRef.tm;
+    m_baseFrameGenCp.tm = m_qRef.tm;
     const hrp::Vector3 rel_ref_cp = st->getOriginRefCP();
-    m_refCP.data.x = rel_ref_cp(0);
-    m_refCP.data.y = rel_ref_cp(1);
-    m_refCP.data.z = rel_ref_cp(2);
-    m_refCPOut.write();
+    m_baseFrameGenCp.data.x = rel_ref_cp(0);
+    m_baseFrameGenCp.data.y = rel_ref_cp(1);
+    m_baseFrameGenCp.data.z = rel_ref_cp(2);
+    m_baseFrameGenCpOut.write();
 
-    m_actCP.tm = m_qRef.tm;
+    m_baseFrameActCp.tm = m_qRef.tm;
     const hrp::Vector3 rel_act_cp = st->getOriginActCP();
-    m_actCP.data.x = rel_act_cp(0);
-    m_actCP.data.y = rel_act_cp(1);
-    m_actCP.data.z = rel_act_cp(2);
-    m_actCPOut.write();
+    m_baseFrameActCp.data.x = rel_act_cp(0);
+    m_baseFrameActCp.data.y = rel_act_cp(1);
+    m_baseFrameActCp.data.z = rel_act_cp(2);
+    m_baseFrameActCpOut.write();
 
     {
-        m_COPInfo.tm = m_qRef.tm;
+        m_eeOriginCopInfo.tm = m_qRef.tm;
         const std::vector<hrp::Vector3> contact_cop_info = st->getContactCOPInfo();
         const size_t contact_size = contact_cop_info.size();
         for (size_t i = 0; i < contact_size; ++i) {
             for (size_t j = 0; j < 3; ++j) {
-                m_COPInfo.data[i * 3 + j] = contact_cop_info[i][j];
+                m_eeOriginCopInfo.data[i * 3 + j] = contact_cop_info[i][j];
             }
         }
-        m_COPInfoOut.write();
+        m_eeOriginCopInfoOut.write();
     }
 
     if (st->getIfChangeServoGains()) {
         std::cerr << "[" << m_profile.instance_name << "] Change servo gains" << std::endl;
         st->setIfChangeServoGains(false);
 
-        m_pgain.tm = m_qRef.tm;
-        m_dgain.tm = m_qRef.tm;
-        m_tqpgain.tm = m_qRef.tm;
-        // m_tqdgain.tm = m_qRef.tm;
-        m_gainTransitionTime.tm = m_qRef.tm;
+        m_modPgain.tm = m_qRef.tm;
+        m_modDgain.tm = m_qRef.tm;
+        m_modTqPgain.tm = m_qRef.tm;
+        // m_modTqDgain.tm = m_qRef.tm;
+        m_modGainTransitionTime.tm = m_qRef.tm;
 
-        const size_t num_joints = m_pgain.data.length();
+        const size_t num_joints = m_modPgain.data.length();
         for (size_t i = 0; i < num_joints; ++i) {
-            m_pgain.data[i] = st_port_data.servo_pgains[i];
-            m_dgain.data[i] = st_port_data.servo_dgains[i];
-            m_tqpgain.data[i] = st_port_data.servo_tqpgains[i];
-            // m_tqdgain.data[i] = st_port_data.servo_tqdgains[i];
-            m_gainTransitionTime.data[i] = st_port_data.gains_transition_times[i];
+            m_modPgain.data[i] = st_port_data.servo_pgains[i];
+            m_modDgain.data[i] = st_port_data.servo_dgains[i];
+            m_modTqPgain.data[i] = st_port_data.servo_tqpgains[i];
+            // m_modTqDgain.data[i] = st_port_data.servo_tqdgains[i];
+            m_modGainTransitionTime.data[i] = st_port_data.gains_transition_times[i];
         }
 
-        m_pgainOut.write();
-        m_dgainOut.write();
-        m_tqpgainOut.write();
-        // m_tqdgainOut.write();
-        m_gainTransitionTimeOut.write();
+        m_modPgainOut.write();
+        m_modDgainOut.write();
+        m_modTqPgainOut.write();
+        // m_modTqDgainOut.write();
+        m_modGainTransitionTimeOut.write();
     }
 }
 
