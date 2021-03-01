@@ -374,6 +374,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
         // 脚軌道, COP, RootLink計算
         gg->forwardTimeStep(loop);
         gg->calcCogAndLimbTrajectory(loop, m_dt);
+        gg_is_walking = gg->getWalkingState();
         ref_zmp = gg->getRefZMP();
 
         // TODO: rootlink計算
@@ -1395,7 +1396,7 @@ bool AutoBalanceStabilizer::startWalking()
 
 void AutoBalanceStabilizer::stopWalking ()
 {
-    gg_is_walking = false;
+    gg->setWalkingState(false);
 }
 
 bool AutoBalanceStabilizer::startAutoBalancer(const OpenHRP::AutoBalanceStabilizerService::StrSequence& limbs)
@@ -1492,7 +1493,7 @@ bool AutoBalanceStabilizer::goPos(const double x, const double y, const double t
     if (!gg->goPos(target, support_link_cycle, swing_link_cycle)) return false;
 
     Guard guard(m_mutex);
-    gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear
+    gg->setWalkingState(true);
 
     return true;
 }
@@ -1562,7 +1563,7 @@ bool AutoBalanceStabilizer::setFootSteps(const OpenHRP::AutoBalanceStabilizerSer
     if (!gg->setFootSteps(support_link_cycle, swing_link_cycle, footsteps_pos, footsteps_rot, fs_side, length)) return false;
 
     Guard guard(m_mutex);
-    gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear
+    gg->setWalkingState(true);
 
     return true;
 }
@@ -1632,7 +1633,7 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
     if (!gg->setRunningFootSteps(support_link_cycle, swing_link_cycle, footsteps_pos, footsteps_rot, fs_side, length, m_dt)) return false;
 
     Guard guard(m_mutex);
-    gg_is_walking = true; // TODO: 自動でgg_is_walkingをfalseにする & constraintsのclear
+    gg->setWalkingState(true);
 
     return true;
 }
