@@ -760,8 +760,6 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                               << "d_foot_rpy (" << ee_name[i] << ")  = [" << rad2deg(stikp[i].d_foot_rpy(0)) << " " << rad2deg(stikp[i].d_foot_rpy(1)) << " " << rad2deg(stikp[i].d_foot_rpy(2)) << "] [deg]" << std::endl;
                 }
             }
-
-            calcDiffFootOriginExtMoment();
         }
     } // st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC
 
@@ -1373,37 +1371,6 @@ double Stabilizer::calcDampingControl(const double prev_d, const double TT)
 hrp::Vector3 Stabilizer::calcDampingControl(const hrp::Vector3& prev_d, const hrp::Vector3& TT)
 {
     return (-prev_d.cwiseQuotient(TT)) * dt + prev_d;
-}
-
-void Stabilizer::calcDiffFootOriginExtMoment()
-{
-    // calc reference ext moment around foot origin pos
-    const double mg = total_mass * g_acc; // TODO: g_accを消す
-    const hrp::Vector3 ref_ext_moment(mg  * ref_cog(1) - ref_total_foot_origin_moment(0),
-                                      -mg * ref_cog(0) - ref_total_foot_origin_moment(1),
-                                       0);
-    // calc act ext moment around foot origin pops
-    hrp::Vector3 act_ext_moment;
-    // Do not calculate actual value if in the air, because of invalid act_zmp.
-    if (on_ground) act_ext_moment = hrp::Vector3(mg  * act_cog(1) - act_total_foot_origin_moment(0),
-                                                 -mg * act_cog(0) - act_total_foot_origin_moment(1),
-                                                 0);
-    else act_ext_moment = ref_ext_moment;
-
-    // Calc diff
-    diff_foot_origin_ext_moment = ref_ext_moment - act_ext_moment;
-
-    if (DEBUGP(loop)) {
-        std::cerr << "[" << comp_name << "] DiffStaticBalancePointOffset\n";
-        std::cerr << "[" << comp_name << "]   "
-                  << "ref_ext_moment = "
-                  << ref_ext_moment.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"))
-                  << "[mm], " << "act_ext_moment = "
-                  << act_ext_moment.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"))
-                  << "[mm], " << "diff ext_moment = "
-                  << diff_foot_origin_ext_moment.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"))
-                  << "[mm]" << std::endl;
-    }
 }
 
 void Stabilizer::setSwingSupportJointServoGains()

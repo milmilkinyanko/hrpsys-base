@@ -435,10 +435,6 @@ class HrpsysConfigurator(object):
             connectPorts(self.abst.port("gainTransitionTime"), self.rh.port("gainTransitionTime"))
             if self.es:
                 connectPorts(self.abst.port("emergencySignal"), self.es.port("emergencySignal"))
-            if self.rfu:
-                connectPorts(self.abst.port("diffFootOriginExtMoment"),          self.rfu.port("diffFootOriginExtMoment"))
-                connectPorts(self.rfu.port("refFootOriginExtMoment"),            self.abst.port("refFootOriginExtMoment"))
-                connectPorts(self.rfu.port("refFootOriginExtMomentIsHoldValue"), self.abst.port("refFootOriginExtMomentIsHoldValue"))
 
         # ref force moment connection
         for sen in self.getForceSensorNames():

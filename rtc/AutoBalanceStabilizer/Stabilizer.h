@@ -139,7 +139,6 @@ class Stabilizer
 
     // Getter for AutoBalanceStabilizer
     std::vector<bool> getActContactStates() const { return act_contact_states; }
-    hrp::Vector3 getDiffFootOriginExtMoment() const { return diff_foot_origin_ext_moment; }
     std::vector<hrp::Vector3> getContactCOPInfo() const  { return contact_cop_info; }
     hrp::Vector3 getOriginRefCP() const { return rel_ref_cp; }
     hrp::Vector3 getOriginActCP() const { return rel_act_cp; }
@@ -195,7 +194,6 @@ class Stabilizer
     double calcDampingControl (const double prev_d, const double TT);
     hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
                                      const hrp::Vector3& DD, const hrp::Vector3& TT);
-    void calcDiffFootOriginExtMoment ();
     void setSwingSupportJointServoGains();
     void calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
     void calcTorque(const hrp::Matrix33& rot);
@@ -284,7 +282,6 @@ class Stabilizer
 
     // Port data for AutoBalanceStabilizer
     int emergency_signal = 0;
-    hrp::Vector3 diff_foot_origin_ext_moment = hrp::Vector3::Zero();
 
     // TODO: 整理
     int transition_count = 0;

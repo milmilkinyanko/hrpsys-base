@@ -181,10 +181,6 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     InPort<TimedDoubleSeq> m_optionalDataIn;
     std::vector<TimedDoubleSeq> m_ref_force;
     std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
-    TimedPoint3D m_refFootOriginExtMoment;
-    InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
-    TimedBoolean m_refFootOriginExtMomentIsHoldValue;
-    InPort<TimedBoolean> m_refFootOriginExtMomentIsHoldValueIn;
     std::vector<TimedDoubleSeq> m_wrenches;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
 
@@ -205,8 +201,6 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
     TimedPoint3D m_sbpCogOffset;
     OutPort<TimedPoint3D> m_sbpCogOffsetOut;
-    TimedPoint3D m_diffFootOriginExtMoment;
-    OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
     TimedLong m_emergencySignal;
     OutPort<TimedLong> m_emergencySignalOut;
     TimedDoubleSeq m_pgain;
@@ -391,8 +385,6 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 
     std::vector<bool> ref_contact_states; // TODO: delete
     std::vector<double> control_swing_support_time; // TODO: delete
-    hrp::Vector3 ref_foot_origin_ext_moment;
-    bool is_ref_foot_origin_ext_moment_hold_value;
 
     std::unique_ptr<hrp::Stabilizer> st;
 

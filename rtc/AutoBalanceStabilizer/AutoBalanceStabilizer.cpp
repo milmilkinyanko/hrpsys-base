@@ -70,8 +70,6 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_baseRpyIn("baseRpyIn", m_baseRpy),
       m_refZmpIn("refZmpIn", m_refZmp),
       m_optionalDataIn("optionalData", m_optionalData),
-      m_refFootOriginExtMomentIn("refFootOriginExtMoment", m_refFootOriginExtMoment),
-      m_refFootOriginExtMomentIsHoldValueIn("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValue),
 
       m_qOut("q", m_qRef),
       m_tauOut("tau", m_tau),
@@ -79,7 +77,6 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
-      m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
       m_emergencySignalOut("emergencySignal", m_emergencySignal),
       m_pgainOut("pgain", m_pgain),
       m_dgainOut("dgain", m_dgain),
@@ -532,8 +529,6 @@ void AutoBalanceStabilizer::setupBasicPort()
     addInPort("baseRpyIn", m_baseRpyIn);
     addInPort("refZmpIn", m_refZmpIn);
     addInPort("optionalData", m_optionalDataIn);
-    addInPort("refFootOriginExtMoment", m_refFootOriginExtMomentIn);
-    addInPort("refFootOriginExtMomentIsHoldValue", m_refFootOriginExtMomentIsHoldValueIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -542,7 +537,6 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
-    addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
     addOutPort("emergencySignal", m_emergencySignalOut);
     addOutPort("pgain", m_pgainOut);
     addOutPort("dgain", m_dgainOut);
@@ -664,18 +658,6 @@ void AutoBalanceStabilizer::readInportData()
     }
 
     if (m_optionalDataIn.isNew()) m_optionalDataIn.read(); // TODO
-
-    if (m_refFootOriginExtMomentIn.isNew()) {
-        m_refFootOriginExtMomentIn.read();
-        ref_foot_origin_ext_moment[0] = m_refFootOriginExtMoment.data.x;
-        ref_foot_origin_ext_moment[1] = m_refFootOriginExtMoment.data.y;
-        ref_foot_origin_ext_moment[2] = m_refFootOriginExtMoment.data.z;
-    }
-
-    if (m_refFootOriginExtMomentIsHoldValueIn.isNew()) {
-        m_refFootOriginExtMomentIsHoldValueIn.read();
-        is_ref_foot_origin_ext_moment_hold_value = m_refFootOriginExtMomentIsHoldValue.data;
-    }
 }
 
 void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
@@ -910,13 +892,6 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
         m_emergencySignal.data = emergency_signal_pair.second;
         m_emergencySignalOut.write();
     }
-
-    m_diffFootOriginExtMoment.tm = m_qRef.tm;
-    const hrp::Vector3 diff_foot_origin_ext_moment = st->getDiffFootOriginExtMoment();
-    m_diffFootOriginExtMoment.data.x = diff_foot_origin_ext_moment[0];
-    m_diffFootOriginExtMoment.data.y = diff_foot_origin_ext_moment[1];
-    m_diffFootOriginExtMoment.data.z = diff_foot_origin_ext_moment[2];
-    m_diffFootOriginExtMomentOut.write();
 
     m_actCP.tm = m_qRef.tm;
     const hrp::Vector3 rel_act_cp = st->getOriginActCP();
