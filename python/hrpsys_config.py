@@ -335,7 +335,7 @@ class HrpsysConfigurator(object):
             if self.abc:
                 connectPorts(self.abc.port("basePoseOut"), self.rh.port("basePoseRef"))
             elif self.abst:
-                connectPorts(self.abst.port("basePoseOut"), self.rh.port("basePoseRef"))
+                connectPorts(self.abst.port("genBasePose"), self.rh.port("basePoseRef"))
             else:
                 connectPorts(self.sh.port("basePoseOut"), self.rh.port("basePoseRef"))
 
@@ -420,25 +420,21 @@ class HrpsysConfigurator(object):
         # connection for AutoBalanceStabilizer
         if rtm.findPort(self.rh.ref, "lfsensor") and \
            rtm.findPort(self.rh.ref, "rfsensor") and self.abst:
-            connectPorts(self.sh.port("basePosOut"),           self.abst.port("basePosIn"))
-            connectPorts(self.sh.port("baseRpyOut"),           self.abst.port("baseRpyIn"))
-            connectPorts(self.sh.port("zmpOut"),               self.abst.port("refZmpIn"))
-            connectPorts(self.sh.port("optionalDataOut"),      self.abst.port("optionalData"))
-            connectPorts(self.rh.port("q"),                    self.abst.port("qCurrent"))
-            connectPorts(self.kf.port("rpy"),                  self.abst.port("rpy"))
-            connectPorts(self.abst.port("accRef"),             self.kf.port("accRef"))
-            connectPorts(self.abst.port("tau"),                self.rh.port("tauRef"))
-            connectPorts(self.abst.port("pgain"),              self.rh.port("pgain"))
-            connectPorts(self.abst.port("dgain"),              self.rh.port("dgain"))
-            connectPorts(self.abst.port("tqpgain"),            self.rh.port("tqpgain"))
-            # connectPorts(self.abst.port("tqdgain"),            self.rh.port("tqdgain"))
-            connectPorts(self.abst.port("gainTransitionTime"), self.rh.port("gainTransitionTime"))
+            connectPorts(self.sh.port("basePosOut"),              self.abst.port("comBasePos"))
+            connectPorts(self.sh.port("baseRpyOut"),              self.abst.port("comBaseRpy"))
+            connectPorts(self.sh.port("zmpOut"),                  self.abst.port("comZmp"))
+            connectPorts(self.sh.port("optionalDataOut"),         self.abst.port("comOptionalData"))
+            connectPorts(self.rh.port("q"),                       self.abst.port("qAct"))
+            connectPorts(self.kf.port("rpy"),                     self.abst.port("actImuRpy"))
+            connectPorts(self.abst.port("ikImuAcc"),              self.kf.port("accRef"))
+            connectPorts(self.abst.port("modTau"),                self.rh.port("tauRef"))
+            connectPorts(self.abst.port("modPgain"),              self.rh.port("pgain"))
+            connectPorts(self.abst.port("modDgain"),              self.rh.port("dgain"))
+            connectPorts(self.abst.port("modTqPgain"),            self.rh.port("tqpgain"))
+            # connectPorts(self.abst.port("modTqDgain"),            self.rh.port("tqdgain"))
+            connectPorts(self.abst.port("modGainTransitionTime"), self.rh.port("gainTransitionTime"))
             if self.es:
                 connectPorts(self.abst.port("emergencySignal"), self.es.port("emergencySignal"))
-            if self.rfu:
-                connectPorts(self.abst.port("diffFootOriginExtMoment"),          self.rfu.port("diffFootOriginExtMoment"))
-                connectPorts(self.rfu.port("refFootOriginExtMoment"),            self.abst.port("refFootOriginExtMoment"))
-                connectPorts(self.rfu.port("refFootOriginExtMomentIsHoldValue"), self.abst.port("refFootOriginExtMomentIsHoldValue"))
 
         # ref force moment connection
         for sen in self.getForceSensorNames():
@@ -609,7 +605,7 @@ class HrpsysConfigurator(object):
             if self.abc:
                 connectPorts(self.abc.port("basePosOut"), self.acf.port("posIn"))
             if self.abst:
-                connectPorts(self.abst.port("basePosOut"), self.acf.port("posIn"))
+                connectPorts(self.abst.port("genBasePos"), self.acf.port("posIn"))
 
     def activateComps(self):
         '''!@brief
@@ -968,31 +964,29 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.octd, "octdData")
         if self.abst != None:
             self.connectLoggerPort(self.abst, 'q')
-            self.connectLoggerPort(self.abst, 'tau')
-            self.connectLoggerPort(self.abst, 'refZmpOut')
-            self.connectLoggerPort(self.abst, 'nominalZmpOut')
-            self.connectLoggerPort(self.abst, 'refEndCpOut')
-            self.connectLoggerPort(self.abst, 'newRefCpOut')
-            self.connectLoggerPort(self.abst, 'remainTimeOut')
-            self.connectLoggerPort(self.abst, 'baseOriginRefZmp')
-            self.connectLoggerPort(self.abst, 'refCogOut')
-            self.connectLoggerPort(self.abst, 'refCogVelOut')
-            self.connectLoggerPort(self.abst, 'refCogAccOut')
-            self.connectLoggerPort(self.abst, 'refAngularMomentumRPY')
-            self.connectLoggerPort(self.abst, 'sbpCogOffset')
-            self.connectLoggerPort(self.abst, 'baseTformOut')
-            self.connectLoggerPort(self.abst, 'controlSwingSupportTime')
+            self.connectLoggerPort(self.abst, 'genBaseTform')
+            self.connectLoggerPort(self.abst, 'genZmp')
+            self.connectLoggerPort(self.abst, 'nominalZmp')
+            self.connectLoggerPort(self.abst, 'genEndCp')
+            self.connectLoggerPort(self.abst, 'genCp')
+            self.connectLoggerPort(self.abst, 'genRemainTime')
+            self.connectLoggerPort(self.abst, 'baseFrameGenZmp')
+            self.connectLoggerPort(self.abst, 'genCog')
+            self.connectLoggerPort(self.abst, 'genCogVel')
+            self.connectLoggerPort(self.abst, 'genCogAcc')
+            self.connectLoggerPort(self.abst, 'genAngularMomentumRpy')
+            self.connectLoggerPort(self.abst, 'genSbpCogOffset')
+            self.connectLoggerPort(self.abst, 'genContactStates')
+            self.connectLoggerPort(self.abst, 'modTau')
             self.connectLoggerPort(self.abst, 'actBaseRpy')
-            self.connectLoggerPort(self.abst, 'baseOriginActZmp')
-            self.connectLoggerPort(self.abst, 'originRefZmp')
-            self.connectLoggerPort(self.abst, 'originNewRefZmp')
-            self.connectLoggerPort(self.abst, 'originActZmp')
-            self.connectLoggerPort(self.abst, 'refContactStates')
+            self.connectLoggerPort(self.abst, 'baseFrameActZmp')
+            self.connectLoggerPort(self.abst, 'footFrameGenZmp')
+            self.connectLoggerPort(self.abst, 'footFrameModZmp')
+            self.connectLoggerPort(self.abst, 'footFrameActZmp')
             self.connectLoggerPort(self.abst, 'actContactStates')
-            self.connectLoggerPort(self.abst, 'newRefWrenches')
-            self.connectLoggerPort(self.abst, 'footOriginRefCog')
-            self.connectLoggerPort(self.abst, 'footOriginActCog')
-            self.connectLoggerPort(self.abst, 'refCapturePoint')
+            self.connectLoggerPort(self.abst, 'modWrenches')
+            self.connectLoggerPort(self.abst, 'footFrameGenCog')
+            self.connectLoggerPort(self.abst, 'footFrameActCog')
 
         self.log_svc.clear()
         ## parallel running log process (outside from rtcd) for saving logs by emergency signal

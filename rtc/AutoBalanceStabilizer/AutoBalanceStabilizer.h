@@ -165,110 +165,105 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 
     // DataInPort declaration
     // <rtc-template block="inport_declare">
-    TimedDoubleSeq m_qCurrent;
-    InPort<TimedDoubleSeq> m_qCurrentIn;
+    TimedDoubleSeq m_qAct;
+    InPort<TimedDoubleSeq> m_qActIn;
     TimedDoubleSeq m_qRef;
     InPort<TimedDoubleSeq> m_qRefIn;
-    TimedOrientation3D m_rpy;
-    InPort<TimedOrientation3D> m_rpyIn;
-    TimedPoint3D m_basePos;
-    InPort<TimedPoint3D> m_basePosIn;
-    TimedOrientation3D m_baseRpy;
-    InPort<TimedOrientation3D> m_baseRpyIn;
-    TimedPoint3D m_refZmp;
-    InPort<TimedPoint3D> m_refZmpIn;
-    TimedDoubleSeq m_optionalData;
-    InPort<TimedDoubleSeq> m_optionalDataIn;
+    TimedOrientation3D m_actImuRpy;
+    InPort<TimedOrientation3D> m_actImuRpyIn;
+    TimedPoint3D m_comBasePos;
+    InPort<TimedPoint3D> m_comBasePosIn;
+    TimedOrientation3D m_comBaseRpy;
+    InPort<TimedOrientation3D> m_comBaseRpyIn;
+    TimedPoint3D m_comZmp;
+    InPort<TimedPoint3D> m_comZmpIn;
+    TimedDoubleSeq m_comOptionalData;
+    InPort<TimedDoubleSeq> m_comOptionalDataIn;
     std::vector<TimedDoubleSeq> m_ref_force;
     std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
-    TimedPoint3D m_refFootOriginExtMoment;
-    InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
-    TimedBoolean m_refFootOriginExtMomentIsHoldValue;
-    InPort<TimedBoolean> m_refFootOriginExtMomentIsHoldValueIn;
     std::vector<TimedDoubleSeq> m_wrenches;
     std::vector<InPort<TimedDoubleSeq> *> m_wrenchesIn;
 
     // DataOutPort declaration
     // <rtc-template block="outport_declare">
     OutPort<TimedDoubleSeq> m_qOut;
-    TimedDoubleSeq m_tau;
-    OutPort<TimedDoubleSeq> m_tauOut;
-    OutPort<TimedPoint3D> m_basePosOut;
-    OutPort<TimedOrientation3D> m_baseRpyOut;
-    TimedPose3D m_basePose;
-    OutPort<TimedPose3D> m_basePoseOut;
-    TimedAcceleration3D m_accRef;
-    OutPort<TimedAcceleration3D> m_accRefOut;
-    TimedLongSeq m_refContactStates;
-    OutPort<TimedLongSeq> m_refContactStatesOut;
-    TimedDoubleSeq m_controlSwingSupportTime;
-    OutPort<TimedDoubleSeq> m_controlSwingSupportTimeOut;
-    TimedPoint3D m_sbpCogOffset;
-    OutPort<TimedPoint3D> m_sbpCogOffsetOut;
-    TimedPoint3D m_diffFootOriginExtMoment;
-    OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
+    TimedPoint3D m_genBasePos;
+    OutPort<TimedPoint3D> m_genBasePosOut;
+    TimedOrientation3D m_genBaseRpy;
+    OutPort<TimedOrientation3D> m_genBaseRpyOut;
+    TimedPose3D m_genBasePose;
+    OutPort<TimedPose3D> m_genBasePoseOut;
+    TimedAcceleration3D m_ikImuAcc;
+    OutPort<TimedAcceleration3D> m_ikImuAccOut;
     TimedLong m_emergencySignal;
     OutPort<TimedLong> m_emergencySignalOut;
-    TimedDoubleSeq m_pgain;
-    OutPort<TimedDoubleSeq> m_pgainOut;
-    TimedDoubleSeq m_dgain;
-    OutPort<TimedDoubleSeq> m_dgainOut;
-    TimedDoubleSeq m_tqpgain;
-    OutPort<TimedDoubleSeq> m_tqpgainOut;
-    // TimedDoubleSeq m_tqdgain;
-    // OutPort<TimedDoubleSeq> m_tqdgainOut;
-    TimedDoubleSeq m_gainTransitionTime;
-    OutPort<TimedDoubleSeq> m_gainTransitionTimeOut;
 
     // for debug
-    TimedDoubleSeq m_baseTform;
-    OutPort<TimedDoubleSeq> m_baseTformOut;
-    OutPort<TimedPoint3D> m_refZmpOut;
+    TimedDoubleSeq m_genBaseTform;
+    OutPort<TimedDoubleSeq> m_genBaseTformOut;
+    TimedPoint3D m_genZmp;
+    OutPort<TimedPoint3D> m_genZmpOut;
     TimedPoint3D m_nominalZmp;
     OutPort<TimedPoint3D> m_nominalZmpOut;
-    TimedPoint3D m_refEndCp;
-    OutPort<TimedPoint3D> m_refEndCpOut;
-    TimedPoint3D m_newRefCp;
-    OutPort<TimedPoint3D> m_newRefCpOut;
-    TimedDoubleSeq m_remainTime;
-    OutPort<TimedDoubleSeq> m_remainTimeOut;
-    TimedPoint3D m_refCmp; // Calculated by cog trajectory
-    OutPort<TimedPoint3D> m_refCmpOut;
-    TimedPoint3D m_baseOriginRefZmp;
-    OutPort<TimedPoint3D> m_baseOriginRefZmpOut;
-    TimedPoint3D m_refCog;
-    OutPort<TimedPoint3D> m_refCogOut;
-    TimedPoint3D m_refCogVel;
-    OutPort<TimedPoint3D> m_refCogVelOut;
-    TimedPoint3D m_refCogAcc;
-    OutPort<TimedPoint3D> m_refCogAccOut;
-    TimedPoint3D m_refAngularMomentumRPY;
-    OutPort<TimedPoint3D> m_refAngularMomentumRPYOut;
+    TimedPoint3D m_genEndCp;
+    OutPort<TimedPoint3D> m_genEndCpOut;
+    TimedPoint3D m_genCp;
+    OutPort<TimedPoint3D> m_genCpOut;
+    TimedDoubleSeq m_genRemainTime;
+    OutPort<TimedDoubleSeq> m_genRemainTimeOut;
+    TimedPoint3D m_genCmp; // Calculated by cog trajectory
+    OutPort<TimedPoint3D> m_genCmpOut;
+    TimedPoint3D m_baseFrameGenZmp;
+    OutPort<TimedPoint3D> m_baseFrameGenZmpOut;
+    TimedPoint3D m_genCog;
+    OutPort<TimedPoint3D> m_genCogOut;
+    TimedPoint3D m_genCogVel;
+    OutPort<TimedPoint3D> m_genCogVelOut;
+    TimedPoint3D m_genCogAcc;
+    OutPort<TimedPoint3D> m_genCogAccOut;
+    TimedPoint3D m_genAngularMomentumRpy;
+    OutPort<TimedPoint3D> m_genAngularMomentumRpyOut;
+    TimedPoint3D m_genSbpCogOffset;
+    OutPort<TimedPoint3D> m_genSbpCogOffsetOut;
+    TimedPoint3D m_baseFrameGenCp;
+    OutPort<TimedPoint3D> m_baseFrameGenCpOut;
+    TimedLongSeq m_genContactStates;
+    OutPort<TimedLongSeq> m_genContactStatesOut;
     // Data from Stabilizer
+    TimedDoubleSeq m_modTau;
+    OutPort<TimedDoubleSeq> m_modTauOut;
     TimedOrientation3D m_actBaseRpy;
     OutPort<TimedOrientation3D> m_actBaseRpyOut;
-    TimedPoint3D m_baseOriginActZmp;
-    OutPort<TimedPoint3D> m_baseOriginActZmpOut;
-    TimedPoint3D m_originRefZmp;
-    OutPort<TimedPoint3D> m_originRefZmpOut;
-    TimedPoint3D m_originNewRefZmp;
-    OutPort<TimedPoint3D> m_originNewRefZmpOut;
-    TimedPoint3D m_originActZmp;
-    OutPort<TimedPoint3D> m_originActZmpOut;
-    TimedPoint3D m_footOriginRefCog;
-    OutPort<TimedPoint3D> m_footOriginRefCogOut;
-    TimedPoint3D m_footOriginActCog;
-    OutPort<TimedPoint3D> m_footOriginActCogOut;
+    TimedPoint3D m_baseFrameActZmp;
+    OutPort<TimedPoint3D> m_baseFrameActZmpOut;
+    TimedPoint3D m_footFrameGenZmp;
+    OutPort<TimedPoint3D> m_footFrameGenZmpOut;
+    TimedPoint3D m_footFrameModZmp;
+    OutPort<TimedPoint3D> m_footFrameModZmpOut;
+    TimedPoint3D m_footFrameActZmp;
+    OutPort<TimedPoint3D> m_footFrameActZmpOut;
+    TimedPoint3D m_footFrameGenCog;
+    OutPort<TimedPoint3D> m_footFrameGenCogOut;
+    TimedPoint3D m_footFrameActCog;
+    OutPort<TimedPoint3D> m_footFrameActCogOut;
     TimedBooleanSeq m_actContactStates;
     OutPort<TimedBooleanSeq> m_actContactStatesOut;
-    TimedDoubleSeq m_newRefWrenches;
-    OutPort<TimedDoubleSeq> m_newRefWrenchesOut;
-    TimedPoint3D m_refCP;
-    OutPort<TimedPoint3D> m_refCPOut;
-    TimedPoint3D m_actCP;
-    OutPort<TimedPoint3D> m_actCPOut;
-    TimedDoubleSeq m_COPInfo;
-    OutPort<TimedDoubleSeq> m_COPInfoOut;
+    TimedDoubleSeq m_modWrenches;
+    OutPort<TimedDoubleSeq> m_modWrenchesOut;
+    TimedPoint3D m_baseFrameActCp;
+    OutPort<TimedPoint3D> m_baseFrameActCpOut;
+    TimedDoubleSeq m_eeOriginCopInfo;
+    OutPort<TimedDoubleSeq> m_eeOriginCopInfoOut;
+    TimedDoubleSeq m_modPgain;
+    OutPort<TimedDoubleSeq> m_modPgainOut;
+    TimedDoubleSeq m_modDgain;
+    OutPort<TimedDoubleSeq> m_modDgainOut;
+    TimedDoubleSeq m_modTqPgain;
+    OutPort<TimedDoubleSeq> m_modTqPgainOut;
+    // TimedDoubleSeq m_modTqDgain;
+    // OutPort<TimedDoubleSeq> m_modTqDgainOut;
+    TimedDoubleSeq m_modGainTransitionTime;
+    OutPort<TimedDoubleSeq> m_modGainTransitionTimeOut;
 
     // CORBA Port declaration
     // <rtc-template block="corbaport_declare">
@@ -373,7 +368,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // hrp::Vector3 calc_vel_from_hand_error (const rats::coordinates& tmp_fix_coords);
     // bool isOptionalDataContact (const std::string& ee_name)
     // {
-    //     return (std::fabs(m_optionalData.data[contact_states_index_map[ee_name]] - 1.0) < 0.1) ? true : false;
+    //     return (std::fabs(m_comOptionalData.data[contact_states_index_map[ee_name]] - 1.0) < 0.1) ? true : false;
     // }
     std::string getUseForceModeString ();
 
@@ -391,8 +386,6 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
 
     std::vector<bool> ref_contact_states; // TODO: delete
     std::vector<double> control_swing_support_time; // TODO: delete
-    hrp::Vector3 ref_foot_origin_ext_moment;
-    bool is_ref_foot_origin_ext_moment_hold_value;
 
     std::unique_ptr<hrp::Stabilizer> st;
 
