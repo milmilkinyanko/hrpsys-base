@@ -392,7 +392,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     std::unique_ptr<hrp::Stabilizer> st;
 
     // for se
-    std::unique_ptr<hrp::StateEstimator> act_se;
+    std::shared_ptr<hrp::StateEstimator> act_se;
 
     // for gg
     std::unique_ptr<hrp::GaitGenerator> gg;

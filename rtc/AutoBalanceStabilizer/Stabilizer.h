@@ -20,6 +20,7 @@
 #include "hrpsys/idl/AutoBalanceStabilizerService.hh"
 #include "Utility.h"
 #include "ZMPDistributor.h"
+#include "StateEstimator.h"
 
 namespace hrp {
 
@@ -67,7 +68,7 @@ struct stabilizerPortData
 class Stabilizer
 {
   public:
-    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex);
+    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
@@ -274,6 +275,7 @@ class Stabilizer
 
     hrp::BodyPtr m_robot;
     std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
+    std::shared_ptr<hrp::StateEstimator>& act_se;
     const std::string comp_name;
     const double dt;
     unsigned int loop = 0;

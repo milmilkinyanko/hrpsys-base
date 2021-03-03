@@ -140,7 +140,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     }
 
     fik = std::make_unique<hrp::FullbodyInverseKinematicsSolver>(m_robot, std::string(m_profile.instance_name), m_dt);
-    st = std::make_unique<hrp::Stabilizer>(m_robot, std::string(m_profile.instance_name) + "_ST", m_dt, m_mutex);
+    st = std::make_unique<hrp::Stabilizer>(m_robot, std::string(m_profile.instance_name) + "_ST", m_dt, m_mutex, act_se);
     std::vector<int> contacts_link_indices;
     {
         std::vector<hrp::LinkConstraint> init_constraints = readContactPointsFromProps(prop, contacts_link_indices);
