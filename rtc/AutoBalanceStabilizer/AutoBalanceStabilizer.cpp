@@ -956,7 +956,7 @@ void AutoBalanceStabilizer::fixLegToCoords()
 {
     const auto& cur_constraints = gg->getCurrentConstraints(loop);
     const Eigen::Isometry3d constraint_origin_coord = cur_constraints.calcCOPOriginCoord();
-    const Eigen::Isometry3d foot_origin_coord = cur_constraints.calcFootOriginCoord(m_robot);
+    const Eigen::Isometry3d foot_origin_coord = cur_constraints.calcCOPOriginCoordFromModel(m_robot);
     m_robot->rootLink()->p = constraint_origin_coord * foot_origin_coord.inverse() * m_robot->rootLink()->p;
     m_robot->rootLink()->R = constraint_origin_coord.linear() * foot_origin_coord.linear().transpose() * m_robot->rootLink()->R;
     m_robot->calcForwardKinematics();

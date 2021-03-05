@@ -171,8 +171,6 @@ class GaitGenerator
     void setWalkingState(const bool _walking) { cog_gen->setWalkingState(_walking); };
 
     // Todo: Private ?
-    hrp::Vector3 calcReferenceCOPFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
-    hrp::Matrix33 calcReferenceCOPRotFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;
     void adjustCOPCoordToTarget(const hrp::BodyPtr& _robot, const size_t count);
 
     // -- RefZMPGenerator --

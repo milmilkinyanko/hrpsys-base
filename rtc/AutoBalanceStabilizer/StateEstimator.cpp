@@ -29,7 +29,7 @@ void StateEstimator::calcStates(const stateInputData& input_data)
 {
     // world frame =>
     base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
-    foot_origin_coord = input_data.constraints.calcFootOriginCoord(m_robot);
+    foot_origin_coord = input_data.constraints.calcCOPOriginCoordFromModel(m_robot);
 
     // cog
     cog = m_robot->calcCM();

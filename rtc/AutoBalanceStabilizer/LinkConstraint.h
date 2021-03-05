@@ -219,12 +219,20 @@ struct ConstraintsWithCount
         coord.linear() = calcCOPRotationFromConstraints(type_thre);
         return coord;
     }
-    Eigen::Isometry3d calcFootOriginCoord(const hrp::BodyPtr& _robot, const hrp::Vector3& n = hrp::Vector3::UnitZ()) const;
-    inline Eigen::Isometry3d calcCOPOriginCoord() const
+    hrp::Vector3 calcCOPFromModel(const hrp::BodyPtr& _robot) const;
+    hrp::Matrix33 calcCOPRotFromModel(const hrp::BodyPtr& _robot) const;
+    inline Eigen::Isometry3d calcCOPOriginCoord(const hrp::Vector3& n = hrp::Vector3::UnitZ()) const
     {
         Eigen::Isometry3d coord;
         coord.translation() = calcCOPFromConstraints();
-        coord.linear() = hrp::alignZaxis(calcCOPRotationFromConstraints());
+        coord.linear() = hrp::alignZaxis(calcCOPRotationFromConstraints(), n);
+        return coord;
+    }
+    inline Eigen::Isometry3d calcCOPOriginCoordFromModel(const hrp::BodyPtr& _robot, const hrp::Vector3& n = hrp::Vector3::UnitZ()) const
+    {
+        Eigen::Isometry3d coord;
+        coord.translation() = calcCOPFromModel(_robot);
+        coord.linear() = hrp::alignZaxis(calcCOPRotFromModel(_robot), n);
         return coord;
     }
 
