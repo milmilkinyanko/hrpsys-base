@@ -78,10 +78,10 @@ class COGTrajectoryGenerator
     const hrp::Vector3& getNominalZMP() const { return nominal_zmp; }
     const hrp::Vector3& getRefEndCP() const { return ref_end_cp; }
     const hrp::Vector3& getNewRefCP() const { return new_ref_cp; }
-    const double& getStepRemainTime() const { return step_remain_time; }
-    const double& getConstRemainTime() const { return const_remain_time; }
-    const double getRefCogZ() const { return ref_cog_z; }
-    const bool getWalkingState() { return is_walking; };
+    double getStepRemainTime() const { return step_remain_time; }
+    double getConstRemainTime() const { return const_remain_time; }
+    double getRefCogZ() const { return ref_cog_z; }
+    bool getWalkingState() const { return is_walking; };
     void setWalkingState(const bool _walking) { is_walking = _walking; };
     hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / omega; }
     hrp::Vector3 calcPointMassZMP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const

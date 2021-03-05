@@ -164,9 +164,9 @@ class GaitGenerator
     const hrp::Vector3& getNominalZMP() const { return cog_gen->getNominalZMP(); }
     const hrp::Vector3& getRefEndCP() const { return cog_gen->getRefEndCP(); }
     const hrp::Vector3& getNewRefCP() const { return cog_gen->getNewRefCP(); }
-    const double& getStepRemainTime() const { return cog_gen->getStepRemainTime(); }
-    const double& getConstRemainTime() const { return cog_gen->getConstRemainTime(); }
-    const bool getWalkingState() { return cog_gen->getWalkingState(); };
+    double getStepRemainTime() const { return cog_gen->getStepRemainTime(); }
+    double getConstRemainTime() const { return cog_gen->getConstRemainTime(); }
+    bool getWalkingState() { return cog_gen->getWalkingState(); };
 
     void setWalkingState(const bool _walking) { cog_gen->setWalkingState(_walking); };
 
