@@ -29,8 +29,8 @@ inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 =
 
 namespace hrp {
 
-Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se)
-    : m_robot(boost::make_shared<hrp::Body>(*_robot)),
+Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices)
+    : m_robot(_robot), // m_robotもAutobalanceStabilizerと共通
       comp_name(_comp_name),
       dt(_dt),
       m_mutex(_mutex),
@@ -58,6 +58,7 @@ Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name
     // servo_tqdgains.resize(num_joints, 0);
     gains_transition_times.resize(num_joints, 2.0);
     szd = std::make_unique<SimpleZMPDistributor>(dt);
+    ref_se = std::make_shared<hrp::StateEstimator>(_robot, _comp_name + "_SE", _dt, _mutex, link_indices);
 }
 
 void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num)
@@ -151,20 +152,23 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
 }
 
 // TODO: 右辺値？
-void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
-                                const paramsFromSensors& sensor_param)
+void Stabilizer::execStabilizer(const paramsFromSensors& sensor_param,
+                                const stateRefInputData& input_data)
 {
     if (!is_legged_robot) return;
 
     if (DEBUGP(loop)) {
-        std::cerr << "[" << comp_name << "] Parameters from autobalancer and sensors\n";
-        std::cerr << "[" << comp_name << "]   zmp_ref:        " << abc_param.zmp_ref.transpose() << "\n";
-        std::cerr << "[" << comp_name << "]   base_pos_ref:   " << abc_param.base_pos_ref.transpose() << "\n";
-        std::cerr << "[" << comp_name << "]   base_rpy_ref:   " << abc_param.base_rpy_ref.transpose() << "\n";
-        std::cerr << "[" << comp_name << "]   sbp_cog_offset: " << abc_param.sbp_cog_offset.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   zmp_ref:        " << input_data.base_frame_zmp.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   base_pos_ref:   " << m_robot->rootLink()->p.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   base_rpy_ref:   " << hrp::rpyFromRot(m_robot->rootLink()->R).transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   sbp_cog_offset: " << input_data.sbp_cog_offset.transpose() << "\n";
         std::cerr << "[" << comp_name << "]   wrenches_ref:\n";
-        for (const hrp::dvector6& ref_wrench : abc_param.wrenches_ref) {
-            std::cerr << "[" << comp_name << "]                   " << ref_wrench.transpose() << "\n";
+        for (const auto& constraint : input_data.constraints_list[input_data.cur_const_idx].constraints) {
+            const int link_id = constraint.getLinkId();
+            const hrp::ForceSensor* const sensor = dynamic_cast<hrp::ForceSensor*>(m_robot->link(link_id)->sensors[0]);
+            if (sensor) {
+                std::cerr << "[" << comp_name << "]                   " <<  sensor->f.transpose() << " " << sensor->tau.transpose() << "\n";
+            }
         }
 
         std::cerr << "[" << comp_name << "]   sensor_rpy:     " << sensor_param.rpy.transpose() << "\n";
@@ -175,7 +179,7 @@ void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
         std::cerr << std::endl;
     }
 
-    calcTargetParameters(abc_param);
+    calcTargetParameters(input_data);
     calcActualParameters(sensor_param);
     calcStateForEmergencySignal();
 
@@ -209,34 +213,41 @@ void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
     storeCurrentStates();
 }
 
-void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
+// m_robotはAutobalanceStabilizerですでにreference状態になっている
+void Stabilizer::calcTargetParameters(const stateRefInputData& input_data)
 {
-    // Ref: qRef, zmpRef, baseRpy, basePos, control_swing_support_time, ref_wrenches
-    // m_COPInfo ?
-    // Act: rpy, wrenches,
+    const size_t cs_size = input_data.constraints_list[input_data.cur_const_idx].constraints.size();
+    ref_se->calcRefStates(input_data, loop);
+    for (size_t i = 0; i < cs_size; ++i) {
+        const int link_id = input_data.constraints_list[input_data.cur_const_idx].constraints[i].getLinkId();
+        ref_contact_states[i] = ref_se->getContactStates(link_id);
+        control_swing_support_time[i] = ref_se->getControlSwingSupportTime(link_id);
+        ref_force[i] = ref_se->getWrenches(link_id).head(3);
+        ref_moment[i] = ref_se->getWrenches(link_id).tail(3);
+    }
+    is_walking = input_data.is_walking;
+    sbp_cog_offset = input_data.sbp_cog_offset;
 
-    // 1. Copy variables from AutoBalancer
-    // 2. transition
-    // 3.
+    ref_zmp = ref_se->getZmp();
+    const hrp::Vector3& foot_origin_pos = ref_se->getFootOriginEEPos();
+    const hrp::Matrix33& foot_origin_rot = ref_se->getFootOriginEERot();
 
-    ref_contact_states = abc_param.ref_contact_states;
     // toe_heel_ratio = abc_param.toe_heel_ratio;
-    control_swing_support_time = abc_param.control_swing_support_time;
-    is_walking = abc_param.is_walking;
-    sbp_cog_offset = abc_param.sbp_cog_offset;
 
     // Reference world frame =>
     // update internal robot model
 
+    copyJointAnglesFromRobotModel(qrefv, m_robot);
+
     if (transition_count == 0) {
         transition_smooth_gain = 1.0;
-        qrefv = abc_param.q_ref;
     } else {
         const double max_transition_count = calcMaxTransitionCount();
-        transition_smooth_gain = 1 / (1 + exp(-9.19 * (((max_transition_count - std::fabs(transition_count)) / max_transition_count) - 0.5))); // TODO: 意味がわからない
+        transition_smooth_gain = 1 / (1 + exp(-9.19 * (((max_transition_count - std::fabs(transition_count)) / max_transition_count) - 0.5))); // シグモイド by k-okada．interpolatorを使うようにしてもよい
 
         if (transition_count > 0) {
-            qrefv = calcInteriorPoint(transition_joint_q, abc_param.q_ref, transition_smooth_gain);
+            qrefv = calcInteriorPoint(transition_joint_q, qrefv, transition_smooth_gain);
+            copyJointAnglesToRobotModel(m_robot, qrefv);
 
             if (transition_count == 1) {
                 std::cerr << "[" << comp_name << "] Move to MODE_IDLE" << std::endl;
@@ -245,29 +256,18 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
             --transition_count;
         } else {
             ++transition_count;
-            qrefv = abc_param.q_ref;
         }
     }
 
-    copyJointAnglesToRobotModel(m_robot, qrefv);
-
-    target_root_p = abc_param.base_pos_ref;
-    target_root_R = hrp::rotFromRpy(abc_param.base_rpy_ref);
-    m_robot->rootLink()->p = target_root_p;
-    m_robot->rootLink()->R = target_root_R;
+    target_root_p = m_robot->rootLink()->p;
+    target_root_R = m_robot->rootLink()->R;
     m_robot->calcForwardKinematics();
 
-    ref_zmp = target_root_R * abc_param.zmp_ref + target_root_p; // base frame -> world frame
-
-    hrp::Vector3 foot_origin_pos;
-    hrp::Matrix33 foot_origin_rot;
-    calcFootOriginCoords(foot_origin_pos, foot_origin_rot);
-
+    // TODO: 以下も含めてStateEstimatorに移植したい
     // ref_cog = m_robot->calcCM(); // TODO: done: 下に移動した
     ref_total_force = hrp::Vector3::Zero();
     ref_total_moment = hrp::Vector3::Zero(); // Total moment around reference ZMP tmp
     ref_total_foot_origin_moment = hrp::Vector3::Zero();
-    // std::cerr << "ref_force_z: ";
     for (size_t i = 0; i < stikp.size(); ++i) {
         // TODO: なぜかyは0
         // const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
@@ -276,9 +276,6 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         const hrp::Link* target = m_robot->link(stikp[i].target_name);
         target_ee_p[i] = target->p + target->R * stikp[i].localp;
         target_ee_R[i] = target->R * stikp[i].localR;
-        ref_force[i]  = abc_param.wrenches_ref[i].head<3>();
-        // std::cerr << ref_force[i](2) << ", ";
-        ref_moment[i] = abc_param.wrenches_ref[i].tail<3>();
         ref_total_force += ref_force[i];
         ref_total_moment += (target_ee_p[i] - ref_zmp).cross(ref_force[i]);
 #ifndef FORCE_MOMENT_DIFF_CONTROL

@@ -24,21 +24,6 @@
 
 namespace hrp {
 
-struct paramsFromAutoBalancer
-{
-    hrp::dvector q_ref;
-    hrp::Vector3 zmp_ref;
-    hrp::Vector3 base_pos_ref;
-    hrp::Vector3 base_rpy_ref;
-    bool is_walking;
-    std::vector<bool> ref_contact_states;
-    // std::vector<double> toe_heel_ratio;
-    std::vector<double> control_swing_support_time;
-    std::vector<hrp::dvector6> wrenches_ref;
-    // std::vector<hrp::Vector3> limb_cop_offsets;
-    hrp::Vector3 sbp_cog_offset;
-};
-
 struct paramsFromSensors
 {
     hrp::dvector q_current;
@@ -68,12 +53,12 @@ struct stabilizerPortData
 class Stabilizer
 {
   public:
-    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se);
+    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
-    void execStabilizer(const paramsFromAutoBalancer& abc_param,
-                        const paramsFromSensors& sensor_param);
+    void execStabilizer(const paramsFromSensors& sensor_param,
+                        const stateRefInputData& input_data);
 
     // TODO: tmporarary function: delete this function after merging autobalancestabilizer IK and stabilizer IK
     void addSTIKParam(const std::string& ee_name, const std::string& target_name,
@@ -162,7 +147,7 @@ class Stabilizer
     OpenHRP::AutoBalanceStabilizerService::JointControlMode joint_control_mode = OpenHRP::AutoBalanceStabilizerService::JOINT_POSITION;
 
     void storeCurrentStates();
-    void calcTargetParameters(const paramsFromAutoBalancer& abc_param);
+    void calcTargetParameters(const stateRefInputData& input_data);
     void calcActualParameters(const paramsFromSensors& sensor_param);
     void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
     void syncToSt();
@@ -282,6 +267,8 @@ class Stabilizer
     size_t loop = 0;
     double g_acc = 9.80665; // [m/s^2]
     double total_mass;
+
+    std::shared_ptr<hrp::StateEstimator> ref_se;
 
     // Port data for AutoBalanceStabilizer
     int emergency_signal = 0;

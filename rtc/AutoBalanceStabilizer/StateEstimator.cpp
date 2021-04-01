@@ -133,4 +133,51 @@ bool StateEstimator::calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCo
     }
 }
 
+void StateEstimator::calcRefStates(const stateRefInputData& input_data, const size_t cur_count)
+{
+    // world frame =>
+    foot_origin_coord = input_data.constraints_list[input_data.cur_const_idx].calcCOPOriginCoordFromModel(m_robot);
+
+    // zmp
+    zmp = m_robot->rootLink()->p + m_robot->rootLink()->R * input_data.base_frame_zmp;
+    // <= world frame
+
+    size_t limb_idx = 0;
+    for (const auto& constraint : input_data.constraints_list[input_data.cur_const_idx].constraints) {
+        const int link_id = constraint.getLinkId();
+        limb_param[link_id].contact_states = (constraint.getConstraintType() < hrp::LinkConstraint::FLOAT);
+        limb_param[link_id].control_swing_support_time = calcSwingSupportTime(input_data.constraints_list, input_data.cur_const_idx,
+                                                                              limb_idx, cur_count);
+
+        // sensor frame =>
+        if (m_robot->link(link_id)->sensors.size() != 0) {
+            const hrp::ForceSensor* const sensor = dynamic_cast<hrp::ForceSensor*>(m_robot->link(link_id)->sensors[0]);
+            if (sensor) {
+                // set wrenches
+                limb_param[link_id].wrenches.head(3) = sensor->f;
+                limb_param[link_id].wrenches.tail(3) = sensor->tau;
+            }
+        }
+        // <= sensor frame
+
+        ++limb_idx;
+    }
+}
+
+double StateEstimator::calcSwingSupportTime(const std::vector<ConstraintsWithCount>& constraints_list, const size_t cur_const_idx, const size_t limb_idx, const size_t cur_count)
+{
+    double remain_time = 1.6; // デフォルトは等身大で未来の影響がほぼ0になる1.6s
+    const bool is_support = (constraints_list[cur_const_idx].constraints[limb_idx].getConstraintType() == hrp::LinkConstraint::FIX);
+
+    size_t const_idx = cur_const_idx;
+    for (; const_idx < constraints_list.size(); ++const_idx) {
+        if ((is_support && constraints_list[const_idx].constraints[limb_idx].getConstraintType() != hrp::LinkConstraint::FIX) ||
+            (!is_support && constraints_list[const_idx].constraints[limb_idx].getConstraintType() == hrp::LinkConstraint::FIX))
+            break;
+    }
+    if (const_idx < constraints_list.size()) remain_time = (constraints_list[const_idx].start_count - cur_count) * dt;
+
+    return remain_time;
+}
+
 }

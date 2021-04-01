@@ -29,12 +29,27 @@ struct stateInputData
     size_t cur_const_idx;
 };
 
+struct stateRefInputData
+{
+    const std::vector<ConstraintsWithCount>& constraints_list;
+    size_t cur_const_idx;
+    const hrp::Vector3& base_frame_zmp;
+
+    // 状態推定には使われず値を保持してるだけ
+    bool is_walking;
+    const hrp::Vector3& sbp_cog_offset;
+};
+
 struct limbParam
 {
     hrp::Vector3 contact_cop_info = hrp::Vector3::Zero();
     double prev_act_force_z = 0;
     bool contact_states = false;
     Eigen::Isometry3d foot_frame_ee_coord = Eigen::Isometry3d::Identity();
+    hrp::dvector6 wrenches = hrp::dvector6::Zero();
+
+    // only for reference
+    double control_swing_support_time = 1.0;
 };
 
 class StateEstimator
@@ -81,6 +96,35 @@ class StateEstimator
     void calcStates(const stateInputData& input_data);
     bool calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCount& constraints, const double zmp_z);
     inline bool isContact(const int idx) { return limb_param[idx].prev_act_force_z > contact_decision_threshold; };
+
+    // for reference
+    void calcRefStates(const stateRefInputData& input_data, const size_t cur_count);
+    double calcSwingSupportTime(const std::vector<ConstraintsWithCount>& constraints_list, const size_t cur_const_idx, const size_t limb_idx, const size_t cur_count);
+
+    // getter
+    const hrp::Vector3& getZmp() { return zmp; };
+    const hrp::Vector3& getBaseRpy() { return base_rpy; };
+    const hrp::Vector3& getBaseFrameZmp() { return base_frame_zmp; };
+    const hrp::Vector3& getBaseFrameCp() { return base_frame_cp; };
+    const hrp::Vector3& getFootFrameCog() { return foot_frame_cog; };
+    const hrp::Vector3& getFootFrameZmp() { return foot_frame_zmp; };
+    const hrp::Vector3& getFootFrameCogVel() { return foot_frame_cogvel; };
+    const hrp::Vector3& getFootFrameCp() { return foot_frame_cp; };
+
+    bool getOnGround() { return on_ground; };
+
+    const Eigen::Isometry3d& getFootOriginEECoord() { return foot_origin_coord; };
+    const Eigen::Isometry3d::TranslationPart getFootOriginEEPos() { return foot_origin_coord.translation(); };
+    const Eigen::Isometry3d::LinearPart getFootOriginEERot() { return foot_origin_coord.linear(); };
+
+    // getter for each limb
+    const hrp::dvector6& getWrenches(const int idx) { return limb_param[idx].wrenches; };
+    bool getContactStates(const int idx) { return limb_param[idx].contact_states; };
+    double getControlSwingSupportTime(const int idx) { return limb_param[idx].control_swing_support_time; };
+
+    const Eigen::Isometry3d& getFootFrameEECoord(const int idx) { return limb_param[idx].foot_frame_ee_coord; };
+    const Eigen::Isometry3d::TranslationPart getFootFrameEEPos(const int idx) { return limb_param[idx].foot_frame_ee_coord.translation(); };
+    const Eigen::Isometry3d::LinearPart getFootFrameEERot(const int idx) { return limb_param[idx].foot_frame_ee_coord.linear(); };
 };
 
 }
