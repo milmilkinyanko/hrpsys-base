@@ -361,6 +361,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
 
     ++loop;
     gg->setCurrentLoop(loop);
+    st->setCurrentLoop(loop);
     readInportData();
     updateBodyParams();
     if(!gg->getWalkingState()) gg->setConstraintToFootCoord(m_robot);

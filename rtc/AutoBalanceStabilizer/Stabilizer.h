@@ -136,6 +136,7 @@ class Stabilizer
     }
 
     // Setter for AutoBalanceStabilizer
+    void setCurrentLoop(const size_t _loop) { loop = _loop; }
     void setIfChangeServoGains(const bool if_change) { change_servo_gains = if_change; }
 
     // Getter for AutoBalanceStabilizer
@@ -278,7 +279,7 @@ class Stabilizer
     std::shared_ptr<hrp::StateEstimator>& act_se;
     const std::string comp_name;
     const double dt;
-    unsigned int loop = 0;
+    size_t loop = 0;
     double g_acc = 9.80665; // [m/s^2]
     double total_mass;
 

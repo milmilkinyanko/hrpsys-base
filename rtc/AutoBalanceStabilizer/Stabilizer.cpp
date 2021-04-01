@@ -154,7 +154,6 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t ee_num
 void Stabilizer::execStabilizer(const paramsFromAutoBalancer& abc_param,
                                 const paramsFromSensors& sensor_param)
 {
-    loop++; // TODO: remove?
     if (!is_legged_robot) return;
 
     if (DEBUGP(loop)) {
