@@ -297,7 +297,7 @@ namespace rats
         cycloid_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height);
         break;
       case RECTANGLE:
-        rectangle_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height, swing_trajectory_generator_idx, it3->worldcoords);
+        rectangle_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height, swing_trajectory_generator_idx, it3->worldcoords, it1->l_r);
         break;
       case STAIR:
         stair_midcoords(ret, it1->worldcoords, it2->worldcoords, step_height);
@@ -438,8 +438,10 @@ namespace rats
   };
 
   void leg_coords_generator::rectangle_midcoords (coordinates& ret, const coordinates& start,
-                                                  const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx, const coordinates& current_coords)
+                                                  const coordinates& goal, const double height, const size_t swing_trajectory_generator_idx, const coordinates& current_coords, leg_type lr)
   {
+    rdtg[swing_trajectory_generator_idx].set_swing_leg(lr);
+    rdtg[swing_trajectory_generator_idx].set_rectangle_trajectory_way_point_offset(rectangle_way_point_offset);
     rdtg[swing_trajectory_generator_idx].is_touch_ground = is_touch_ground;
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height, hrp::Vector3(current_coords.pos));
   };
