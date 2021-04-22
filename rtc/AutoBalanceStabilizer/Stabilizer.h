@@ -53,7 +53,7 @@ struct stabilizerPortData
 class Stabilizer
 {
   public:
-    Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices);
+    Stabilizer(hrp::BodyPtr& _robot, const hrp::BodyPtr& _act_robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices);
     virtual ~Stabilizer() {};
 
     void initStabilizer(const RTC::Properties& prop, const size_t ee_num);
@@ -259,7 +259,8 @@ class Stabilizer
         hrp::dvector landing_dgain;
     };
 
-    hrp::BodyPtr m_robot;
+    hrp::BodyPtr& m_robot;
+    const hrp::BodyPtr& m_act_robot; // This is the reference to the mutex of AutoBalanceStabilizer class
     std::mutex& m_mutex; // This is the reference to the mutex of AutoBalanceStabilizer class
     std::shared_ptr<hrp::StateEstimator>& act_se;
     const std::string comp_name;

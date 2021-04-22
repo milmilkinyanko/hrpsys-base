@@ -29,8 +29,9 @@ inline bool DEBUGP(unsigned int loop) { return (DEBUG_LEVEL == 1 && loop % 200 =
 
 namespace hrp {
 
-Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices)
+Stabilizer::Stabilizer(hrp::BodyPtr& _robot, const hrp::BodyPtr& _act_robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, std::shared_ptr<hrp::StateEstimator>& _act_se, const std::vector<int>& link_indices)
     : m_robot(_robot), // m_robotもAutobalanceStabilizerと共通
+      m_act_robot(_act_robot), // m_act_robotは共通のものをStabilizer内でreadするだけ
       comp_name(_comp_name),
       dt(_dt),
       m_mutex(_mutex),
@@ -171,10 +172,11 @@ void Stabilizer::execStabilizer(const paramsFromSensors& sensor_param,
             }
         }
 
-        std::cerr << "[" << comp_name << "]   sensor_rpy:     " << sensor_param.rpy.transpose() << "\n";
+        std::cerr << "[" << comp_name << "]   sensor_rpy:     " << act_se->getBaseRpy().transpose() << "\n";
         std::cerr << "[" << comp_name << "]   act wrenches:\n";
-        for (const hrp::dvector6& wrench : sensor_param.wrenches) {
-            std::cerr << "[" << comp_name << "]                   " << wrench.transpose() << "\n";
+        for (const auto& constraint : input_data.constraints_list[input_data.cur_const_idx].constraints) {
+            const int link_id = constraint.getLinkId();
+            std::cerr << "[" << comp_name << "]                   " << act_se->getWrenches(link_id).transpose() << "\n";
         }
         std::cerr << std::endl;
     }

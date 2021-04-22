@@ -25,7 +25,7 @@ StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _c
     cogvel_filter = std::make_unique<FirstOrderLowPassFilter<hrp::Vector3>>(4.0, dt, hrp::Vector3::Zero()); // 4.0 Hz
 }
 
-void StateEstimator::calcStates(const stateInputData& input_data)
+void StateEstimator::calcActStates(const stateActInputData& input_data)
 {
     // world frame =>
     base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
@@ -122,6 +122,12 @@ bool StateEstimator::calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCo
 
         limb_param[link_id].prev_act_force_z = 0.85 * limb_param[link_id].prev_act_force_z + 0.15 * nf(2); // filter, cut off 5[Hz]
         tmp_filterd_fz += limb_param[link_id].prev_act_force_z;
+
+        // sensor frame =>
+        // set wrenches
+        limb_param[link_id].wrenches.head(3) = sensor->f;
+        limb_param[link_id].wrenches.tail(3) = sensor->tau;
+        // <= sensor frame
     }
 
     if (tmp_filterd_fz < contact_decision_threshold) {

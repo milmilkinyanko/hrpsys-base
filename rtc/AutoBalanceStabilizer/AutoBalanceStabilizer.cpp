@@ -325,7 +325,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
     m_act_robot = boost::make_shared<hrp::Body>(*m_robot);
-    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex, contacts_link_indices);
+    act_se = std::make_shared<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex, contacts_link_indices);
 
     return RTC::RTC_OK;
 }
@@ -366,7 +366,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     updateBodyParams();
     if(!gg->getWalkingState()) gg->setConstraintToFootCoord(m_robot);
     gg->forwardTimeStep(loop);
-    act_se->calcStates(hrp::stateInputData{q_act, act_rpy, act_wrenches, gg->getCurrentConstraints(loop), ref_zmp(2), gg->getCurConstIdx()});
+    act_se->calcActStates(hrp::stateActInputData{q_act, act_rpy, gg->getCurrentConstraints(loop), ref_zmp(2), gg->getCurConstIdx()});
 
     gg->setDebugLevel(m_debugLevel);
 

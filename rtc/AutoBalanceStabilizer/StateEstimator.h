@@ -19,12 +19,11 @@
 
 namespace hrp {
 
-struct stateInputData
+struct stateActInputData
 {
-    hrp::dvector q_current;
-    hrp::Vector3 rpy;
-    std::vector<hrp::dvector6> wrenches;
-    hrp::ConstraintsWithCount constraints;
+    const hrp::dvector& q_current;
+    const hrp::Vector3& rpy;
+    const hrp::ConstraintsWithCount& constraints;
     double zmp_z; // 常にreferenceの値を用いる
     size_t cur_const_idx;
 };
@@ -93,7 +92,8 @@ class StateEstimator
   public:
     StateEstimator(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, const std::vector<int>& link_indices);
 
-    void calcStates(const stateInputData& input_data);
+    // for actual
+    void calcActStates(const stateActInputData& input_data);
     bool calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCount& constraints, const double zmp_z);
     inline bool isContact(const int idx) { return limb_param[idx].prev_act_force_z > contact_decision_threshold; };
 
