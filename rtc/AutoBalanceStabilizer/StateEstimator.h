@@ -113,9 +113,11 @@ class StateEstimator
 
     bool getOnGround() { return on_ground; };
 
-    const Eigen::Isometry3d& getFootOriginEECoord() { return foot_origin_coord; };
-    const Eigen::Isometry3d::TranslationPart getFootOriginEEPos() { return foot_origin_coord.translation(); };
-    const Eigen::Isometry3d::LinearPart getFootOriginEERot() { return foot_origin_coord.linear(); };
+    const Eigen::Isometry3d& getFootOriginCoord() { return foot_origin_coord; };
+    const Eigen::Isometry3d::TranslationPart getFootOriginPos() { return foot_origin_coord.translation(); };
+    const Eigen::Isometry3d::LinearPart getFootOriginRot() { return foot_origin_coord.linear(); };
+
+    double getCogVelCutOffFreq() { return cogvel_filter->getCutOffFreq(); };
 
     // getter for each limb
     const hrp::dvector6& getWrenches(const int idx) { return limb_param[idx].wrenches; };
@@ -125,6 +127,9 @@ class StateEstimator
     const Eigen::Isometry3d& getFootFrameEECoord(const int idx) { return limb_param[idx].foot_frame_ee_coord; };
     const Eigen::Isometry3d::TranslationPart getFootFrameEEPos(const int idx) { return limb_param[idx].foot_frame_ee_coord.translation(); };
     const Eigen::Isometry3d::LinearPart getFootFrameEERot(const int idx) { return limb_param[idx].foot_frame_ee_coord.linear(); };
+
+    // setter
+    void setCogVelCutOffFreq(const double freq) { cogvel_filter->setCutOffFreq(freq); };
 };
 
 }

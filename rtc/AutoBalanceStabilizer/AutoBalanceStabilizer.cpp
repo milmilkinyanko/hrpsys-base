@@ -474,8 +474,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     }
 
     // Stabilizer
-    st->execStabilizer(hrp::paramsFromSensors{q_act, act_rpy, act_wrenches},
-                       hrp::stateRefInputData{gg->getConstraintsList(), gg->getCurConstIdx(), ref_zmp_base_frame, gg_is_walking, sbp_cog_offset});
+    st->execStabilizer(hrp::stateRefInputData{gg->getConstraintsList(), gg->getCurConstIdx(), ref_zmp_base_frame, gg_is_walking, sbp_cog_offset});
 
     writeOutPortData(ref_basePos, ref_baseRot, ref_zmp, gg->getNominalZMP(), gg->getRefEndCP(), gg->getNewRefCP(),
                      gg->getStepRemainTime(), gg->getConstRemainTime(), ref_zmp_base_frame,
