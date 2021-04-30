@@ -140,6 +140,8 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   is_after_walking = false;
   after_walking_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
+  use_footguided_stabilizer = false;
+  footguided_balance_time_const = 1.6; // [s]
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -536,13 +538,20 @@ void Stabilizer::getActualParametersForST ()
     // new ZMP calculation
     // Kajita's feedback law
     //   Basically Equation (26) in the paper [1].
-    hrp::Vector3 dcog=foot_origin_rot * (ref_cog - act_cog);
-    hrp::Vector3 dcogvel=foot_origin_rot * (ref_cogvel - act_cogvel);
-    hrp::Vector3 dzmp=foot_origin_rot * (ref_zmp - act_zmp);
-    new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos;
+    new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos; // = abs_ref_zmp
     if (!is_walking || !use_act_states) {
-      for (size_t i = 0; i < 2; i++) {
-        new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
+      if (!use_footguided_stabilizer) { // kajita st
+        hrp::Vector3 dcog=foot_origin_rot * (ref_cog - act_cog);
+        hrp::Vector3 dcogvel=foot_origin_rot * (ref_cogvel - act_cogvel);
+        hrp::Vector3 dzmp=foot_origin_rot * (ref_zmp - act_zmp);
+        for (size_t i = 0; i < 2; i++) {
+          new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
+        }
+      } else { // foot-guided
+        double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+        hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * act_cp) - new_refzmp;
+        hrp::Vector3 dxsp = hrp::Vector3::Zero(); // stay still
+        new_refzmp += transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * footguided_balance_time_const) * dxsp) / (1 - std::exp(-2 * omega * footguided_balance_time_const));
       }
     }
     if (is_walking) {

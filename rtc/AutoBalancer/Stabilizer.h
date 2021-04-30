@@ -156,6 +156,8 @@ public:
   RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
   bool is_reset_torque, is_after_walking;
   interpolator *after_walking_interpolator;
+  bool use_footguided_stabilizer;
+  double footguided_balance_time_const;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
