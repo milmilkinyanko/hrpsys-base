@@ -1187,9 +1187,15 @@ namespace rats
     }
     // calc zmp
     hrp::Vector3 feedforward_zmp;
+    if (is_end_phase) {
+      remain_count = std::max(static_cast<int>(remain_count), static_cast<int>(footguided_balance_time_const/dt));
+      double_remain_count = std::max(static_cast<int>(double_remain_count), static_cast<int>(footguided_balance_time_const/dt));
+    }
     foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, remain_count, tmp_ref_dcm, fg_ref_zmp, is_double_support_phase, fg_start_ref_zmp, fg_goal_ref_zmp, double_remain_count, fg_step_count * double_support_ratio, ad_ref_zmp);
     // interpolate zmp when double support phase
-    if (is_double_support_phase || (is_end_phase && remain_count <= fg_step_count * (default_double_support_ratio_before+default_double_support_ratio_after))) {
+    if (is_double_support_phase
+        // || (is_end_phase && remain_count <= fg_step_count * (default_double_support_ratio_before+default_double_support_ratio_after))
+      ) {
       double tmp_ratio = 0.0;
       if (double_support_zmp_interpolator->isEmpty()) {
         double tmp_time = (is_double_support_phase ? fg_step_count * double_support_ratio * dt : remain_count * dt);

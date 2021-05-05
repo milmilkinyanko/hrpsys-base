@@ -3118,7 +3118,7 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
   st->use_zmp_truncation = i_param.use_zmp_truncation;
   st->use_force_sensor = i_param.use_force_sensor;
   st->use_footguided_stabilizer = i_param.use_footguided_stabilizer;
-  st->footguided_balance_time_const = i_param.footguided_balance_time_const;
+  gg->footguided_balance_time_const = st->footguided_balance_time_const = i_param.footguided_balance_time_const;
   for (size_t i = 0; i < 2; i++) {
     st->limb_stretch_avoidance_vlimit[i] = i_param.limb_stretch_avoidance_vlimit[i];
     st->root_rot_compensation_limit[i] = i_param.root_rot_compensation_limit[i];
