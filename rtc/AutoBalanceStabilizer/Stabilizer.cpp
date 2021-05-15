@@ -39,6 +39,11 @@ Stabilizer::Stabilizer(const hrp::BodyPtr& _robot, const std::string& _comp_name
     limb_stretch_avoidance_vlimit[1] = 50 * 1e-3 * dt; // upper limit
     total_mass = m_robot->totalMass();
 
+    eefm_swing_damping_force_thre.resize(3, 300);
+    eefm_swing_damping_moment_thre.resize(3, 15);
+    cp_check_margin.resize(4, 30 * 1e-3); // [m]
+    tilt_margin.resize(2, hrp::deg2rad(30));
+
     const size_t num_joints = m_robot->numJoints();
     transition_joint_q = hrp::dvector::Zero(num_joints);
     qorg               = hrp::dvector::Zero(num_joints);
