@@ -380,8 +380,8 @@ class Stabilizer
     double eefm_pos_time_const_swing = 0.08;
     double eefm_pos_transition_time = 0.01;
     double eefm_pos_margin_time = 0.02;
-    std::vector<double> eefm_swing_damping_force_thre{3, 300};
-    std::vector<double> eefm_swing_damping_moment_thre{3, 15};
+    std::vector<double> eefm_swing_damping_force_thre;
+    std::vector<double> eefm_swing_damping_moment_thre;
 
     hrp::Vector3 new_refzmp = hrp::Vector3::Zero();
     hrp::Vector3 rel_cog = hrp::Vector3::Zero();
@@ -395,8 +395,8 @@ class Stabilizer
     hrp::Vector3 ref_total_foot_origin_moment, act_total_foot_origin_moment;
     double cop_check_margin = 20.0 * 1e-3; // [m]
     double contact_decision_threshold = 50; // [N]
-    std::vector<double> cp_check_margin{4, 30 * 1e-3}; // [m]
-    std::vector<double> tilt_margin{2, hrp::deg2rad(30)};
+    std::vector<double> cp_check_margin;
+    std::vector<double> tilt_margin;
 
     // Emergency
     bool is_emergency = false;
