@@ -190,7 +190,7 @@ class FullbodyInverseKinematicsSolver
                 dp_part.head<3>() =  _ikc_list[i].targetPos - tgt_cur_pos;
                 dp_part.tail<3>() = hrp::omegaFromRot(tgt_cur_rot.transpose() * rotationMatrixFromOmega(_ikc_list[i].targetOmega));
                 const hrp::JointPath tgt_jpath(m_robot->rootLink(), link_tgt_ptr);
-                hrp::dmatrix J_jpath;
+                hrp::dmatrix J_jpath(6, tgt_jpath.numJoints());
                 tgt_jpath.calcJacobian(J_jpath, _ikc_list[i].localPos);
 
                 //ジョイントパスのJacobianを全身用に並び替え
@@ -204,7 +204,7 @@ class FullbodyInverseKinematicsSolver
                 dp_part.head<3>() = _ikc_list[i].targetPos - m_robot->calcCM();
                 dp_part.tail<3>() = (_ikc_list[i].targetOmega - cur_momentum_around_COM) * m_dt;
 
-                hrp::dmatrix J_com, J_am;
+                hrp::dmatrix J_com(3, m_robot->numJoints()+6), J_am(3, m_robot->numJoints()+6);
                 m_robot->calcCMJacobian(nullptr, J_com); //デフォで右端に3x6のbase->COMのヤコビアンが付いてくる
                 m_robot->calcAngularMomentumJacobian(nullptr, J_am); //base=NULLの時は重心周りの角運動量っぽい？
                 J_part << J_com, J_am;
