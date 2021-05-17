@@ -604,7 +604,7 @@ void Stabilizer::getActualParametersForST ()
       is_contact_list.reserve(stikp.size());
       for (size_t i = 0; i < stikp.size(); i++) {
         STIKParam& ikp = stikp[i];
-        // if (!is_ik_enable[i]) continue;
+        if (!is_ik_enable[i]) continue;
         hrp::Link* target = m_robot->link(ikp.target_name);
         rel_ee_rot_for_ik.push_back(foot_origin_rot.transpose() * (target->R * ikp.localR));
         ee_pos.push_back(target->p + target->R * ikp.localp);
