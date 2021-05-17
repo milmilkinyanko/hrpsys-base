@@ -607,16 +607,16 @@ void Stabilizer::getActualParametersForST ()
         // if (!is_ik_enable[i]) continue;
         hrp::Link* target = m_robot->link(ikp.target_name);
         rel_ee_rot_for_ik.push_back(foot_origin_rot.transpose() * (target->R * ikp.localR));
-        // if (!is_feedback_control_enable[i]) continue;
         ee_pos.push_back(target->p + target->R * ikp.localp);
         cop_pos.push_back(target->p + target->R * ikp.localCOPPos);
         ee_rot.push_back(target->R * ikp.localR);
-        ee_name.push_back(ikp.ee_name);
         limb_gains.push_back(ikp.swing_support_gain);
         tmp_ref_force.push_back(hrp::Vector3(foot_origin_rot * ref_force[i]));
         tmp_ref_moment.push_back(hrp::Vector3(foot_origin_rot * ref_moment[i]));
         rel_ee_pos.push_back(foot_origin_rot.transpose() * (ee_pos.back() - foot_origin_pos));
         rel_ee_rot.push_back(foot_origin_rot.transpose() * ee_rot.back());
+        if (!is_feedback_control_enable[i]) continue;
+        ee_name.push_back(ikp.ee_name);
         rel_ee_name.push_back(ee_name.back());
         is_contact_list.push_back(act_contact_states[i]);
         // std::cerr << ee_forcemoment_distribution_weight[i] << std::endl;
