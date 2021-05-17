@@ -1076,8 +1076,8 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
           STIKParam& ikp = stikp[j];
           hrp::Link* target = m_robot->link(ikp.target_name);
           size_t idx = contact_states_index_map[ikp.ee_name];
-          hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), target, dt);
-          hrp::dmatrix JJ;
+          const hrp::JointPath jm(m_robot->rootLink(), target);
+          hrp::dmatrix JJ(6, jm.numJoints());
           jm.calcJacobian(JJ);
           hrp::dvector ft(6);
           // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);

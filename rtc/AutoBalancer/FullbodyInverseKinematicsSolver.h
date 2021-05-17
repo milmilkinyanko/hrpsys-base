@@ -184,7 +184,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                         dp_part.head(3) =  _ikc_list[i].targetPos - tgt_cur_pos;
                         dp_part.tail(3) = tgt_cur_rot * omegaFromRotEx(tgt_cur_rot.transpose() * hrp::rotFromRpy(_ikc_list[i].targetRpy));
                         hrp::JointPathEx tgt_jpath(_robot, _robot->rootLink(), link_tgt_ptr, m_dt, false, "");
-                        hrp::dmatrix J_jpath;
+                        hrp::dmatrix J_jpath(6, tgt_jpath.numJoints());
                         tgt_jpath.calcJacobian(J_jpath, _ikc_list[i].localPos);
                         for(int id_in_jpath=0; id_in_jpath<tgt_jpath.numJoints(); id_in_jpath++){ J_part.col(tgt_jpath.joint(id_in_jpath)->jointId) = J_jpath.col(id_in_jpath); } //ジョイントパスのJacobianを全身用に並び替え
                         J_part.rightCols(BASE_DOF) = hrp::dmatrix::Identity( WS_DOF,  BASE_DOF );
