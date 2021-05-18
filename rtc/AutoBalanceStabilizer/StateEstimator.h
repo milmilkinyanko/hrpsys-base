@@ -64,6 +64,7 @@ class StateEstimator
     hrp::Vector3 cog = hrp::Vector3::Zero();
     hrp::Vector3 zmp = hrp::Vector3::Zero();
     hrp::Vector3 base_rpy = hrp::Vector3::Zero();
+    hrp::Vector3 imu_rpy = hrp::Vector3::Zero();
 
     // base-link frame
     hrp::Vector3 base_frame_zmp = hrp::Vector3::Zero();
@@ -103,6 +104,7 @@ class StateEstimator
 
     // getter
     const hrp::Vector3& getZmp() { return zmp; };
+    const hrp::Vector3& getIMURpy() { return imu_rpy; };
     const hrp::Vector3& getBaseRpy() { return base_rpy; };
     const hrp::Vector3& getBaseFrameZmp() { return base_frame_zmp; };
     const hrp::Vector3& getBaseFrameCp() { return base_frame_cp; };

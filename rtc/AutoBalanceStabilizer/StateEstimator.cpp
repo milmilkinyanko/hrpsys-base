@@ -28,6 +28,7 @@ StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _c
 void StateEstimator::calcActStates(const stateActInputData& input_data)
 {
     // world frame =>
+    imu_rpy = input_data.rpy;
     base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
     foot_origin_coord = input_data.constraints.calcCOPOriginCoordFromModel(m_robot);
 

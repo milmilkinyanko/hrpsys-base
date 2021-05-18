@@ -362,6 +362,7 @@ void Stabilizer::calcActualParameters(const stateRefInputData& input_data)
     // get actual parameter from act_se
     const hrp::Vector3& foot_origin_pos = act_se->getFootOriginPos();
     const hrp::Matrix33& foot_origin_rot = act_se->getFootOriginRot();
+    act_Rs = hrp::rotFromRpy(act_se->getIMURpy());
     act_base_rpy = act_se->getBaseRpy();
     act_cog = act_se->getFootFrameCog();
     act_cogvel = act_se->getFootFrameCogVel();
