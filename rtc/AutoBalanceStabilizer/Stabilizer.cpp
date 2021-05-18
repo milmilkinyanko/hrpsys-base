@@ -1108,7 +1108,6 @@ void Stabilizer::calcEEForceMomentControl()
         // Calc status
         m_robot->rootLink()->R = target_root_R;
         m_robot->rootLink()->p = target_root_p;
-        m_robot->calcForwardKinematics(); // TODO: これいる？
         const hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
         const hrp::Matrix33 senR = sen->link->R * sen->localR;
         m_robot->rootLink()->R = act_Rs * (senR.transpose() * m_robot->rootLink()->R);

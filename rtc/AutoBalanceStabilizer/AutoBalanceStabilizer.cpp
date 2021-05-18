@@ -923,9 +923,10 @@ void AutoBalanceStabilizer::updateBodyParams()
     if (control_mode != MODE_IDLE) fixLegToCoords();
 
     copyJointAnglesToRobotModel(m_act_robot, q_act);
+    m_act_robot->rootLink()->p = m_robot->rootLink()->p; // actの原点位置は0でなくrefと同じになった
+    m_act_robot->rootLink()->R = m_robot->rootLink()->R;
     const hrp::Sensor* const gyro = m_act_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     const hrp::Matrix33 gyro_R = gyro->link->R * gyro->localR;
-    m_act_robot->rootLink()->p = m_robot->rootLink()->p; // actの原点位置は0でなくrefと同じになった
     m_act_robot->rootLink()->R = hrp::rotFromRpy(act_rpy) * (gyro_R.transpose() * m_act_robot->rootLink()->R);
     m_act_robot->calcForwardKinematics();
 }
