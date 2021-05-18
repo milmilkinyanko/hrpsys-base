@@ -656,6 +656,11 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     }
 
     size_t cur_zmp_idx = 0;
+    const size_t zmp_goals_size = ref_zmp_goals.size();
+    for (size_t idx = 1; idx < zmp_goals_size && ref_zmp_goals[idx].second <= cur_count; ++idx) {
+        cur_zmp_idx = idx;
+    }
+    const size_t next_zmp_idx = (ref_zmp_goals.size() > cur_zmp_idx + 1 ? cur_zmp_idx + 1 : cur_zmp_idx);
     hrp::Vector3 ref_zmp_a = hrp::Vector3::Zero();
     hrp::Vector3 ref_zmp_b = hrp::Vector3::Zero();
     const hrp::Vector3 nominal_height = hrp::Vector3(0, 0, ref_cog_z);
@@ -663,18 +668,16 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     const auto landing_point = landing_constraints.calcCOPFromConstraints(); // TODO: need inculude cp_offset
 
     step_remain_time = (landing_constraints.start_count - cur_count) * dt;
-    const_remain_time = (ref_zmp_goals[cur_zmp_idx + 1].second - std::min(cur_count, ref_zmp_goals[cur_zmp_idx + 1].second)) * dt;
+    const_remain_time = (ref_zmp_goals[next_zmp_idx].second - std::min(cur_count, ref_zmp_goals[next_zmp_idx].second)) * dt;
     if (landing_idx == cur_const_idx) {
         constexpr double PREVIEW_TIME = 1.6;
-        if (ref_zmp_goals[cur_zmp_idx + 1].second > cur_count) step_remain_time = const_remain_time;
+        if (ref_zmp_goals[next_zmp_idx].second > cur_count) step_remain_time = const_remain_time;
         else step_remain_time = const_remain_time = PREVIEW_TIME;
     }
 
-    const size_t zmp_goals_size = ref_zmp_goals.size();
-    for (size_t idx = 1; idx < zmp_goals_size && ref_zmp_goals[idx].second <= cur_count; ++idx) {
-        cur_zmp_idx = idx;
+    if (ref_zmp_goals[next_zmp_idx].second != ref_zmp_goals[cur_zmp_idx].second) {
+        ref_zmp_a = (ref_zmp_goals[next_zmp_idx].first - ref_zmp_goals[cur_zmp_idx].first) / ((ref_zmp_goals[next_zmp_idx].second - ref_zmp_goals[cur_zmp_idx].second) * dt);
     }
-    ref_zmp_a = (ref_zmp_goals[cur_zmp_idx + 1].first - ref_zmp_goals[cur_zmp_idx].first) / ((ref_zmp_goals[cur_zmp_idx + 1].second - ref_zmp_goals[cur_zmp_idx].second) * dt);
     ref_zmp_b = ref_zmp_goals[cur_zmp_idx].first;
     const double rel_cur_time = (cur_count - constraints_list[cur_const_idx].start_count) * dt;
     const hrp::Vector3 ref_zmp = ref_zmp_a * rel_cur_time + ref_zmp_b;

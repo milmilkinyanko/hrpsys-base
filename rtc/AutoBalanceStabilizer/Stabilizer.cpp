@@ -1463,15 +1463,16 @@ void Stabilizer::calcTorque(const hrp::Matrix33& rot)
     if (control_mode == MODE_ST) {
         for (const STIKParam& ikp : stikp) {
             hrp::Link* target = m_robot->link(ikp.target_name);
-            hrp::JointPathEx jm(m_robot, m_robot->rootLink(), target, dt);
-            const hrp::dmatrix JJ = jm.Jacobian();
+            const hrp::JointPath jm(m_robot->rootLink(), target);
+            const size_t jm_num_joints = jm.numJoints();
+            hrp::dmatrix JJ(6, jm_num_joints);
+            jm.calcJacobian(JJ);
 
             hrp::dvector6 ft;
             ft << rot * ikp.ref_force, rot * ikp.ref_moment;
             ft.tail(3) += (- target->R * ikp.localp).cross(ft.head<3>());
             const hrp::dvector tq_from_extft = JJ.transpose() * ft; // size: jm.numJoints()
 
-            const size_t jm_num_joints = jm.numJoints();
             for (size_t i = 0; i < jm_num_joints; i++) jm.joint(i)->u -= tq_from_extft(i);
         }
     }
