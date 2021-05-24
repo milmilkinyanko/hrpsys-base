@@ -549,7 +549,7 @@ void Stabilizer::getActualParametersForST ()
         }
       } else { // foot-guided
         double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
-        hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * act_cp) - new_refzmp;
+        hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * (act_cp + sbp_cog_offset) - new_refzmp;
         hrp::Vector3 dxsp = hrp::Vector3::Zero(); // stay still
         new_refzmp += transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * footguided_balance_time_const) * dxsp) / (1 - std::exp(-2 * omega * footguided_balance_time_const));
       }
