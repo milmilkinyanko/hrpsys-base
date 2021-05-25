@@ -141,7 +141,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   after_walking_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
   use_footguided_stabilizer = true;
-  footguided_balance_time_const = 0.4; // [s]
+  footguided_balance_time_const = 0.3; // [s]
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -554,22 +554,24 @@ void Stabilizer::getActualParametersForST ()
         new_refzmp += transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * footguided_balance_time_const) * dxsp) / (1 - std::exp(-2 * omega * footguided_balance_time_const));
       }
     }
-    if (is_walking) {
-      is_after_walking = true;
-      if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
-      after_walking_refzmp = new_refzmp;
-    } else {
-      if (is_after_walking) {
-        double tmp_ratio = 1.0;
-        after_walking_interpolator->set(&tmp_ratio);
-        tmp_ratio = 0.0;
-        after_walking_interpolator->setGoal(&tmp_ratio, 0.01, true);
-        is_after_walking = false;
-      }
-      if (!after_walking_interpolator->isEmpty()) {
-        double tmp_ratio;
-        after_walking_interpolator->get(&tmp_ratio, true);
-        new_refzmp = tmp_ratio * after_walking_refzmp + (1.0 - tmp_ratio) * new_refzmp;
+    if (use_act_states && !use_footguided_stabilizer) {
+      if (is_walking) {
+        is_after_walking = true;
+        if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
+        after_walking_refzmp = new_refzmp;
+      } else {
+        if (is_after_walking) {
+          double tmp_ratio = 1.0;
+          after_walking_interpolator->set(&tmp_ratio);
+          tmp_ratio = 0.0;
+          after_walking_interpolator->setGoal(&tmp_ratio, 0.01, true);
+          is_after_walking = false;
+        }
+        if (!after_walking_interpolator->isEmpty()) {
+          double tmp_ratio;
+          after_walking_interpolator->get(&tmp_ratio, true);
+          new_refzmp = tmp_ratio * after_walking_refzmp + (1.0 - tmp_ratio) * new_refzmp;
+        }
       }
     }
     if (DEBUGP) {
