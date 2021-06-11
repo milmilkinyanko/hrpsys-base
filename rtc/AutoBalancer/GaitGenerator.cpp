@@ -817,7 +817,7 @@ namespace rats
         tmp_fxy.head(2) = (total_mass * cur_omega * (act_cpvel - cur_omega * (act_cp - refzmp))).head(2);
         if (isfinite(tmp_fxy(0)) && isfinite(tmp_fxy(1))) {
           sum_fx += tmp_fxy;
-          // sum_fy += tmp_fxy; // TODO
+          sum_fy += tmp_fxy;
           fx_count++;
           fy_count++;
         }
