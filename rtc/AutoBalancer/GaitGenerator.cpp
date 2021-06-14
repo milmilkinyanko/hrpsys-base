@@ -846,6 +846,8 @@ namespace rats
           }
           des_fxy = prev_fs_rot * des_fxy;
         }
+      } else {
+	des_fxy = hrp::Vector3::Zero();
       }
       tmp[15] = tmp_fxy(0);
       tmp[16] = tmp_fxy(1);
