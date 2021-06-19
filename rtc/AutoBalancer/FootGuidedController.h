@@ -79,7 +79,10 @@ public:
   }
   void set_pos (const double x) { x_k(0) = x; }
   void set_dc_off (const double off) { dc_off = off; }
-  void set_zmp (const double u) { act_u_k = u; }
+  void set_zmp (const double act_u, const double u) {
+    act_u_k = act_u;
+    u_k = u;
+  }
   void set_offset (const double offset) { w_k_offset = offset; }
   void set_dz(const double _dz) {
     dz = _dz;
@@ -157,9 +160,9 @@ public:
       controllers[i].set_act_vel_ratio(ratio);
     }
   }
-  void set_zmp (const hrp::Vector3& zmp) {
+  void set_zmp (const hrp::Vector3& zmp, const hrp::Vector3& fzmp) {
     for (size_t i = 0; i < dim - 1; i++) {
-      controllers[i].set_zmp(zmp(i));
+      controllers[i].set_zmp(zmp(i), fzmp(i));
     }
   }
   // get function

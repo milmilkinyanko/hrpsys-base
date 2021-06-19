@@ -1212,12 +1212,15 @@ namespace rats
       double_support_zmp_interpolator->clear();
     }
     // truncate zmp (assume RLEG, LLEG)
-    Eigen::Vector2d tmp_zmp(zmp.head(2));
+    Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
     if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
       zmp.head(2) = tmp_zmp;
     }
+    if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+      feedforward_zmp.head(2) = tmp_fzmp;
+    }
     // zmp = zmp_filter->passFilter(zmp);
-    foot_guided_controller_ptr->set_zmp(zmp);
+    foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
     // calc cog
     hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
     if (use_disturbance_compensation) tmpfxy = fxy;
