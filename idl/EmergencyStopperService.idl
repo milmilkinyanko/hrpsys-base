@@ -17,6 +17,8 @@ module OpenHRP
       double default_recover_time;
       /// Sync time for retrieve motion [s]
       double default_retrieve_time;
+      /// duration for retrieve motion [s]
+      double default_retrieve_duration;
       /// Stop mode or not.
       boolean is_stop_mode;
     };

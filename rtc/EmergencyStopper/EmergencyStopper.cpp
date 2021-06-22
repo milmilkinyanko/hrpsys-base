@@ -195,6 +195,7 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     recover_time_dt = 1.0;
     default_recover_time = 2.5/m_dt;
     default_retrieve_time = 1;
+    default_retrieve_duration = 1;
     solved = false;
     //default_retrieve_time = 1.0/m_dt;
     m_stop_posture.resize(m_robot->numJoints(), 0.0);
@@ -416,7 +417,7 @@ RTC::ReturnCode_t EmergencyStopper::onExecute(RTC::UniqueId ec_id)
       m_qEmergencyIn.read();
     }
     if (is_stop_mode && !prev_is_stop_mode) {
-        retrieve_time = default_retrieve_time;
+        retrieve_time = default_retrieve_duration;
         // Reflect current output joint angles to interpolator state
         m_interpolator->set(m_q.data.get_buffer());
         get_wrenches_array_from_data(m_wrenches, m_tmp_wrenches);
@@ -586,6 +587,7 @@ bool EmergencyStopper::getEmergencyStopperParam(OpenHRP::EmergencyStopperService
     std::cerr << "[" << m_profile.instance_name << "] getEmergencyStopperParam" << std::endl;
     i_param.default_recover_time = default_recover_time*m_dt;
     i_param.default_retrieve_time = default_retrieve_time*m_dt;
+    i_param.default_retrieve_duration = default_retrieve_duration*m_dt;    
     i_param.is_stop_mode = is_stop_mode;
     return true;
 };
@@ -595,7 +597,8 @@ bool EmergencyStopper::setEmergencyStopperParam(const OpenHRP::EmergencyStopperS
     std::cerr << "[" << m_profile.instance_name << "] setEmergencyStopperParam" << std::endl;
     default_recover_time = i_param.default_recover_time/m_dt;
     default_retrieve_time = i_param.default_retrieve_time/m_dt;
-    std::cerr << "[" << m_profile.instance_name << "]   default_recover_time = " << default_recover_time*m_dt << "[s], default_retrieve_time = " << default_retrieve_time*m_dt << "[s]" << std::endl;
+    default_retrieve_duration = i_param.default_retrieve_duration/m_dt;
+    std::cerr << "[" << m_profile.instance_name << "]   default_recover_time = " << default_recover_time*m_dt << "[s], default_retrieve_time = " << default_retrieve_time*m_dt << "[s], default_retrieve_duration = " << default_retrieve_duration*m_dt << "[s]" << std::endl;
     return true;
 };
 
