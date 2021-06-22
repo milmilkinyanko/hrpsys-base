@@ -191,7 +191,7 @@ private:
     bool is_initialized;
     int recover_time, retrieve_time;
     double recover_time_dt;
-    int default_recover_time, default_retrieve_time;
+    int default_recover_time, default_retrieve_time, default_retrieve_duration;
     std::vector<double> m_stop_posture;
     std::vector<double> m_motion_posture;
     double *m_stop_wrenches;
