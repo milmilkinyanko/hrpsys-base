@@ -1122,7 +1122,7 @@ namespace rats
     bool use_inside_step_limitation;
     std::map<leg_type, std::string> leg_type_map;
     coordinates initial_foot_mid_coords;
-    bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time, is_prev_double_remain_one;
+    bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time;
     size_t remain_count;
     double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
@@ -1218,6 +1218,7 @@ namespace rats
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
         for (size_t i = 0; i < 3; i++) emergency_step_time[i] = 0.8;
         for (size_t i = 0; i < 2; i++) debug_landing_height_xrange[i] = 0.0;
+        for (size_t i = 0; i < 23; i++) tmp[i] = 0.0;
         sum_d_footstep_thre = hrp::Vector3(0.5, 0.5, 0.0);
         footstep_check_delta = hrp::Vector3(0.03, 0.03, 0.0);
         cp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(1e6, _dt, hrp::Vector3::Zero()));

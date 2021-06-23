@@ -14,10 +14,32 @@ template <typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
 
+template <typename T>
+class LinearTrajectory
+{
+private:
+  T a, b, start, goal;
+  double time;
+public:
+  LinearTrajectory(const T& _start, const T& _goal, const double _t)
+    : start(_start), goal(_goal) {
+    time = std::max(_t, 2e-3);
+    a = (_goal - _start) / time;
+    b = _goal;
+  };
+  const T& getSlope() const { return a; };
+  const T& getIntercept() const { return b; };
+  const T& getStart() const { return start; };
+  const T& getGoal() const { return goal; };
+  // const T& getPosFromTime(const double _t) const { return a * _t + b; };
+  // const T& getPosFromRatio(const double ratio) const { return a * time * ratio + b; };
+  double getTime() const { return time; };
+};
+
 class foot_guided_control_base
 {
 private:
-  void calc_u(const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp);
+  double calc_u(const std::vector<LinearTrajectory<double>>& ref_zmp, const double cur_cp);
   void truncate_u();
   void calc_x_k();
 protected:
@@ -62,7 +84,7 @@ public:
   // destructor
   ~foot_guided_control_base() {};
   // update function
-  void update_control(double& zmp, double& feedforward_zmp, const std::size_t N, const double ref_dcm, const double ref_zmp, const bool is_double, const double start_ref_zmp, const double goal_ref_zmp, const size_t double_N, const size_t double_whole_N, const double ad_ref_zmp);
+  void update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double>>& ref_zmp);
   void update_state(double& pos, const double fx);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
@@ -119,10 +141,14 @@ public:
     delete[] controllers;
   };
   // update function
-  void update_control(hrp::Vector3& p_ret, hrp::Vector3& p_ret2, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp, const bool is_double, const hrp::Vector3& start_ref_zmp, const hrp::Vector3& goal_ref_zmp, const std::size_t double_N, const size_t double_whole_N, const hrp::Vector3& ad_ref_zmp)
+  void update_control(hrp::Vector3& zmp, hrp::Vector3& feedforward_zmp, const std::vector<LinearTrajectory<hrp::Vector3>>& ref_zmp)
   {
-    for (size_t i = 0; i < dim; i++)
-      controllers[i].update_control(p_ret[i], p_ret2[i], N, ref_dcm[i], ref_zmp[i], is_double, start_ref_zmp[i], goal_ref_zmp[i], double_N, double_whole_N, ad_ref_zmp[i]);
+    for (size_t i = 0; i < dim; i++) {
+      std::vector<LinearTrajectory<double>> rz; // TODO: 無駄な処理をなくす
+      rz.reserve(ref_zmp.size());
+      for (size_t j = 0; j < ref_zmp.size(); j++) rz.push_back(LinearTrajectory<double>(ref_zmp.at(j).getStart()(i), ref_zmp.at(j).getGoal()(i), ref_zmp.at(j).getTime()));
+      controllers[i].update_control(zmp[i], feedforward_zmp[i], rz);
+    }
   }
   void update_state(hrp::Vector3& x_ret, const hrp::Vector3 fx)
   {
