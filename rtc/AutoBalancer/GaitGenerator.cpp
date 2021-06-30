@@ -687,7 +687,7 @@ namespace rats
   bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
   {
     solved = false;
-    if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt)) { // for go-velocity
+    if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt) - 1) { // for go-velocity
       modified_d_footstep = hrp::Vector3::Zero();
       modified_d_step_time = 0.0;
       updated_vel_footsteps = false;
@@ -715,7 +715,7 @@ namespace rats
       if (velocity_mode_flg != VEL_IDLING && lcg.get_footstep_index() > 0) {
         std::vector< std::vector<step_node> > cv;
         calc_next_coords_velocity_mode(cv, get_overwritable_index(),
-                                       (overwritable_footstep_index_offset == 0 ? 4 : 3) // Why?
+                                       (5 - overwritable_footstep_index_offset) // assume overwritable_footstep_index_offset < 5
                                        );
         if (velocity_mode_flg == VEL_ENDING) {
           velocity_mode_flg = VEL_IDLING;
@@ -994,7 +994,7 @@ namespace rats
     // for emergency step
     if (is_emergency_step && step_index < 3) min_time = std::min(orig_min_time, emergency_step_time[step_index]);
 
-    // if (lcg.get_lcg_count() == static_cast<size_t>(footstep_nodes_list[step_index].front().step_time/dt))
+    // if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[step_index].front().step_time/dt) - 1)
     fg_step_count = static_cast<size_t>(footstep_nodes_list[step_index].front().step_time/dt);
 
     StepNumPhase step_num_phase = NORMAL;
@@ -1052,7 +1052,7 @@ namespace rats
         if (step_index > 1) cur_steps = footstep_nodes_list[step_index-2];
     }
     std::vector<LinearTrajectory<hrp::Vector3>> ref_zmp_traj;
-    hrp::Vector3 cur_pos(hrp::Vector3::Zero()), next_pos(hrp::Vector3::Zero()), mid_pos(hrp::Vector3::Zero());
+    hrp::Vector3 cur_pos(hrp::Vector3::Zero()), next_pos(hrp::Vector3::Zero()), next2_pos(hrp::Vector3::Zero()), mid_pos(hrp::Vector3::Zero());
     for (std::vector<step_node>::iterator it = cur_steps.begin(); it != cur_steps.end(); it++) {
       cur_pos += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
     }
@@ -1061,6 +1061,10 @@ namespace rats
       next_pos += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
     }
     next_pos /= dist_steps.size();
+    for (std::vector<step_node>::iterator it = next_dist_steps.begin(); it != next_dist_steps.end(); it++) {
+      next2_pos += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);
+    }
+    next2_pos /= next_dist_steps.size();
     if (step_num_phase == FIRST ||
         (step_num_phase == AFTER_FIRST && walking_phase == DOUBLE_BEFORE)) {
       hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
@@ -1071,7 +1075,7 @@ namespace rats
     }
     if ((step_num_phase == BEFORE_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == LAST) {
-      next_pos = mid_pos;
+      next2_pos = next_pos = mid_pos;
     }
     if (step_num_phase == LAST) {
       cur_pos = mid_pos;
@@ -1083,6 +1087,10 @@ namespace rats
     const leg_type& cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
     size_t next_step_count = static_cast<size_t>(footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time/dt);
     touchoff_remain_count[0] = touchoff_remain_count[1] = remain_count;
+    if ((step_index == step_num - 3 && walking_phase != DOUBLE_BEFORE) ||
+        (step_num_phase == BEFORE_LAST && walking_phase == DOUBLE_BEFORE)) {
+      next_step_count -= static_cast<size_t>(next_step_count * default_double_support_ratio_before);
+    }
     for (size_t i = 0; i < 2; i++) {
       if (step_num_phase != LAST &&
           (cur_leg != i && walking_phase == DOUBLE_BEFORE || // assume rleg, lleg are 0, 1
@@ -1895,6 +1903,7 @@ namespace rats
     if (is_emergency_step) default_step_time = emergency_step_time[1];
     append_footstep_list_velocity_mode();
     if (is_emergency_step) default_step_time = emergency_step_time[2];
+    append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
     append_footstep_list_velocity_mode();
   };

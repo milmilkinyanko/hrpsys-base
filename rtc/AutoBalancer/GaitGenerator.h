@@ -1938,7 +1938,7 @@ namespace rats
     const std::map<leg_type, std::string> get_leg_type_map () const { return leg_type_map; };
     size_t get_optional_go_pos_finalize_footstep_num () const { return optional_go_pos_finalize_footstep_num; };
     bool is_finalizing (const double tm) const { return ((preview_controller_ptr->get_delay()*2 - default_step_time/dt)-finalize_count) <= (tm/dt)-1; };
-    size_t get_overwrite_check_timing () const { return static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1;}; // Almost middle of step time
+    size_t get_overwrite_check_timing () const { return static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 1.0) - 1;}; // Almost fist of step time
     double get_leg_margin (const size_t idx) const { return leg_margin[idx]; };
     double get_safe_leg_margin (const size_t idx) const { return safe_leg_margin[idx]; };
     double get_stride_limitation_for_circle_type (const size_t idx) const { return stride_limitation_for_circle_type[idx]; };
