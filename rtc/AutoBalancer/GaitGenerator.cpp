@@ -1030,7 +1030,7 @@ namespace rats
     hrp::Vector3 dz = hrp::Vector3(0, 0, (cur_cog - rg.get_refzmp_cur())(2));
     foot_guided_controller_ptr->set_dz(dz(2));
     foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
-    if(use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
+    if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
     else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
 
     // get cur ref_zmp
