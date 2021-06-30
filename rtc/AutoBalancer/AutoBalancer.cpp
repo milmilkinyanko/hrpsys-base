@@ -1653,13 +1653,9 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
 // assume biped walking
 void AutoBalancer::calcTouchoffRemainTime()
 {
-  bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
-      touchoff_remain_time[i] = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
-                                                     ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
-                                                      ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
-                                                     gg->get_default_step_time() + m_dt : 0);
+      touchoff_remain_time[i] = gg->get_touchoff_remain_count(i) * m_dt;
       if (st->stikp.size() > i) st->stikp[i].touchoff_remain_time = touchoff_remain_time[i];
     } else {
       touchoff_remain_time[i] = 0.0;

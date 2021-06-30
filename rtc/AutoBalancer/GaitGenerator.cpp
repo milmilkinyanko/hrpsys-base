@@ -978,6 +978,8 @@ namespace rats
     foot_rot(0,2) = en(0);  foot_rot(1,2) = en(1);  foot_rot(2,2) = en(2);
   }
 
+  // TODO: include zmp height to control input
+  //       if not use lcg_count, this function will be more simple
   void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
   {
     // set param =>
@@ -1076,6 +1078,19 @@ namespace rats
     }
     coordinates cur_step = coordinates(cur_pos, cur_steps.front().worldcoords.rot);
     hrp::Vector3 last_cp = next_pos;
+
+    // calc touchoff_remain_count for abc and st
+    const leg_type& cur_leg = footstep_nodes_list[lcg.get_footstep_index()].front().l_r;
+    size_t next_step_count = static_cast<size_t>(footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time/dt);
+    touchoff_remain_count[0] = touchoff_remain_count[1] = remain_count;
+    for (size_t i = 0; i < 2; i++) {
+      if (step_num_phase != LAST &&
+          (cur_leg != i && walking_phase == DOUBLE_BEFORE || // assume rleg, lleg are 0, 1
+           (cur_leg == i && walking_phase != DOUBLE_BEFORE))
+        ) {
+        touchoff_remain_count[i] += next_step_count + 1;
+      }
+    }
 
     // to interpolate for cog after walking
     if (use_act_states &&

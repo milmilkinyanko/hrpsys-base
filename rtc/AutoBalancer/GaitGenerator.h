@@ -1124,6 +1124,7 @@ namespace rats
     coordinates initial_foot_mid_coords;
     bool solved, is_first_count, is_preview, is_set_first_count, is_first_double_after, is_double_support_phase, is_after_double_support_phase, was_enlarged_time;
     size_t remain_count;
+    size_t touchoff_remain_count[2]; // assume biped robot
     double leg_margin[4], safe_leg_margin[4], stride_limitation_for_circle_type[5], overwritable_stride_limitation[5], footstep_modification_gain, cp_check_margin[2], margin_time_ratio;
     bool use_stride_limitation, is_emergency_walking[2], modify_footsteps, is_emergency_step;
     hrp::Vector3 diff_cp, modified_d_footstep, sum_d_footstep_plus, sum_d_footstep_minus, sum_d_footstep_thre, footstep_hist_max, footstep_hist_min, footstep_check_delta;
@@ -1828,6 +1829,7 @@ namespace rats
     bool get_use_toe_heel_transition () const { return rg.get_use_toe_heel_transition(); };
     bool get_use_toe_heel_auto_set () const { return rg.get_use_toe_heel_auto_set(); };
     size_t get_remain_count () const { return remain_count; };
+    size_t get_touchoff_remain_count (size_t idx) const { return touchoff_remain_count[idx]; };
     bool is_before_step_phase () const { return lcg.get_lcg_count() > static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt * 0.5) - 1; };
     leg_type get_cur_leg () const { return footstep_nodes_list[lcg.get_footstep_index()].front().l_r; };
     const std::map<leg_type, double> get_zmp_weight_map () const { return rg.get_zmp_weight_map(); };
