@@ -1047,7 +1047,7 @@ namespace rats
         dist_steps = cur_steps;
         if (step_index > 1) cur_steps = footstep_nodes_list[step_index-2];
     }
-    std::vector<LinearTrajectory<hrp::Vector3>> ref_zmp_traj;
+    std::vector<LinearTrajectory<hrp::Vector3> > ref_zmp_traj;
     hrp::Vector3 cur_pos(hrp::Vector3::Zero()), next_pos(hrp::Vector3::Zero()), next2_pos(hrp::Vector3::Zero()), mid_pos(hrp::Vector3::Zero()), mid2_pos(hrp::Vector3::Zero());
     for (std::vector<step_node>::iterator it = cur_steps.begin(); it != cur_steps.end(); it++) {
       cur_pos += dz + it->worldcoords.pos + it->worldcoords.rot * rg.get_default_zmp_offset(it->l_r);

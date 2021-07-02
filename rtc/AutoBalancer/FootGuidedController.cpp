@@ -22,7 +22,7 @@ void foot_guided_control_base::set_mat()
   Phi_inv = 2.0 * Phi_inv;
 }
 
-double foot_guided_control_base::calc_u(const std::vector<LinearTrajectory<double>>& ref_zmp, const double cur_cp)
+double foot_guided_control_base::calc_u(const std::vector<LinearTrajectory<double> >& ref_zmp, const double cur_cp)
 {
   double u = cur_cp - ref_zmp.front().getStart() - ref_zmp.front().getSlope() / xi; // 数式上の j = 0 に相当
   double Tj = 0.0;
@@ -51,7 +51,7 @@ void foot_guided_control_base::calc_x_k()
   x_k = A * x_k + b * u_k;
 }
 
-void foot_guided_control_base::update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double>>& ref_zmp)
+void foot_guided_control_base::update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double> >& ref_zmp)
 {
   u_k = calc_u(ref_zmp, (Phi * x_k)(0));
   act_u_k = calc_u(ref_zmp, (Phi * act_x_k)(0));

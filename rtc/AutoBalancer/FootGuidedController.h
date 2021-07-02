@@ -39,7 +39,7 @@ public:
 class foot_guided_control_base
 {
 private:
-  double calc_u(const std::vector<LinearTrajectory<double>>& ref_zmp, const double cur_cp);
+  double calc_u(const std::vector<LinearTrajectory<double> >& ref_zmp, const double cur_cp);
   void truncate_u();
   void calc_x_k();
 protected:
@@ -84,7 +84,7 @@ public:
   // destructor
   ~foot_guided_control_base() {};
   // update function
-  void update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double>>& ref_zmp);
+  void update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double> >& ref_zmp);
   void update_state(double& pos, const double fx);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
@@ -141,10 +141,10 @@ public:
     delete[] controllers;
   };
   // update function
-  void update_control(hrp::Vector3& zmp, hrp::Vector3& feedforward_zmp, const std::vector<LinearTrajectory<hrp::Vector3>>& ref_zmp)
+  void update_control(hrp::Vector3& zmp, hrp::Vector3& feedforward_zmp, const std::vector<LinearTrajectory<hrp::Vector3> >& ref_zmp)
   {
     for (size_t i = 0; i < dim; i++) {
-      std::vector<LinearTrajectory<double>> rz; // TODO: 無駄な処理をなくす
+      std::vector<LinearTrajectory<double> > rz; // TODO: 無駄な処理をなくす
       rz.reserve(ref_zmp.size());
       for (size_t j = 0; j < ref_zmp.size(); j++) rz.push_back(LinearTrajectory<double>(ref_zmp.at(j).getStart()(i), ref_zmp.at(j).getGoal()(i), ref_zmp.at(j).getTime()));
       controllers[i].update_control(zmp[i], feedforward_zmp[i], rz);
