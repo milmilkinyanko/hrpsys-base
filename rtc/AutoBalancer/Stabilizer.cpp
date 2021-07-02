@@ -141,7 +141,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   after_walking_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
   use_footguided_stabilizer = true;
-  footguided_balance_time_const = 0.3; // [s]
+  footguided_balance_time_const = 0.4; // [s]
 
   // parameters for RUNST
   double ke = 0, tc = 0;
