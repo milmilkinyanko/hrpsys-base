@@ -133,8 +133,8 @@ namespace rats
   void refzmp_generator::calc_current_refzmp (hrp::Vector3& ret, std::vector<hrp::Vector3>& swing_foot_zmp_offsets, const double default_double_support_ratio_before, const double default_double_support_ratio_after, const double default_double_support_static_ratio_before, const double default_double_support_static_ratio_after)
   {
     size_t cnt = one_step_count - refzmp_count; // current counter (0 -> one_step_count)
-    size_t double_support_count_half_before = default_double_support_ratio_before * one_step_count;
-    size_t double_support_count_half_after = default_double_support_ratio_after * one_step_count;
+    size_t double_support_count_half_before = default_double_support_ratio_before * one_step_count + 1;
+    size_t double_support_count_half_after = default_double_support_ratio_after * one_step_count + 1;
     size_t double_support_static_count_half_before = default_double_support_static_ratio_before * one_step_count;
     size_t double_support_static_count_half_after = default_double_support_static_ratio_after * one_step_count;
     for (size_t i = 0; i < swing_leg_types_list[refzmp_index].size(); i++) {
@@ -1020,8 +1020,11 @@ namespace rats
     } else if (lcg.get_lcg_count() <= static_cast<size_t>(fg_step_count * default_double_support_ratio_after)) {
       walking_phase = DOUBLE_AFTER;
     } else {
-      traj_remain_count -= static_cast<size_t>(fg_step_count * default_double_support_ratio_after);
+      traj_remain_count -= static_cast<size_t>(fg_step_count * default_double_support_ratio_after) + 1;
     }
+    // remain_count does not become 0
+    remain_count++;
+    traj_remain_count++;
 
     hrp::Vector3 dz = hrp::Vector3(0, 0, (cur_cog - rg.get_refzmp_cur())(2));
     foot_guided_controller_ptr->set_dz(dz(2));
@@ -1127,19 +1130,21 @@ namespace rats
         ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(cur_ref_zmp, next_pos, traj_remain_count*dt));
       } else if (walking_phase == DOUBLE_AFTER) {
         ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(cur_ref_zmp, mid_pos, traj_remain_count*dt));
-        if (step_num_phase != BEFORE_LAST && step_num_phase != LAST) ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid_pos, next_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * default_double_support_ratio_before)));
+        if (step_num_phase != BEFORE_LAST && step_num_phase != LAST) ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid_pos, next_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * default_double_support_ratio_before) + dt));
       } else {
         ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(cur_ref_zmp, cur_pos, traj_remain_count*dt));
         ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(cur_pos, mid_pos, (footstep_nodes_list[step_index].front().step_time * default_double_support_ratio_after)));
-        if (step_num_phase != BEFORE_LAST && step_num_phase != LAST) ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid_pos, next_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * default_double_support_ratio_before)));
+        if (step_num_phase != BEFORE_LAST && step_num_phase != LAST) ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid_pos, next_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * default_double_support_ratio_before + dt)));
       }
     }
     if (num_preview_step >= 2) {
       last_cp = next2_pos;
-      if (num_preview_step == 2) calc_last_cp(last_cp, cur_step);
+      bool not_last_second = (!(step_num_phase == BEFORE2_LAST && walking_phase != DOUBLE_BEFORE) &&
+                              !(step_num_phase == BEFORE_LAST && walking_phase == DOUBLE_BEFORE));
+      if (not_last_second) calc_last_cp(last_cp, cur_step);
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(next_pos, next_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * (1.0 - default_double_support_ratio_before - default_double_support_ratio_after))));
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(next_pos, mid2_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : 1)].front().step_time * default_double_support_ratio_after)));
-      ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid2_pos, next2_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : (step_num_phase == BEFORE_LAST ? 1 : 2))].front().step_time * default_double_support_ratio_before)));
+      if (not_last_second) ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(mid2_pos, next2_pos, (footstep_nodes_list[step_index + (step_num_phase == LAST ? 0 : (step_num_phase == BEFORE_LAST ? 1 : 2))].front().step_time * default_double_support_ratio_before)));
     }
     if (num_preview_step >= 3) {
       std::cerr << "num_preview_step >= 3 is not supported" << std::endl;
