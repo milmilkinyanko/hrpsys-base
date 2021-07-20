@@ -2322,6 +2322,8 @@ bool AutoBalancer::goWheel(const double& x, const double& tm)
   gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
 
   gg_is_wheeling = true;
+  is_after_walking = true;
+  limit_cog_interpolator->clear();
 
   return true;
 }
