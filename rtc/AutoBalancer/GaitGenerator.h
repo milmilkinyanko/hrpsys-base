@@ -1200,7 +1200,7 @@ namespace rats
     int wheel_index;
     double cur_wheel_ratio, cur_wheel_pos_x, start_wheel_pos_x;
     coordinates wheel_midcoords, initial_wheel_midcoords;
-    hrp::Vector3 d_wheel_pos;
+    hrp::Vector3 d_wheel_pos, prev_wheel_pos;
     step_node initial_support_leg, initial_swing_leg;
 
     /* preview controller parameters */
@@ -1301,7 +1301,7 @@ namespace rats
     void initialize_wheel_parameter (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_refcog,
                                      const std::vector<step_node>& initial_support_leg_steps,
                                      const std::vector<step_node>& initial_swing_leg_dst_steps);
-    bool proc_one_tick_wheel (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero());
+    bool proc_one_tick_wheel (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), hrp::Vector3 cur_cogvel = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void calc_last_cp(hrp::Vector3& last_cp, const coordinates& cur_step);
