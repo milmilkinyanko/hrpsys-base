@@ -989,7 +989,7 @@ namespace rats
 
     // update_wheel_index
     {
-      if (wheel_interpolator->isEmpty() || wheel_interpolator->get_remain_time() < 2*dt) {
+      if (wheel_interpolator->isEmpty() || wheel_interpolator->get_remain_time() <= dt) {
         if (wheel_index >= cur_wlist_size - 2) {
           return false;
         } else {
@@ -999,11 +999,12 @@ namespace rats
           tmp = 1.0;
           wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(0).at(wheel_index + 1).time, true);
           start_wheel_pos_x = cur_wheel_pos_x;
+          cur_wheel_ratio = 0.0;
         }
+      } else {
+        wheel_interpolator->get(&cur_wheel_ratio);
       }
     }
-
-    wheel_interpolator->get(&cur_wheel_ratio);
 
     // calc_cur_zmp
     {
@@ -2067,15 +2068,29 @@ namespace rats
   bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, const double whole_time, const coordinates& start_ref_coords) {
     wheel_nodes_list.clear();
     std::vector<wheel_node> tmp_wheel;
-    tmp_wheel.reserve(4);
+    tmp_wheel.reserve(4); // TODO: consider num_step
 
     tmp_wheel.push_back(wheel_node(start_ref_coords, 0)); // 0番目は始点
 
     tmp_wheel.push_back(wheel_node(start_ref_coords, 1)); // 1番目は直線
 
+    // coordinates abs_goal_coord = start_ref_coords;
+    // abs_goal_coord.pos += start_ref_coords.rot * hrp::Vector3(goal_x, 0.0, 0.0);
+    // tmp_wheel.push_back(wheel_node(abs_goal_coord, whole_time));
+
     coordinates abs_goal_coord = start_ref_coords;
-    abs_goal_coord.pos += start_ref_coords.rot * hrp::Vector3(goal_x, 0.0, 0.0);
-    tmp_wheel.push_back(wheel_node(abs_goal_coord, whole_time));
+    {
+      const double tmp_dt = 50e-3; // 50 [ms]
+      interpolator wheel_traj_interpolator(1, tmp_dt, interpolator::HOFFARBIB);
+      wheel_traj_interpolator.setName("GaitGenerator wheel_traj_interpolator");
+      wheel_traj_interpolator.setGoal(&goal_x, whole_time, true);
+      double cur_goal;
+      while (!wheel_traj_interpolator.isEmpty()) {
+        wheel_traj_interpolator.get(&cur_goal);
+        abs_goal_coord.pos = start_ref_coords.pos + start_ref_coords.rot * hrp::Vector3(cur_goal, 0.0, 0.0);
+        tmp_wheel.push_back(wheel_node(abs_goal_coord, tmp_dt));
+      }
+    }
 
     tmp_wheel.push_back(wheel_node(abs_goal_coord, 1)); // 最後は直線
 
