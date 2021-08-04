@@ -1034,12 +1034,12 @@ namespace rats
     if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
     else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
 
-    hrp::Vector3 cur_ref_zmp = wheel_midcoords.pos;
+    hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+    hrp::Vector3 cur_ref_zmp = wheel_midcoords.pos + wheel_midcoords.rot * zmp_off;
 
     std::vector<LinearTrajectory<hrp::Vector3> > ref_zmp_traj;
     ref_zmp_traj.reserve(cur_wlist_size);
 
-    hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
     for (int i = wheel_index; i < cur_wlist_size - 1; i++) {
       hrp::Vector3 start = (i == wheel_index ?
                             cur_ref_zmp : wheel_nodes_list.at(0).at(i).worldcoords.pos) + wheel_nodes_list.at(0).at(i).worldcoords.rot * zmp_off;
