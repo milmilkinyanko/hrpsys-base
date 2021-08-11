@@ -957,6 +957,7 @@ namespace rats
     wheel_major_index = 0;
     wheel_index = 0;
     start_wheel_pos_x = 0.0;
+    is_wheeling = true;
     if (!wheel_interpolator->isEmpty()) wheel_interpolator->clear();
     double tmp = 0.0;
     wheel_interpolator->set(&tmp);
@@ -988,35 +989,7 @@ namespace rats
 
     int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
 
-    // update_wheel_index
-    {
-      if (wheel_interpolator->isEmpty() || wheel_interpolator->get_remain_time() <= dt) {
-        if (wheel_index >= cur_wlist_size - 2) {
-          if (wheel_major_index < wheel_nodes_list.size() - 1) {
-            wheel_major_index++;
-            wheel_index = -1;
-          } else {
-            return false;
-          }
-        }
-        wheel_index++;
-        double tmp = 0.0;
-        wheel_interpolator->set(&tmp);
-        tmp = 1.0;
-        wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).time, true);
-        start_wheel_pos_x = cur_wheel_pos_x;
-        cur_wheel_ratio = 0.0;
-      } else {
-        wheel_interpolator->get(&cur_wheel_ratio);
-      }
-    }
-
-    // calc_cur_zmp
-    {
-      wheel_midcoords.pos = (1.0 - cur_wheel_ratio) * wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos + cur_wheel_ratio * wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos;
-      wheel_midcoords.rot = wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot;
-      d_wheel_pos = wheel_midcoords.pos - initial_wheel_midcoords.pos;
-    }
+    if (!update_wheel_controller()) return false;
 
     // calc_cur_cp
     {
@@ -1080,12 +1053,6 @@ namespace rats
     // convert zmp -> refzmp
     refzmp = zmp - dz;
 
-    // calc_cur_wheel_angle
-    {
-      double goal_pos_x = (wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos))(0);
-      cur_wheel_pos_x = start_wheel_pos_x + cur_wheel_ratio * goal_pos_x;
-    }
-
     // for log
     tmp[0] = cur_ref_zmp(0);
     tmp[1] = cur_ref_zmp(1);
@@ -1104,6 +1071,50 @@ namespace rats
     // tmp[12] = flywheel_tau(0);
     // tmp[13] = flywheel_tau(1);
     // tmp[14] = falling_direction;
+  }
+
+  bool gait_generator::update_wheel_controller ()
+  {
+    int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
+
+    // update_wheel_index
+    {
+      if (wheel_interpolator->isEmpty() || wheel_interpolator->get_remain_time() <= dt) {
+        if (wheel_index >= cur_wlist_size - 2) {
+          if (wheel_major_index < wheel_nodes_list.size() - 1) {
+            wheel_major_index++;
+            wheel_index = -1;
+          } else {
+            is_wheeling = false;
+            return false;
+          }
+        }
+        wheel_index++;
+        double tmp = 0.0;
+        wheel_interpolator->set(&tmp);
+        tmp = 1.0;
+        wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).time, true);
+        start_wheel_pos_x = cur_wheel_pos_x;
+        cur_wheel_ratio = 0.0;
+      } else {
+        wheel_interpolator->get(&cur_wheel_ratio);
+      }
+    }
+
+    // calc_cur_zmp
+    {
+      wheel_midcoords.pos = (1.0 - cur_wheel_ratio) * wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos + cur_wheel_ratio * wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos;
+      wheel_midcoords.rot = wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot;
+      d_wheel_pos = wheel_midcoords.pos - initial_wheel_midcoords.pos;
+    }
+
+    // calc_cur_wheel_angle
+    {
+      double goal_pos_x = (wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos))(0);
+      cur_wheel_pos_x = start_wheel_pos_x + cur_wheel_ratio * goal_pos_x;
+    }
+
+    return true;
   }
 
   void gait_generator::update_preview_controller (bool& solved)
