@@ -2297,35 +2297,41 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
 bool AutoBalancer::goWheel(const double& x, const double& tm)
 {
   // initialize wheel node
-  gg->set_all_limbs(leg_names);
-  coordinates start_ref_coords;
-  std::vector<coordinates> initial_support_legs_coords; // dummy
-  std::vector<leg_type> initial_support_legs; // dummy
-  bool is_valid_gait_type = calc_inital_support_legs(0, initial_support_legs_coords, initial_support_legs, start_ref_coords);
-  if (is_valid_gait_type == false) return false;
-  // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
-  // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
-  bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, tm, start_ref_coords);
+  if (!gg_is_wheeling) {
+    gg->set_all_limbs(leg_names);
+    coordinates start_ref_coords;
+    std::vector<coordinates> initial_support_legs_coords; // dummy
+    std::vector<leg_type> initial_support_legs; // dummy
+    bool is_valid_gait_type = calc_inital_support_legs(0, initial_support_legs_coords, initial_support_legs, start_ref_coords);
+    if (is_valid_gait_type == false) return false;
+    // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
+    // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
+    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, tm, start_ref_coords);
 
-  // initialize wheel generation
-  hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
-  act_cog.head(2) += sbp_cog_offset.head(2);
+    // initialize wheel generation
+    hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+    act_cog.head(2) += sbp_cog_offset.head(2);
 
-  std::vector<std::string> init_swing_leg_names(1, "rleg");
-  std::vector<std::string> init_support_leg_names(1, "lleg");
-  std::vector<step_node> init_support_leg_steps, init_swing_leg_dst_steps;
-  for (std::vector<std::string>::iterator it = init_support_leg_names.begin(); it != init_support_leg_names.end(); it++)
-    init_support_leg_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
-  for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
-    init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
-  gg->set_default_zmp_offsets(default_zmp_offsets);
-  gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+    std::vector<std::string> init_swing_leg_names(1, "rleg");
+    std::vector<std::string> init_support_leg_names(1, "lleg");
+    std::vector<step_node> init_support_leg_steps, init_swing_leg_dst_steps;
+    for (std::vector<std::string>::iterator it = init_support_leg_names.begin(); it != init_support_leg_names.end(); it++)
+      init_support_leg_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+    for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
+      init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+    gg->set_default_zmp_offsets(default_zmp_offsets);
+    gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
 
-  gg_is_wheeling = true;
-  is_after_walking = true;
-  limit_cog_interpolator->clear();
+    gg_is_wheeling = true;
+    is_after_walking = true;
+    limit_cog_interpolator->clear();
 
-  return true;
+    return true;
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot goWheel while gg_is_wheeling." << std::endl;
+
+    return false;
+  }
 }
 
 bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& vth)
