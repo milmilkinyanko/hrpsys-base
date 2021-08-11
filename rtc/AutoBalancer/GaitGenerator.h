@@ -1197,7 +1197,7 @@ namespace rats
 
     // wheel
     std::vector< std::vector<wheel_node> > wheel_nodes_list;
-    int wheel_index;
+    int wheel_major_index, wheel_index;
     double cur_wheel_ratio, cur_wheel_pos_x, start_wheel_pos_x;
     coordinates wheel_midcoords, initial_wheel_midcoords;
     hrp::Vector3 d_wheel_pos, prev_wheel_pos;

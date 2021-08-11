@@ -954,15 +954,16 @@ namespace rats
                                                  const std::vector<step_node>& initial_support_leg_steps,
                                                  const std::vector<step_node>& initial_swing_leg_dst_steps)
   {
+    wheel_major_index = 0;
     wheel_index = 0;
     start_wheel_pos_x = 0.0;
     if (!wheel_interpolator->isEmpty()) wheel_interpolator->clear();
     double tmp = 0.0;
     wheel_interpolator->set(&tmp);
     tmp = 1.0;
-    wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(0).at(1).time, true);
+    wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(wheel_major_index).at(1).time, true);
 
-    initial_wheel_midcoords = wheel_nodes_list.at(0).at(0).worldcoords;
+    initial_wheel_midcoords = wheel_nodes_list.at(wheel_major_index).at(0).worldcoords;
     initial_support_leg = initial_support_leg_steps.front();
     initial_swing_leg = initial_swing_leg_dst_steps.front();
     d_wheel_pos = hrp::Vector3::Zero();
@@ -985,22 +986,26 @@ namespace rats
     foot_guided_controller_ptr->get_dc_off(dc_off);
     cur_cog -= dc_off;
 
-    int cur_wlist_size = wheel_nodes_list.at(0).size();
+    int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
 
     // update_wheel_index
     {
       if (wheel_interpolator->isEmpty() || wheel_interpolator->get_remain_time() <= dt) {
         if (wheel_index >= cur_wlist_size - 2) {
-          return false;
-        } else {
-          wheel_index++;
-          double tmp = 0.0;
-          wheel_interpolator->set(&tmp);
-          tmp = 1.0;
-          wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(0).at(wheel_index + 1).time, true);
-          start_wheel_pos_x = cur_wheel_pos_x;
-          cur_wheel_ratio = 0.0;
+          if (wheel_major_index < wheel_nodes_list.size() - 1) {
+            wheel_major_index++;
+            wheel_index = -1;
+          } else {
+            return false;
+          }
         }
+        wheel_index++;
+        double tmp = 0.0;
+        wheel_interpolator->set(&tmp);
+        tmp = 1.0;
+        wheel_interpolator->setGoal(&tmp, wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).time, true);
+        start_wheel_pos_x = cur_wheel_pos_x;
+        cur_wheel_ratio = 0.0;
       } else {
         wheel_interpolator->get(&cur_wheel_ratio);
       }
@@ -1008,8 +1013,8 @@ namespace rats
 
     // calc_cur_zmp
     {
-      wheel_midcoords.pos = (1.0 - cur_wheel_ratio) * wheel_nodes_list.at(0).at(wheel_index).worldcoords.pos + cur_wheel_ratio * wheel_nodes_list.at(0).at(wheel_index + 1).worldcoords.pos;
-      wheel_midcoords.rot = wheel_nodes_list.at(0).at(wheel_index).worldcoords.rot;
+      wheel_midcoords.pos = (1.0 - cur_wheel_ratio) * wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos + cur_wheel_ratio * wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos;
+      wheel_midcoords.rot = wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot;
       d_wheel_pos = wheel_midcoords.pos - initial_wheel_midcoords.pos;
     }
 
@@ -1042,16 +1047,16 @@ namespace rats
 
     for (int i = wheel_index; i < cur_wlist_size - 1; i++) {
       hrp::Vector3 start = (i == wheel_index ?
-                            cur_ref_zmp : wheel_nodes_list.at(0).at(i).worldcoords.pos) + wheel_nodes_list.at(0).at(i).worldcoords.rot * zmp_off;
-      hrp::Vector3 goal = wheel_nodes_list.at(0).at(i + 1).worldcoords.pos + wheel_nodes_list.at(0).at(i + 1).worldcoords.rot * zmp_off;
+                            cur_ref_zmp : wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.pos) + wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.rot * zmp_off;
+      hrp::Vector3 goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off;
       double duration = (i == wheel_index ?
-                         traj_remain_time : wheel_nodes_list.at(0).at(i + 1).time);
+                         traj_remain_time : wheel_nodes_list.at(wheel_major_index).at(i + 1).time);
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(start, goal, duration));
       remain_time += duration;
     }
     hrp::Vector3 last_cp = ref_zmp_traj.back().getGoal();
     if (wheel_index == cur_wlist_size - 2) { // 余分な直線を最後に追加
-      ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(last_cp, last_cp, wheel_nodes_list.at(0).at(wheel_index + 1).time));
+      ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(last_cp, last_cp, wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).time));
       remain_time += ref_zmp_traj.back().getTime();
     }
     ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(last_cp, last_cp, 1));
@@ -1077,7 +1082,7 @@ namespace rats
 
     // calc_cur_wheel_angle
     {
-      double goal_pos_x = (wheel_nodes_list.at(0).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(0).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(0).at(wheel_index).worldcoords.pos))(0);
+      double goal_pos_x = (wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos))(0);
       cur_wheel_pos_x = start_wheel_pos_x + cur_wheel_ratio * goal_pos_x;
     }
 
