@@ -803,6 +803,7 @@ namespace rats
         }
 
         changed_step_time_stair = false;
+        is_height_updated = false;
       }
       // dc fxy
       hrp::Vector3 prev_fxy = fxy;
@@ -1326,6 +1327,7 @@ namespace rats
     bool is_out = false, is_read_stepable = false;
     Eigen::Vector2d tmp_pos = Eigen::Vector2d::Zero(), new_pos;
     hrp::Vector3 tmp_short, new_short;
+    double tmp_height = cur_fs.worldcoords.pos(2);
     for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
       if (steppable_region[cur_sup][i].size() < 3) continue;
       is_read_stepable = true;
@@ -1338,9 +1340,11 @@ namespace rats
           tmp_dt = new_remain_time - remain_count*dt;
           tmp_pos = new_pos;
           tmp_short = new_short;
+          tmp_height = steppable_height[cur_sup][i];
         }
       } else {
         is_out = false;
+        tmp_height = steppable_height[cur_sup][i];
         break;
       }
     }
@@ -1352,6 +1356,9 @@ namespace rats
       }
       change_step_time(tmp_dt);
       short_of_footstep = tmp_short;
+    }
+    if (!is_height_updated) {
+      cur_fs.worldcoords.pos(2) = tmp_height;
     }
 
     // world frame
@@ -1578,6 +1585,7 @@ namespace rats
           else limit_stride_rectangle(footstep_nodes_list[lcg.get_footstep_index()].front(), footstep_nodes_list[lcg.get_footstep_index()-1].front(), overwritable_stride_limitation);
           footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = orig_footstep_pos(2);
           if (is_vision_updated || debug_set_landing_height) {
+            is_height_updated = true;
             footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2) = (cur_footstep_pos + rel_landing_height)(2);
             calc_foot_origin_rot(footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot, orig_footstep_rot, cur_footstep_rot * rel_landing_normal);
             if (debug_set_landing_height) {
