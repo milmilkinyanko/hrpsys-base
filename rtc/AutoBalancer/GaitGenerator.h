@@ -1705,6 +1705,7 @@ namespace rats
     void set_steppable_region (const OpenHRP::TimedSteppableRegion& _region) {
       leg_type next_sup = (_region.data.l_r == 0 ? LLEG : RLEG);
       steppable_region[next_sup].resize(_region.data.region.length());
+      steppable_height[next_sup].resize(_region.data.region.length());
       for (size_t i = 0; i < steppable_region[next_sup].size(); i++) {
         double height_sum = 0.0;
         steppable_region[next_sup][i].resize(_region.data.region[i].length()/3);;
@@ -1713,7 +1714,7 @@ namespace rats
           steppable_region[next_sup][i][j](1) = _region.data.region[i][3*j+1];
           height_sum += _region.data.region[i][3*j+2];
         }
-        steppable_height[next_sup][i] = height_sum / steppable_region[next_sup][i].size(); // average height
+        if (steppable_region[next_sup][i].size() > 0) steppable_height[next_sup][i] = height_sum / steppable_region[next_sup][i].size(); // average height
       }
       lr_region[next_sup] = true;
     };
