@@ -383,7 +383,7 @@ class AutoBalancer
   std::vector<double> diff_q;
   interpolator *emergency_transition_interpolator;
   interpolator *touch_wall_transition_interpolator;
-  hrp::Vector3 touchdown_foot_pos[2];
+  hrp::Vector3 touchdown_foot_pos[2], prev_foot_pos[2];
   bool is_foot_touch[2];
   double touchoff_remain_time[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;

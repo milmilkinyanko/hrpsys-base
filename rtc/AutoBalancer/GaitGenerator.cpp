@@ -443,6 +443,8 @@ namespace rats
     rdtg[swing_trajectory_generator_idx].set_swing_leg(lr);
     rdtg[swing_trajectory_generator_idx].set_rectangle_trajectory_way_point_offset(rectangle_way_point_offset);
     rdtg[swing_trajectory_generator_idx].is_touch_ground = is_touch_ground;
+    rdtg[swing_trajectory_generator_idx].is_single_walking = is_single_walking;
+    if (use_act_states && is_stop_early_foot) rdtg[swing_trajectory_generator_idx].goal_off = rectangle_goal_off;
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height, hrp::Vector3(current_coords.pos));
   };
 
@@ -694,6 +696,7 @@ namespace rats
       is_after_double_support_phase = false;
       was_enlarged_time = false;
     }
+    lcg.set_is_single_walking(footstep_nodes_list.size());
     hrp::Vector3 cur_refcog, cur_refcogvel, dc_off;
     foot_guided_controller_ptr->get_pos(cur_refcog);
     foot_guided_controller_ptr->get_vel(cur_refcogvel);

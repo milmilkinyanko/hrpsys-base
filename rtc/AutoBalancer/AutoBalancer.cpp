@@ -1665,19 +1665,23 @@ void AutoBalancer::calcTouchoffRemainTime()
 
 void AutoBalancer::stopFootForEarlyTouchDown ()
 {
+  m_tmp.data[21] = ikp["rleg"].target_p0(0);
+  m_tmp.data[22] = ikp["lleg"].target_p0(2);
+  m_tmp.data[23] = ikp["rleg"].target_p0(2);
   bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
-      if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
-        if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
-          double tmp_ratio = 1.0;
-          touchdown_transition_interpolator[leg_names[i]]->clear();
-          touchdown_transition_interpolator[leg_names[i]]->set(&tmp_ratio);
-          ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i];
-          tmp_ratio = 0.0;
-          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
-          is_foot_touch[i] = true;
-        }
+      if (gg->get_footstep_index() > 0 && !is_last_double &&
+          ((st->act_contact_states[contact_states_index_map[leg_names[i]]] && !gg->is_before_step_phase()) || ((ikp[leg_names[i]].target_p0 - prev_foot_pos[i]).norm() > 1e-2)) && // latter part is for sensor trouble
+          !is_foot_touch[i]) {
+        double tmp_ratio = 1.0;
+        touchdown_transition_interpolator[leg_names[i]]->clear();
+        touchdown_transition_interpolator[leg_names[i]]->set(&tmp_ratio);
+        ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i];
+        tmp_ratio = 0.0;
+        touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
+        is_foot_touch[i] = true;
+        gg->set_is_early_touch(true);
       }
     }
     if (!touchdown_transition_interpolator[leg_names[i]]->isEmpty()) {
@@ -1689,6 +1693,7 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
       is_foot_touch[i] = false;
       touchdown_foot_pos[i] = ikp[leg_names[i]].target_p0;
     }
+    prev_foot_pos[i] = ikp[leg_names[i]].target_p0;
   }
 }
 // TODO: move to fik.h
@@ -2512,6 +2517,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_swing_trajectory_time_offset_xy2z(i_param.swing_trajectory_time_offset_xy2z);
   gg->set_stair_trajectory_way_point_offset(hrp::Vector3(i_param.stair_trajectory_way_point_offset[0], i_param.stair_trajectory_way_point_offset[1], i_param.stair_trajectory_way_point_offset[2]));
   gg->set_rectangle_trajectory_way_point_offset(hrp::Vector3(i_param.rectangle_trajectory_way_point_offset[0], i_param.rectangle_trajectory_way_point_offset[1], i_param.rectangle_trajectory_way_point_offset[2]));
+  gg->set_rectangle_goal_off(hrp::Vector3(i_param.rectangle_goal_off[0], i_param.rectangle_goal_off[1], i_param.rectangle_goal_off[2]));
   gg->set_cycloid_delay_kick_point_offset(hrp::Vector3(i_param.cycloid_delay_kick_point_offset[0], i_param.cycloid_delay_kick_point_offset[1], i_param.cycloid_delay_kick_point_offset[2]));
   gg->set_gravitational_acceleration(i_param.gravitational_acceleration);
   gg->set_toe_angle(i_param.toe_angle);
@@ -2623,6 +2629,8 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   for (size_t i = 0; i < 3; i++) i_param.stair_trajectory_way_point_offset[i] = tmpv(i);
   tmpv = gg->get_rectangle_trajectory_way_point_offset();
   for (size_t i = 0; i < 3; i++) i_param.rectangle_trajectory_way_point_offset[i] = tmpv(i);
+  tmpv = gg->get_rectangle_goal_off();
+  for (size_t i = 0; i < 3; i++) i_param.rectangle_goal_off[i] = tmpv(i);
   tmpv = gg->get_cycloid_delay_kick_point_offset();
   for (size_t i = 0; i < 3; i++) i_param.cycloid_delay_kick_point_offset[i] = tmpv(i);
   i_param.swing_trajectory_delay_time_offset = gg->get_swing_trajectory_delay_time_offset();
@@ -2882,6 +2890,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   touch_wall_retrieve_time = i_param.touch_wall_retrieve_time;
   is_natural_walk = i_param.is_natural_walk;
   is_stop_early_foot = i_param.is_stop_early_foot;
+  gg->set_is_stop_early_foot(is_stop_early_foot);
   arm_swing_deg = i_param.arm_swing_deg;
   debug_read_steppable_region = i_param.debug_read_steppable_region;
   return true;
