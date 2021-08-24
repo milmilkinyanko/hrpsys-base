@@ -481,9 +481,20 @@ namespace rats
             hrp::Vector3 tmpgoal = interpolate_antecedent_path(static_cast<double>(tmp_time_offset_count) / static_cast<double>(swing_remain_count));
             for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), time_offset, tmpgoal(i));
           } else { // antecedent path already reached to goal
+            hrp::Vector3 tmp_goal = goal;
             hrp::Vector3 tmp_vel = hrp::Vector3::Zero();
-            if (is_single_walking) tmp_vel = goal_off / ((one_step_count - double_support_count_after)*dt);
-            for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), swing_remain_count*dt, goal(i), tmp_vel(i));
+            size_t tmp_count = swing_remain_count;
+            if (is_single_walking && !is_early_touch) {
+              tmp_goal += goal_off;
+              // tmp_vel = goal_off / ((one_step_count - double_support_count_after)*dt);
+              tmp_count += double_support_count_after;
+            }
+            for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), tmp_count*dt, tmp_goal(i), tmp_vel(i));
+            if (is_early_touch) {
+              pos = goal;
+              vel = hrp::Vector3::Zero();
+              acc = hrp::Vector3::Zero();
+            }
           }
         } else { // last double support phase
           size_t remain_count = one_step_count - current_count;
@@ -912,9 +923,9 @@ namespace rats
       };
       void set_use_act_states (const bool _use_act_states) { use_act_states = _use_act_states; };
       void set_is_stop_early_foot (const bool _is_stop_early_foot) { is_stop_early_foot = _is_stop_early_foot; };
-      void set_is_early_touch (const bool _is_early_touch) {
+      void set_is_early_touch (const bool _is_early_touch, const leg_type _lr) {
         for (int i = 0; i < rdtg.size(); i++) {
-          rdtg[i].is_early_touch = _is_early_touch;
+          if (swing_leg_src_steps[i].l_r == _lr) rdtg[i].is_early_touch = _is_early_touch;
         }
       };
       void reset(const size_t _one_step_count, const size_t _next_one_step_count,
@@ -1770,7 +1781,7 @@ namespace rats
     void set_footstep_check_delta (const hrp::Vector3& _delta) { footstep_check_delta = _delta; };
     void set_use_act_states() { lcg.set_use_act_states(use_act_states); };
     void set_is_stop_early_foot(const bool _is_stop_early_foot) { lcg.set_is_stop_early_foot(_is_stop_early_foot); };
-    void set_is_early_touch(const bool _is_early_touch) { lcg.set_is_early_touch(_is_early_touch); };
+    void set_is_early_touch(const bool _is_early_touch, const leg_type _lr) { lcg.set_is_early_touch(_is_early_touch, _lr); };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
     {

@@ -1681,7 +1681,11 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
         tmp_ratio = 0.0;
         touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
         is_foot_touch[i] = true;
-        gg->set_is_early_touch(true);
+
+        leg_type lr;
+        if (leg_names[i] == "rleg") lr = RLEG;
+        else lr = LLEG;
+        gg->set_is_early_touch(true, lr);
       }
     }
     if (!touchdown_transition_interpolator[leg_names[i]]->isEmpty()) {
