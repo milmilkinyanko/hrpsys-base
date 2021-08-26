@@ -485,7 +485,7 @@ namespace rats
             hrp::Vector3 tmp_vel = hrp::Vector3::Zero();
             size_t tmp_count = swing_remain_count;
             if (is_single_walking && !is_early_touch) {
-              tmp_goal += goal_off;
+              tmp_goal += goal_off * 0.5; // 0.5 makes touch-down gentle
               // tmp_vel = goal_off / ((one_step_count - double_support_count_after)*dt);
               tmp_count += double_support_count_after;
             }
@@ -498,7 +498,6 @@ namespace rats
           }
         } else { // last double support phase
           size_t remain_count = one_step_count - current_count;
-          // if (remain_count > 0) {
           if (remain_count > 0 && !is_early_touch) {
             hrp::Vector3 tmp_goal = goal;
             if (is_single_walking) tmp_goal += goal_off;
