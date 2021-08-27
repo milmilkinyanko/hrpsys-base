@@ -1225,6 +1225,7 @@ void AutoBalancer::getTargetParameters()
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
       hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
+      if (!gg_solved) stopWalking();
       st->falling_direction = gg->get_falling_direction();
       gg->get_swing_support_mid_coords(tmp_fix_coords);
     } else {
@@ -1306,8 +1307,6 @@ void AutoBalancer::getTargetParameters()
       }
       is_after_walking = false;
   }
-  // Just for stop walking
-  if (gg_is_walking && !gg_solved) stopWalking ();
 };
 
 void AutoBalancer::getOutputParametersForWalking ()
