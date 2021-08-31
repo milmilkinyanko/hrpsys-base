@@ -19,21 +19,32 @@ class LinearTrajectory
 {
 private:
   T a, b, start, goal;
-  double time;
+  double time, time_off;
 public:
-  LinearTrajectory(const T& _start, const T& _goal, const double _t)
-    : start(_start), goal(_goal) {
+  LinearTrajectory(const T& _start, const T& _goal, const double _t, const double _t_off = 0.0)
+    : start(_start), goal(_goal), time_off(_t_off) {
     time = std::max(_t, 2e-3);
     a = (_goal - _start) / time;
-    b = _goal;
+    b = _start - a * _t_off;
   };
   const T& getSlope() const { return a; };
   const T& getIntercept() const { return b; };
   const T& getStart() const { return start; };
   const T& getGoal() const { return goal; };
-  // const T& getPosFromTime(const double _t) const { return a * _t + b; };
-  // const T& getPosFromRatio(const double ratio) const { return a * time * ratio + b; };
+  T getPosFromTime(const double _t) const { return a * _t + b; };
+  T getPosFromRatio(const double ratio) const { return a * time * ratio + b; };
   double getTime() const { return time; };
+  double getTimeOff() const { return time_off; };
+
+  // friend const LinearTrajectory<T>& operator+(const LinearTrajectory<T>& l, const LinearTrajectory<T>& r)
+  LinearTrajectory<T> operator+(const LinearTrajectory<T>& r) const
+  {
+    const double t0 = std::max(this->getTimeOff(), r.getTimeOff());
+    const double t1 = std::min(this->getTimeOff() + this->getTime(), r.getTimeOff() + r.getTime());
+    const T s = this->getPosFromTime(t0) + r.getPosFromTime(t0);
+    const T g = this->getPosFromTime(t1) + r.getPosFromTime(t1);
+    return LinearTrajectory<T>(s, g, t1 - t0);
+  };
 };
 
 class foot_guided_control_base

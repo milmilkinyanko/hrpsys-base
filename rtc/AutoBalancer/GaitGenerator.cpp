@@ -686,7 +686,7 @@ namespace rats
     emergency_flg = IDLING;
   };
 
-  bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
+  bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, hrp::Vector3 cur_cogvel, const hrp::Vector3& cur_cmp)
   {
     solved = false;
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt) - 1) { // for go-velocity
@@ -697,6 +697,10 @@ namespace rats
       was_enlarged_time = false;
     }
     lcg.set_is_single_walking(footstep_nodes_list.size());
+    if (is_wheeling) {
+      cur_cogvel += (wheel_midcoords.pos - prev_wheel_pos) / dt;
+      prev_wheel_pos = wheel_midcoords.pos;
+    }
     hrp::Vector3 cur_refcog, cur_refcogvel, dc_off;
     foot_guided_controller_ptr->get_pos(cur_refcog);
     foot_guided_controller_ptr->get_vel(cur_refcogvel);
@@ -1020,8 +1024,9 @@ namespace rats
 
     for (int i = wheel_index; i < cur_wlist_size - 1; i++) {
       hrp::Vector3 start = (i == wheel_index ?
-                            cur_ref_zmp : wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.pos) + wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.rot * zmp_off;
-      hrp::Vector3 goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off;
+                            cur_ref_zmp :
+                            (wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.rot * zmp_off)) + dz;
+      hrp::Vector3 goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off + dz;
       double duration = (i == wheel_index ?
                          traj_remain_time : wheel_nodes_list.at(wheel_major_index).at(i + 1).time);
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(start, goal, duration));
@@ -1177,6 +1182,10 @@ namespace rats
         finalize_count++;
       } else {
         solved = false;
+        if (is_wheeling) {
+          if (wheel_major_index == wheel_nodes_list.size() -1 && wheel_index == wheel_nodes_list.at(wheel_major_index).size() - 2) is_wheeling = false;
+          else wheel_nodes_list.back().back().time = 1;
+        }
       }
     }
     size_t traj_remain_count = lcg.get_lcg_count();
@@ -1320,6 +1329,39 @@ namespace rats
       std::cerr << "num_preview_step >= 3 is not supported" << std::endl;
       solved = false;
     }
+
+    if (is_wheeling && update_wheel_controller()) {
+      double w_sum_time = 0.0, f_sum_time = 0.0;
+      int f_idx = 0;
+      double traj_remain_time = wheel_interpolator->get_remain_time();
+      hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+      int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
+      std::vector<LinearTrajectory<hrp::Vector3> > tmp_zmp_traj = ref_zmp_traj;
+      ref_zmp_traj.clear();
+      ref_zmp_traj.reserve(ref_zmp_traj.size() + cur_wlist_size);
+
+      for (int i = wheel_index; i < wheel_nodes_list.at(wheel_major_index).size() - 1; i++) {
+        const hrp::Vector3 initial = initial_wheel_midcoords.pos + initial_wheel_midcoords.rot * zmp_off;
+        const hrp::Vector3 start = (i == wheel_index ?
+                                    wheel_midcoords.pos + wheel_midcoords.rot * zmp_off :
+                                    (wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.rot * zmp_off)) - initial;
+        const hrp::Vector3 goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off - initial;
+        const double duration = (i == wheel_index ?
+                           traj_remain_time : wheel_nodes_list.at(wheel_major_index).at(i + 1).time);
+        while (f_idx < tmp_zmp_traj.size()) {
+          const hrp::Vector3 f_start = tmp_zmp_traj.at(f_idx).getStart();
+          const hrp::Vector3 f_goal = tmp_zmp_traj.at(f_idx).getGoal();
+          const double f_duration = tmp_zmp_traj.at(f_idx).getTime();
+          ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(f_start, f_goal, f_duration, f_sum_time) + LinearTrajectory<hrp::Vector3>(start, goal, duration, w_sum_time)); // combine two lines
+          if (f_sum_time + f_duration >= w_sum_time + duration) break;
+          f_sum_time += f_duration;
+          f_idx++;
+        }
+        w_sum_time += duration;
+      }
+      cur_ref_zmp = ref_zmp_traj.front().getStart();
+    }
+
     ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(last_cp, last_cp, 1));
 
     hrp::Vector3 feedforward_zmp;
@@ -2108,7 +2150,11 @@ namespace rats
       }
     }
 
-    tmp_wheel.push_back(wheel_node(abs_goal_coord, 1)); // 最後は直線
+    if (footstep_nodes_list.size() > 0) {
+      tmp_wheel.push_back(wheel_node(abs_goal_coord, 60)); // 歩行時は十分長い時間を追加
+    } else {
+      tmp_wheel.push_back(wheel_node(abs_goal_coord, 1)); // 最後は直線
+    }
 
     wheel_nodes_list.push_back(tmp_wheel);
 

@@ -478,8 +478,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_walkingStates.data = false;
     fix_leg_coords = coordinates();
 
-    gg_is_wheeling = false;
-
     // load virtual force sensors
     readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
     // ref force port
@@ -589,7 +587,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     debug_read_steppable_region = false;
 
-    wheel_radius = 0.15;
+    wheel_radius = 0.063;
     d_wheel_angle = 0.0;
     start_d_wheel_angle = 0.0;
 
@@ -866,7 +864,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         }
 
         // overwirte wheel angle
-        if (gg_is_wheeling) d_wheel_angle = start_d_wheel_angle + gg->get_cur_wheel_pos_x() / wheel_radius;
+        if (gg->is_wheeling) d_wheel_angle = start_d_wheel_angle + gg->get_cur_wheel_pos_x() / wheel_radius;
         else start_d_wheel_angle = d_wheel_angle;
         m_robot->joint(6)->q = m_qRef.data[6] + d_wheel_angle;
         m_robot->joint(13)->q = m_qRef.data[13] + d_wheel_angle;
@@ -1194,7 +1192,7 @@ void AutoBalancer::setABCData2ST()
   st->zmpRef = rel_ref_zmp;
   st->basePos = ref_basePos;
   st->baseRpy = baseRpy;
-  st->is_walking = gg_is_walking || gg_is_wheeling;
+  st->is_walking = gg_is_walking || gg->is_wheeling;
   st->is_single_walking = gg_is_walking && gg->get_is_single_walking();
   st->sbp_cog_offset = sbp_cog_offset;
 }
@@ -1230,7 +1228,7 @@ void AutoBalancer::getTargetParameters()
       gg->get_vertices(support_polygon_vertices);
       gg->calc_convex_hull(support_polygon_vertices, tmp_contact_states, tmp_ee_pos, tmp_ee_rot);
     }
-    if ( gg_is_walking || gg_is_wheeling ) {
+    if ( gg_is_walking || gg->is_wheeling ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
       act_cog.head(2) += sbp_cog_offset.head(2);
@@ -1263,7 +1261,7 @@ void AutoBalancer::getTargetParameters()
       getOutputParametersForWalking();
     } else {
       getOutputParametersForABC();
-      if (gg_is_wheeling) getOutputParametersForWheeling();
+      if (gg->is_wheeling) getOutputParametersForWheeling();
     }
     //   Just for ik initial value
     if (control_mode == MODE_SYNC_TO_ABC) {
@@ -1291,16 +1289,17 @@ void AutoBalancer::getTargetParameters()
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
-    if (gg_is_walking || gg_is_wheeling) {
+    if (gg_is_walking || gg->is_wheeling) {
       prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();
+      // std::cerr << "ccc: " << ref_cog.transpose() << std::endl;
       orig_cog = ref_cog;
     } else {
       ref_cog = tmp_foot_mid_pos;
     }
     limit_cog(ref_cog);
     ref_cog(2) = tmp_ref_cog(2);
-    if (gg_is_walking || gg_is_wheeling) {
+    if (gg_is_walking || gg->is_wheeling) {
       ref_zmp = gg->get_refzmp();
     } else {
       ref_zmp(0) = ref_cog(0);
@@ -1717,10 +1716,11 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
       double tmp_ratio = 0.0;
       touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
       touchdown_transition_interpolator[leg_names[i]]->get(&tmp_ratio, true);
-      ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i] * tmp_ratio + ikp[leg_names[i]].target_p0 * (1.0 - tmp_ratio);
+      ikp[leg_names[i]].target_p0 = (touchdown_foot_pos[i] + (gg->is_wheeling ? gg->get_d_wheel_pos() : hrp::Vector3::Zero())) * tmp_ratio + ikp[leg_names[i]].target_p0 * (1.0 - tmp_ratio);
     } else {
       is_foot_touch[i] = false;
       touchdown_foot_pos[i] = ikp[leg_names[i]].target_p0;
+      if (gg->is_wheeling) touchdown_foot_pos[i] -= gg->get_d_wheel_pos();
     }
     prev_foot_pos[i] = ikp[leg_names[i]].target_p0;
   }
@@ -2010,7 +2010,7 @@ void AutoBalancer::solveSimpleFullbodyIK ()
 
 void AutoBalancer::limit_cog (hrp::Vector3& cog)
 {
-  if (transition_interpolator->isEmpty() && !gg_is_walking && !gg_is_wheeling && is_after_walking) {
+  if (transition_interpolator->isEmpty() && !gg_is_walking && !gg->is_wheeling && is_after_walking) {
     std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
     double tmp_time = 5.0;
     for (size_t i = 0; i < 3; i++) {
@@ -2151,10 +2151,10 @@ void AutoBalancer::stopABCparamEmergency()
     it->second->clear();
   }
   gg_is_walking = false;
-  gg_is_wheeling = false;
+  gg->is_wheeling = false;
 }
 
-bool AutoBalancer::startWalking ()
+bool AutoBalancer::startWalking (const bool is_wheel = false)
 {
   if ( control_mode != MODE_ABC ) {
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
@@ -2186,6 +2186,7 @@ bool AutoBalancer::startWalking ()
         init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
     gg->set_default_zmp_offsets(default_zmp_offsets);
     gg->initialize_gait_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+    if (is_wheel) gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
   while ( !gg->proc_one_tick(act_cog, act_cogvel, act_cmp) );
@@ -2218,7 +2219,6 @@ void AutoBalancer::stopWheeling ()
   }
   multi_mid_coords(fix_leg_coords, tmp_end_coords_list);
   fixLegToCoords(fix_leg_coords.pos, fix_leg_coords.rot);
-  gg_is_wheeling = false;
 }
 
 bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSequence& limbs)
@@ -2294,10 +2294,40 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
     return false;
   }
 }
+bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double w_tm)
+{
+    //  if ( !gg_is_walking && !is_stop_mode) {
+  if ( !is_stop_mode) {
+    gg->set_all_limbs(leg_names);
+    coordinates start_ref_coords;
+    std::vector<coordinates> initial_support_legs_coords;
+    std::vector<leg_type> initial_support_legs;
+    bool is_valid_gait_type = calc_inital_support_legs(y, initial_support_legs_coords, initial_support_legs, start_ref_coords);
+    if (is_valid_gait_type == false) return false;
+    gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
+    gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
+    bool ret = gg->go_pos_param_2_footstep_nodes_list(x, y, th,
+                                                      initial_support_legs_coords, // Dummy if gg_is_walking
+                                                      start_ref_coords,            // Dummy if gg_is_walking
+                                                      initial_support_legs,        // Dummy if gg_is_walking
+                                                      (!gg_is_walking)); // If gg_is_walking, initialize. Otherwise, not initialize and overwrite footsteps.
+    if (!ret) {
+        std::cerr << "[" << m_profile.instance_name << "] Cannot goPos because of invalid timing." << std::endl;
+    }
+    if ( !gg_is_walking ) { // Initializing
+        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, w_tm, start_ref_coords);
+        ret &= startWalking(true);
+    }
+    return ret;
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot goPos while stopping mode." << std::endl;
+    return false;
+  }
+}
 bool AutoBalancer::goWheel(const double& x, const double& tm)
 {
   // initialize wheel node
-  if (!gg_is_wheeling) {
+  if (!gg->is_wheeling) {
     gg->set_all_limbs(leg_names);
     coordinates start_ref_coords;
     std::vector<coordinates> initial_support_legs_coords; // dummy
@@ -2322,7 +2352,6 @@ bool AutoBalancer::goWheel(const double& x, const double& tm)
     gg->set_default_zmp_offsets(default_zmp_offsets);
     gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
 
-    gg_is_wheeling = true;
     is_after_walking = true;
     limit_cog_interpolator->clear();
 
