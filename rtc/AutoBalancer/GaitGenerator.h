@@ -1298,7 +1298,7 @@ namespace rats
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,
                                     const double delay = 1.6);
-    bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
+    bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), hrp::Vector3 cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
     void initialize_wheel_parameter (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_refcog,
                                      const std::vector<step_node>& initial_support_leg_steps,
                                      const std::vector<step_node>& initial_swing_leg_dst_steps);
@@ -1931,7 +1931,10 @@ namespace rats
       tmp.pos += tmp.rot * hrp::Vector3(-1*footstep_param.vel_foot_offset[lcg.get_swing_leg_dst_steps().front().l_r]);
       return tmp;
     };
-    void get_swing_support_mid_coords(coordinates& ret) const { lcg.get_swing_support_mid_coords(ret); };
+    void get_swing_support_mid_coords(coordinates& ret) const {
+      lcg.get_swing_support_mid_coords(ret);
+      if (is_wheeling) ret.pos += d_wheel_pos;
+    };
     void get_wheel_mid_coords(coordinates& ret) const { ret = wheel_midcoords; };
     void get_stride_parameters (double& _stride_fwd_x, double& _stride_outside_y, double& _stride_outside_theta,
                                 double& _stride_bwd_x, double& _stride_inside_y, double& _stride_inside_theta) const
@@ -2044,6 +2047,9 @@ namespace rats
         } else { // Otherwise
             return false;
         }
+        if (is_wheeling) {
+          cpos += d_wheel_pos;
+        }
         return true;
     };
     bool get_wheel_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
@@ -2103,6 +2109,7 @@ namespace rats
       }
     };
     double get_cur_wheel_pos_x () { return cur_wheel_pos_x; };
+    hrp::Vector3 get_d_wheel_pos () { return d_wheel_pos; };
 
 
 #ifdef FOR_TESTGAITGENERATOR

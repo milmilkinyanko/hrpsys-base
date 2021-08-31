@@ -96,6 +96,7 @@ class AutoBalancer
   // no corresponding operation exists in OpenRTm-aist-0.2.0
   // virtual RTC::ReturnCode_t onRateChanged(RTC::UniqueId ec_id);
   bool goPos(const double& x, const double& y, const double& th);
+  bool goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double w_tm);
   bool goWheel(const double& x, const double& tm);
   bool goVelocity(const double& vx, const double& vy, const double& vth);
   bool goStop();
@@ -297,7 +298,7 @@ class AutoBalancer
   hrp::Matrix33 OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2);
   void fixLegToCoords (const hrp::Vector3& fix_pos, const hrp::Matrix33& fix_rot);
   void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
-  bool startWalking ();
+  bool startWalking (const bool is_wheel);
   void stopWalking ();
   void stopWheeling ();
   void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
@@ -325,7 +326,6 @@ class AutoBalancer
   typedef boost::shared_ptr<Stabilizer> stPtr;
   stPtr st;
   bool gg_is_walking, gg_solved;
-  bool gg_is_wheeling;
   // for abc
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;

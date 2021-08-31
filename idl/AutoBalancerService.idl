@@ -639,6 +639,13 @@ module OpenHRP
      * @param 
      * @return true if set successfully, false otherwise
      */
+    boolean goPosWheel(in double x, in double y, in double th, in double w_x, in double w_tm);
+
+    /**
+     * @brief
+     * @param
+     * @return true if set successfully, false otherwise
+     */
     boolean goWheel(in double x, in double tm);
 
     /**
