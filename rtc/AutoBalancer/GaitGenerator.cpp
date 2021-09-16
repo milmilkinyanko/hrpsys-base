@@ -1115,8 +1115,9 @@ namespace rats
 
     // calc_cur_wheel_angle
     {
-      double goal_pos_x = (wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos))(0);
-      cur_wheel_pos_x = start_wheel_pos_x + cur_wheel_ratio * goal_pos_x;
+      // double goal_pos_x = (wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.rot.transpose() * (wheel_nodes_list.at(wheel_major_index).at(wheel_index + 1).worldcoords.pos - wheel_nodes_list.at(wheel_major_index).at(wheel_index).worldcoords.pos))(0);
+      // cur_wheel_pos_x = start_wheel_pos_x + cur_wheel_ratio * goal_pos_x;
+      cur_wheel_pos_x = d_wheel_pos(0);
     }
 
     return true;
@@ -2138,7 +2139,7 @@ namespace rats
 
     coordinates abs_goal_coord = start_ref_coords;
     {
-      const double tmp_dt = 50e-3; // 50 [ms]
+      const double tmp_dt = 5 * dt; // 10 [ms]
       interpolator wheel_traj_interpolator(1, tmp_dt, interpolator::HOFFARBIB);
       wheel_traj_interpolator.setName("GaitGenerator wheel_traj_interpolator");
       wheel_traj_interpolator.setGoal(&goal_x, whole_time, true);
