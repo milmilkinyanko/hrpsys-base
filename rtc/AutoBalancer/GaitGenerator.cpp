@@ -1338,15 +1338,16 @@ namespace rats
       hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
       int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
       std::vector<LinearTrajectory<hrp::Vector3> > tmp_zmp_traj = ref_zmp_traj;
+      const hrp::Vector3 initial = initial_wheel_midcoords.pos + initial_wheel_midcoords.rot * zmp_off;
       ref_zmp_traj.clear();
       ref_zmp_traj.reserve(ref_zmp_traj.size() + cur_wlist_size);
 
+      hrp::Vector3 goal;
       for (int i = wheel_index; i < wheel_nodes_list.at(wheel_major_index).size() - 1; i++) {
-        const hrp::Vector3 initial = initial_wheel_midcoords.pos + initial_wheel_midcoords.rot * zmp_off;
         const hrp::Vector3 start = (i == wheel_index ?
                                     wheel_midcoords.pos + wheel_midcoords.rot * zmp_off :
                                     (wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i).worldcoords.rot * zmp_off)) - initial;
-        const hrp::Vector3 goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off - initial;
+        goal = wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.pos + wheel_nodes_list.at(wheel_major_index).at(i + 1).worldcoords.rot * zmp_off - initial;
         const double duration = (i == wheel_index ?
                            traj_remain_time : wheel_nodes_list.at(wheel_major_index).at(i + 1).time);
         while (f_idx < tmp_zmp_traj.size()) {
@@ -1358,8 +1359,10 @@ namespace rats
           f_sum_time += f_duration;
           f_idx++;
         }
+        if (f_idx == tmp_zmp_traj.size()) break;
         w_sum_time += duration;
       }
+      last_cp += goal;
       cur_ref_zmp = ref_zmp_traj.front().getStart();
     }
 
