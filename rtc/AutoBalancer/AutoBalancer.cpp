@@ -1664,9 +1664,6 @@ void AutoBalancer::calcTouchoffRemainTime()
 
 void AutoBalancer::stopFootForEarlyTouchDown ()
 {
-  m_tmp.data[21] = ikp["rleg"].target_p0(0);
-  m_tmp.data[22] = ikp["lleg"].target_p0(2);
-  m_tmp.data[23] = ikp["rleg"].target_p0(2);
   bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
