@@ -1236,10 +1236,17 @@ void AutoBalancer::getTargetParameters()
       hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       if (gg_is_walking) {
         gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
-        if (!gg_solved) stopWalking();
+        if (!gg_solved) {
+          if (!gg->is_wheeling) stopWalking();
+          else {
+            gg->clear_footstep_nodes_list();
+            gg_is_walking = false;
+          }
+        }
         st->falling_direction = gg->get_falling_direction();
         gg->get_swing_support_mid_coords(tmp_fix_coords);
-      } else { // gg_is_wheeling
+      }
+      if (!gg_solved && gg->is_wheeling) {
         if (!gg->proc_one_tick_wheel(act_cog, act_cogvel)) stopWheeling();
         gg->get_wheel_mid_coords(tmp_fix_coords);
       }
@@ -2193,6 +2200,7 @@ bool AutoBalancer::startWalking (const bool is_wheel = false)
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
+    if (is_wheel) gg->is_wheeling = true;
     is_after_walking = true;
     limit_cog_interpolator->clear();
   }
@@ -2296,8 +2304,7 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
 }
 bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double w_tm)
 {
-    //  if ( !gg_is_walking && !is_stop_mode) {
-  if ( !is_stop_mode) {
+  if ( !gg->is_wheeling && !is_stop_mode) {
     gg->set_all_limbs(leg_names);
     coordinates start_ref_coords;
     std::vector<coordinates> initial_support_legs_coords;
@@ -2351,6 +2358,7 @@ bool AutoBalancer::goWheel(const double& x, const double& tm)
       init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
     gg->set_default_zmp_offsets(default_zmp_offsets);
     gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+    gg->is_wheeling = true;
 
     is_after_walking = true;
     limit_cog_interpolator->clear();

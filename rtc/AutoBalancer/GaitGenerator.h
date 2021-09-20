@@ -1201,7 +1201,7 @@ namespace rats
     int wheel_major_index, wheel_index;
     double cur_wheel_ratio, cur_wheel_pos_x, start_wheel_pos_x;
     coordinates wheel_midcoords, initial_wheel_midcoords;
-    hrp::Vector3 d_wheel_pos, prev_wheel_pos;
+    hrp::Vector3 d_wheel_pos, prev_wheel_pos, final_footstep_pos;
     step_node initial_support_leg, initial_swing_leg;
 
     /* preview controller parameters */

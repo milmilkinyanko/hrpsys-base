@@ -927,6 +927,8 @@ namespace rats
         }
       }
 
+      if (is_wheeling && !solved) prev_wheel_pos += final_footstep_pos;
+
       prev_act_cp = act_cp;
       tmp[17] = fxy(0);
       tmp[18] = fxy(1);
@@ -961,7 +963,6 @@ namespace rats
     wheel_major_index = 0;
     wheel_index = 0;
     start_wheel_pos_x = 0.0;
-    is_wheeling = true;
     if (!wheel_interpolator->isEmpty()) wheel_interpolator->clear();
     double tmp = 0.0;
     wheel_interpolator->set(&tmp);
@@ -973,6 +974,7 @@ namespace rats
     initial_swing_leg = initial_swing_leg_dst_steps.front();
     d_wheel_pos = hrp::Vector3::Zero();
     prev_wheel_pos = initial_wheel_midcoords.pos;
+    final_footstep_pos = hrp::Vector3::Zero();
 
     if ( foot_guided_controller_ptr != NULL ) {
       delete foot_guided_controller_ptr;
@@ -994,6 +996,7 @@ namespace rats
     int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
 
     if (!update_wheel_controller()) return false;
+    cur_wheel_pos_x -= final_footstep_pos(0);
 
     // calc_cur_cp
     {
@@ -1185,7 +1188,14 @@ namespace rats
         solved = false;
         if (is_wheeling) {
           if (wheel_major_index == wheel_nodes_list.size() -1 && wheel_index == wheel_nodes_list.at(wheel_major_index).size() - 2) is_wheeling = false;
-          else wheel_nodes_list.back().back().time = 1;
+          else {
+            for (int i = wheel_major_index; i < wheel_nodes_list.size(); i++) {
+              for (int j = wheel_index; j < wheel_nodes_list.at(i).size(); j++) {
+                wheel_nodes_list.at(i).at(j).worldcoords.pos += final_footstep_pos; // TODO: consider rot
+              }
+            }
+            wheel_nodes_list.back().back().time = 1;
+          }
         }
       }
     }
@@ -1331,7 +1341,7 @@ namespace rats
       solved = false;
     }
 
-    if (is_wheeling && update_wheel_controller()) {
+    if (solved && is_wheeling && update_wheel_controller()) {
       double w_sum_time = 0.0, f_sum_time = 0.0;
       int f_idx = 0;
       double traj_remain_time = wheel_interpolator->get_remain_time();
@@ -1339,6 +1349,7 @@ namespace rats
       int cur_wlist_size = wheel_nodes_list.at(wheel_major_index).size();
       std::vector<LinearTrajectory<hrp::Vector3> > tmp_zmp_traj = ref_zmp_traj;
       const hrp::Vector3 initial = initial_wheel_midcoords.pos + initial_wheel_midcoords.rot * zmp_off;
+      final_footstep_pos = ref_zmp_traj.front().getStart() - initial;
       ref_zmp_traj.clear();
       ref_zmp_traj.reserve(ref_zmp_traj.size() + cur_wlist_size);
 
