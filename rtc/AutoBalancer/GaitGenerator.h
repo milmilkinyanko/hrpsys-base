@@ -1203,6 +1203,7 @@ namespace rats
     coordinates wheel_midcoords, initial_wheel_midcoords;
     hrp::Vector3 d_wheel_pos, prev_wheel_pos, final_footstep_pos;
     step_node initial_support_leg, initial_swing_leg;
+    bool is_enlarged_final_time_for_wheel;
 
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
