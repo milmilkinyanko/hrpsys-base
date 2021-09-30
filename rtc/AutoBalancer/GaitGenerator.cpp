@@ -684,6 +684,7 @@ namespace rats
                                                 lcg.get_support_leg_steps_idx(footstep_nodes_list.size()-1),
                                                 lcg.get_swing_leg_dst_steps_idx(footstep_nodes_list.size()-1));
     emergency_flg = IDLING;
+    is_enlarged_final_time_for_wheel = false;
   };
 
   bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, hrp::Vector3 cur_cogvel, const hrp::Vector3& cur_cmp)
@@ -1180,23 +1181,26 @@ namespace rats
     } else if (step_index == step_num - 2) { // second to the last double support phase
       step_num_phase = BEFORE_LAST;
     } else if (step_index == step_num - 1) { // last double support phase
+      if (is_wheeling && !is_enlarged_final_time_for_wheel &&
+          (wheel_major_index < wheel_nodes_list.size() - 1 || wheel_index < wheel_nodes_list.at(wheel_major_index).size() - 2)) {
+        is_enlarged_final_time_for_wheel = true;
+        double w_remain_time = 0.0;
+        for (int i = wheel_major_index; i < wheel_nodes_list.size(); i++) {
+          for (int j = (i == wheel_major_index ? wheel_index : 0); j < wheel_nodes_list.at(i).size() - 1; j++) {
+            if (i == wheel_nodes_list.size() - 1 && j == wheel_nodes_list.at(i).size() - 2) w_remain_time += 1; // 最後の直線
+            else w_remain_time += wheel_nodes_list.at(i).at(j).time;
+          }
+        }
+        change_step_time(w_remain_time - fg_step_count*dt);
+        fg_step_count = w_remain_time/dt;
+      }
       step_num_phase = LAST;
       remain_count = fg_step_count - finalize_count;
       if (fg_step_count > finalize_count) {
         finalize_count++;
       } else {
         solved = false;
-        if (is_wheeling) {
-          if (wheel_major_index == wheel_nodes_list.size() -1 && wheel_index == wheel_nodes_list.at(wheel_major_index).size() - 2) is_wheeling = false;
-          else {
-            for (int i = wheel_major_index; i < wheel_nodes_list.size(); i++) {
-              for (int j = wheel_index; j < wheel_nodes_list.at(i).size(); j++) {
-                wheel_nodes_list.at(i).at(j).worldcoords.pos += final_footstep_pos; // TODO: consider rot
-              }
-            }
-            wheel_nodes_list.back().back().time = 1;
-          }
-        }
+        if (is_wheeling) is_wheeling = false;
       }
     }
     size_t traj_remain_count = lcg.get_lcg_count();
@@ -2166,7 +2170,7 @@ namespace rats
     }
 
     if (footstep_nodes_list.size() > 0) {
-      tmp_wheel.push_back(wheel_node(abs_goal_coord, 60)); // 歩行時は十分長い時間を追加
+      tmp_wheel.push_back(wheel_node(abs_goal_coord, 1e4)); // 歩行時は十分長い時間を追加
     } else {
       tmp_wheel.push_back(wheel_node(abs_goal_coord, 1)); // 最後は直線
     }
