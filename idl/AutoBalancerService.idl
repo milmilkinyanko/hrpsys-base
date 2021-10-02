@@ -639,7 +639,7 @@ module OpenHRP
      * @param 
      * @return true if set successfully, false otherwise
      */
-    boolean goPosWheel(in double x, in double y, in double th, in double w_x, in double w_tm);
+    boolean goPosWheel(in double x, in double y, in double th, in double w_x, in double rv_max, in double ra_max, in double tm_off);
 
     /**
      * @brief
