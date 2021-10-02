@@ -2017,7 +2017,7 @@ namespace rats
                                                            const std::vector<coordinates>& initial_support_legs_coords, coordinates start_ref_coords,
                                                            const std::vector<leg_type>& initial_support_legs,
                                                            std::vector< std::vector<step_node> >& new_footstep_nodes_list,
-                                                           const bool is_initialize)
+                                                           const bool is_initialize, const double tm_off)
   {
     // Get overwrite footstep index
     size_t overwritable_fs_index = 0;
@@ -2032,7 +2032,7 @@ namespace rats
     if (overwritable_fs_index > footstep_nodes_list.size()-1) return false;
     go_pos_param_2_footstep_nodes_list_core (goal_x, goal_y, goal_theta,
                                              initial_support_legs_coords, start_ref_coords, initial_support_legs,
-                                             new_footstep_nodes_list, is_initialize, overwritable_fs_index);
+                                             new_footstep_nodes_list, is_initialize, overwritable_fs_index, tm_off);
     //   For Last double support period
     if (is_initialize) {
         clear_footstep_nodes_list();
@@ -2049,7 +2049,8 @@ namespace rats
                                                                 const std::vector<coordinates>& initial_support_legs_coords, coordinates start_ref_coords,
                                                                 const std::vector<leg_type>& initial_support_legs,
                                                                 std::vector< std::vector<step_node> >& new_footstep_nodes_list,
-                                                                const bool is_initialize, const size_t overwritable_fs_index) const
+                                                                const bool is_initialize, const size_t overwritable_fs_index,
+                                                                const double tm_off) const
   {
     // Calc goal ref
     coordinates goal_ref_coords;
@@ -2080,7 +2081,7 @@ namespace rats
         // For initial double support period
         std::vector<step_node> initial_footstep_nodes;
         for (size_t i = 0; i < initial_support_legs.size(); i++) {
-            initial_footstep_nodes.push_back(step_node(initial_support_legs.at(i), initial_support_legs_coords.at(i), 0, default_step_time, 0, 0));
+            initial_footstep_nodes.push_back(step_node(initial_support_legs.at(i), initial_support_legs_coords.at(i), 0, default_step_time + tm_off, 0, 0));
         }
         new_footstep_nodes_list.push_back(initial_footstep_nodes);
     } else {
@@ -2173,7 +2174,7 @@ namespace rats
       }
       const double t_tran = static_cast<int>(((5 * x_tran) / (3 * v_max)) / wheel_dt) * wheel_dt; // 速度がv_maxをぎりぎり超えない
       const double x_cons = goal_x - 2 * x_tran;
-      const double t_cons = x_cons / v_max;
+      const double t_cons = static_cast<int>((x_cons / v_max) / wheel_dt) * wheel_dt;
 
       // std::cerr << "aaa goal_x: " << goal_x << ", " << "v_max: " << v_max << ", " << "a_max: " << a_max << ", " << "x_tran: " << x_tran << ", " << "t_tran: " << t_tran << ", " << "x_cons: " << x_cons << ", " << "t_cons: " << t_cons << std::endl;
 
@@ -2190,7 +2191,7 @@ namespace rats
       if (is_far) {
         tmp_pos = abs_goal_coord.pos;
         abs_goal_coord.pos = tmp_pos + start_ref_coords.rot * hrp::Vector3(x_cons, 0.0, 0.0);
-        tmp_wheel.push_back(wheel_node(abs_goal_coord, t_cons));
+        tmp_wheel.push_back(wheel_node(abs_goal_coord, t_cons - 1e-10)); // why need offset?
       }
 
       // last transition period

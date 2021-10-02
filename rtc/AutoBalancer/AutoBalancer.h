@@ -96,7 +96,7 @@ class AutoBalancer
   // no corresponding operation exists in OpenRTm-aist-0.2.0
   // virtual RTC::ReturnCode_t onRateChanged(RTC::UniqueId ec_id);
   bool goPos(const double& x, const double& y, const double& th);
-  bool goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double w_tm);
+  bool goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double rv_max, const double ra_max, const double tm_off);
   bool goWheel(const double& x, const double& rv_max, const double& ra_max);
   bool goVelocity(const double& vx, const double& vy, const double& vth);
   bool goStop();

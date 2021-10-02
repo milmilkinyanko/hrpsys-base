@@ -2302,7 +2302,7 @@ bool AutoBalancer::goPos(const double& x, const double& y, const double& th)
     return false;
   }
 }
-bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double w_tm)
+bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double rv_max, const double ra_max, const double tm_off)
 {
   if ( !gg->is_wheeling && !is_stop_mode) {
     gg->set_all_limbs(leg_names);
@@ -2317,12 +2317,13 @@ bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th
                                                       initial_support_legs_coords, // Dummy if gg_is_walking
                                                       start_ref_coords,            // Dummy if gg_is_walking
                                                       initial_support_legs,        // Dummy if gg_is_walking
-                                                      (!gg_is_walking)); // If gg_is_walking, initialize. Otherwise, not initialize and overwrite footsteps.
+                                                      (!gg_is_walking), // If gg_is_walking, initialize. Otherwise, not initialize and overwrite footsteps.
+                                                      tm_off);
     if (!ret) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos because of invalid timing." << std::endl;
     }
     if ( !gg_is_walking ) { // Initializing
-        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, w_tm, start_ref_coords);
+        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords);
         ret &= startWalking(true);
     }
     return ret;
