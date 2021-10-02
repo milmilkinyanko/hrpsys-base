@@ -2331,7 +2331,7 @@ bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th
     return false;
   }
 }
-bool AutoBalancer::goWheel(const double& x, const double& tm)
+bool AutoBalancer::goWheel(const double& x, const double& rv_max, const double& ra_max)
 {
   // initialize wheel node
   if (!gg->is_wheeling) {
@@ -2343,7 +2343,7 @@ bool AutoBalancer::goWheel(const double& x, const double& tm)
     if (is_valid_gait_type == false) return false;
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
-    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, tm, start_ref_coords);
+    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords);
 
     // initialize wheel generation
     hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;

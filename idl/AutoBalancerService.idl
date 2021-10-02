@@ -646,7 +646,7 @@ module OpenHRP
      * @param
      * @return true if set successfully, false otherwise
      */
-    boolean goWheel(in double x, in double tm);
+    boolean goWheel(in double x, in double rv_max, in double ra_max);
 
     /**
      * @brief Walk at the desired velocity. If the robot is stopping, the robot starts stepping. Returns without waiting for whole steps to be executed.

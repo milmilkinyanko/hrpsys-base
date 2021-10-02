@@ -18,7 +18,7 @@ public:
   virtual ~AutoBalancerService_impl();
   CORBA::Boolean goPos( CORBA::Double x,  CORBA::Double y,  CORBA::Double th);
   CORBA::Boolean goPosWheel( CORBA::Double x,  CORBA::Double y,  CORBA::Double th, CORBA::Double w_x,  CORBA::Double w_tm);
-  CORBA::Boolean goWheel( CORBA::Double x,  CORBA::Double tm);
+  CORBA::Boolean goWheel( CORBA::Double x,  CORBA::Double rv_max,  CORBA::Double ra_max);
   CORBA::Boolean goVelocity( CORBA::Double vx,  CORBA::Double vy,  CORBA::Double vth);
   CORBA::Boolean goStop();
   CORBA::Boolean emergencyStop();
