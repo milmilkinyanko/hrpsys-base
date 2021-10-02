@@ -2142,7 +2142,7 @@ namespace rats
     footstep_nodes_list.push_back(boost::assign::list_of(sn0));
   };
 
-  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, const double whole_time, const coordinates& start_ref_coords) {
+  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, double v_max, double a_max, const coordinates& start_ref_coords) {
     wheel_nodes_list.clear();
     std::vector<wheel_node> tmp_wheel;
     tmp_wheel.reserve(4); // TODO: consider num_step
@@ -2151,21 +2151,58 @@ namespace rats
 
     tmp_wheel.push_back(wheel_node(start_ref_coords, 1)); // 1番目は直線
 
-    // coordinates abs_goal_coord = start_ref_coords;
-    // abs_goal_coord.pos += start_ref_coords.rot * hrp::Vector3(goal_x, 0.0, 0.0);
-    // tmp_wheel.push_back(wheel_node(abs_goal_coord, whole_time));
-
     coordinates abs_goal_coord = start_ref_coords;
     {
-      const double tmp_dt = 5 * dt; // 10 [ms]
-      interpolator wheel_traj_interpolator(1, tmp_dt, interpolator::HOFFARBIB);
+      const double wheel_dt = 5 * dt; // 10 [ms]
+      interpolator wheel_traj_interpolator(1, wheel_dt, interpolator::QUINTICSPLINE);
       wheel_traj_interpolator.setName("GaitGenerator wheel_traj_interpolator");
-      wheel_traj_interpolator.setGoal(&goal_x, whole_time, true);
       double cur_goal;
+      hrp::Vector3 tmp_pos;
+      bool is_far = true;
+
+      if (goal_x < 0) {
+        v_max *= -1;
+        a_max *= -1;
+      }
+      double x_tran = v_max * v_max / a_max;
+      if (std::abs(goal_x) < 2 * std::abs(x_tran)) {
+        x_tran = 0.5 * goal_x;
+        v_max = std::sqrt(x_tran * a_max);
+        if (goal_x < 0) v_max *= -1;
+        is_far = false;
+      }
+      const double t_tran = static_cast<int>(((5 * x_tran) / (3 * v_max)) / wheel_dt) * wheel_dt; // 速度がv_maxをぎりぎり超えない
+      const double x_cons = goal_x - 2 * x_tran;
+      const double t_cons = x_cons / v_max;
+
+      // std::cerr << "aaa goal_x: " << goal_x << ", " << "v_max: " << v_max << ", " << "a_max: " << a_max << ", " << "x_tran: " << x_tran << ", " << "t_tran: " << t_tran << ", " << "x_cons: " << x_cons << ", " << "t_cons: " << t_cons << std::endl;
+
+      // first transition period
+      wheel_traj_interpolator.setGoal(&x_tran, &v_max, t_tran, true);
+      tmp_pos = abs_goal_coord.pos;
       while (!wheel_traj_interpolator.isEmpty()) {
         wheel_traj_interpolator.get(&cur_goal);
-        abs_goal_coord.pos = start_ref_coords.pos + start_ref_coords.rot * hrp::Vector3(cur_goal, 0.0, 0.0);
-        tmp_wheel.push_back(wheel_node(abs_goal_coord, tmp_dt));
+        abs_goal_coord.pos = tmp_pos + start_ref_coords.rot * hrp::Vector3(cur_goal, 0.0, 0.0);
+        tmp_wheel.push_back(wheel_node(abs_goal_coord, wheel_dt));
+      }
+
+      // linear period
+      if (is_far) {
+        tmp_pos = abs_goal_coord.pos;
+        abs_goal_coord.pos = tmp_pos + start_ref_coords.rot * hrp::Vector3(x_cons, 0.0, 0.0);
+        tmp_wheel.push_back(wheel_node(abs_goal_coord, t_cons));
+      }
+
+      // last transition period
+      cur_goal = 0.0;
+      wheel_traj_interpolator.set(&cur_goal, &v_max);
+      wheel_traj_interpolator.setGoal(&x_tran, t_tran, true);
+      // TODO: the same code as first transition period
+      tmp_pos = abs_goal_coord.pos;
+      while (!wheel_traj_interpolator.isEmpty()) {
+        wheel_traj_interpolator.get(&cur_goal);
+        abs_goal_coord.pos = tmp_pos + start_ref_coords.rot * hrp::Vector3(cur_goal, 0.0, 0.0);
+        tmp_wheel.push_back(wheel_node(abs_goal_coord, wheel_dt));
       }
     }
 

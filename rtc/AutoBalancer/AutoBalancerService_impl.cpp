@@ -19,9 +19,9 @@ CORBA::Boolean AutoBalancerService_impl::goPosWheel( CORBA::Double x,  CORBA::Do
   return m_autobalancer->goPosWheel(x, y, th, w_x, w_tm);
 };
 
-CORBA::Boolean AutoBalancerService_impl::goWheel( CORBA::Double x,  CORBA::Double tm)
+CORBA::Boolean AutoBalancerService_impl::goWheel( CORBA::Double x,  CORBA::Double rv_max,  CORBA::Double ra_max)
 {
-  return m_autobalancer->goWheel(x, tm);
+  return m_autobalancer->goWheel(x, rv_max, ra_max);
 };
 
 CORBA::Boolean AutoBalancerService_impl::goVelocity( CORBA::Double vx,  CORBA::Double vy,  CORBA::Double vth)
