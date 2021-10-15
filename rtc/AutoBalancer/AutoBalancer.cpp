@@ -1750,7 +1750,7 @@ void AutoBalancer::solveFullbodyIK ()
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
   sbp_cog_offset(2) = 0.0;
 
-  if (is_stop_early_foot) stopFootForEarlyTouchDown();
+  if (gg->use_act_states && is_stop_early_foot) stopFootForEarlyTouchDown();
 
   limbStretchAvoidanceControl();
 
