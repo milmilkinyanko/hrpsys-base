@@ -246,7 +246,7 @@ class ReferenceForceUpdater
   hrp::Matrix33 foot_origin_rot;
   bool use_sh_base_pos_rpy;
   int loop;//counter in onExecute
-  const std::string footoriginextmoment_name, objextmoment0_name;
+  const std::string footoriginextmoment_name, objextmoment0_name, additionalforce_name;
 };
 
 

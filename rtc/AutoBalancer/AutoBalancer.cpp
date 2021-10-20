@@ -2874,6 +2874,9 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
     case OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
         use_force = MODE_REF_FORCE_RFU_EXT_MOMENT;
         break;
+    case OpenHRP::AutoBalancerService::MODE_ADDITIONAL_FORCE:
+        use_force = MODE_ADDITIONAL_FORCE;
+        break;
     default:
         break;
     }
@@ -3037,6 +3040,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   case MODE_REF_FORCE: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE; break;
   case MODE_REF_FORCE_WITH_FOOT: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE_WITH_FOOT; break;
   case MODE_REF_FORCE_RFU_EXT_MOMENT: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT; break;
+  case MODE_ADDITIONAL_FORCE: i_param.use_force_mode = OpenHRP::AutoBalancerService::MODE_ADDITIONAL_FORCE; break;
   default: break;
   }
   i_param.graspless_manip_mode = graspless_manip_mode;
@@ -3912,6 +3916,13 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
             nume(j) += ( (fpos(2) - ref_com_height) * total_nosensor_ref_force(j) - fpos(j) * total_nosensor_ref_force(2) );
             denom(j) -= total_nosensor_ref_force(2);
         }
+        if ( use_force == MODE_ADDITIONAL_FORCE ) {
+            size_t idx = ref_forces.size() - 1;
+            hrp::Vector3 fpos(additional_force_applied_link->p+additional_force_applied_point_offset);
+            nume(j) += ( (fpos(2) - ref_com_height) * ref_forces[idx](j) - fpos(j) * ref_forces[idx](2) );
+            nume(j) += (j==0 ? ref_moments[idx](1):-ref_moments[idx](0));
+            denom(j) -= ref_forces[idx](2);
+        }
     }
     sb_point(j) = nume(j) / denom(j);
   }
@@ -4126,6 +4137,8 @@ std::string AutoBalancer::getUseForceModeString ()
         return "MODE_REF_FORCE_WITH_FOOT";
     case OpenHRP::AutoBalancerService::MODE_REF_FORCE_RFU_EXT_MOMENT:
         return "MODE_REF_FORCE_RFU_EXT_MOMENT";
+    case OpenHRP::AutoBalancerService::MODE_ADDITIONAL_FORCE:
+        return "MODE_ADDITIONAL_FORCE";
     default:
         return "";
     }
