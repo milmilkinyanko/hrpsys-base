@@ -2571,7 +2571,7 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
 void AutoBalancer::waitFootSteps()
 {
   //while (gg_is_walking) usleep(10);
-  while (gg_is_walking || !transition_interpolator->isEmpty() )
+  while (gg_is_walking || !transition_interpolator->isEmpty() || gg->is_wheeling)
     usleep(1000);
   usleep(1000);
   gg->set_offset_velocity_param(0,0,0);
