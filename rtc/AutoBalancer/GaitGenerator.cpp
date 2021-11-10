@@ -314,10 +314,10 @@ namespace rats
       default: break;
       }
       swing_trajectory_generator_idx++;
-      // if (std::fabs(step_height) > 1e-3*10) { // TMP : unsupport toe heel
-      //     if (swing_leg_src_steps.size() == 1) /* only biped or crawl because there is only one toe_heel_interpolator */
-      //         modif_foot_coords_for_toe_heel_phase(ret, _current_toe_angle, _current_heel_angle);
-      // }
+      if (std::fabs(step_height) > 1e-3*10 && (_current_toe_angle > 0.1 || _current_heel_angle > 0.1)) {
+          if (swing_leg_src_steps.size() == 1) /* only biped or crawl because there is only one toe_heel_interpolator */
+              modif_foot_coords_for_toe_heel_phase(ret, _current_toe_angle, _current_heel_angle);
+      }
       rets.push_back(step_node(it1->l_r, ret, 0, 0, 0, 0));
     }
   };
@@ -2082,9 +2082,9 @@ namespace rats
             } else {
                 std::vector<step_node> tmp_swing_leg_src_steps;
                 lcg.calc_swing_leg_src_steps(tmp_swing_leg_src_steps, footstep_nodes_list, idx+i);
-                // toe_heel_types tht(thtc.check_toe_heel_type_from_swing_support_coords(tmp_swing_leg_src_steps.front().worldcoords, lcg.get_support_leg_steps_idx(idx+i).front().worldcoords, lcg.get_toe_pos_offset_x(), lcg.get_heel_pos_offset_x()),
-                //                    thtc.check_toe_heel_type_from_swing_support_coords(lcg.get_swing_leg_dst_steps_idx(idx+i).front().worldcoords, lcg.get_support_leg_steps_idx(idx+i).front().worldcoords, lcg.get_toe_pos_offset_x(), lcg.get_heel_pos_offset_x()));
-                toe_heel_types tht; // TODO : unsupport toe heel phase
+                toe_heel_types tht(thtc.check_toe_heel_type_from_swing_support_coords(tmp_swing_leg_src_steps.front().worldcoords, lcg.get_support_leg_steps_idx(idx+i).front().worldcoords, lcg.get_toe_pos_offset_x(), lcg.get_heel_pos_offset_x()),
+                                   thtc.check_toe_heel_type_from_swing_support_coords(lcg.get_swing_leg_dst_steps_idx(idx+i).front().worldcoords, lcg.get_support_leg_steps_idx(idx+i).front().worldcoords, lcg.get_toe_pos_offset_x(), lcg.get_heel_pos_offset_x()));
+                if (i == 0) tht = rg.get_cur_toe_heel_types();
                 rg.push_refzmp_from_footstep_nodes_for_single(footstep_nodes_list[idx+i], lcg.get_support_leg_steps_idx(idx+i), tht);
             }
         }

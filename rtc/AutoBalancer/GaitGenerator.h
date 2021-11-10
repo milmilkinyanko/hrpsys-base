@@ -296,6 +296,7 @@ namespace rats
       std::vector< std::vector<leg_type> > swing_leg_types_list; // Swing leg list according to refzmp_cur_list
       std::vector<size_t> step_count_list; // Swing leg list according to refzmp_cur_list
       std::vector<toe_heel_types> toe_heel_types_list;
+      toe_heel_types cur_toe_heel_types;
       std::vector<hrp::Vector3> default_zmp_offsets; /* list of RLEG and LLEG */
       size_t refzmp_index, refzmp_count, one_step_count;
       double toe_zmp_offset_x, heel_zmp_offset_x; // [m]
@@ -336,7 +337,10 @@ namespace rats
         while ( foot_x_axises_list.size() > len) foot_x_axises_list.pop_back();
         while ( swing_leg_types_list.size() > len) swing_leg_types_list.pop_back();
         while ( step_count_list.size() > len) step_count_list.pop_back();
-        while ( toe_heel_types_list.size() > len) toe_heel_types_list.pop_back();
+        while ( toe_heel_types_list.size() > len) {
+          if (toe_heel_types_list.size() == len + 1) cur_toe_heel_types = toe_heel_types_list.back();
+          toe_heel_types_list.pop_back();
+        }
       };
       void reset (const size_t _refzmp_count)
       {
@@ -388,6 +392,7 @@ namespace rats
       double get_heel_zmp_offset_x () const { return heel_zmp_offset_x; };
       bool get_use_toe_heel_transition () const { return use_toe_heel_transition; };
       bool get_use_toe_heel_auto_set () const { return use_toe_heel_auto_set; };
+      toe_heel_types get_cur_toe_heel_types () const { return cur_toe_heel_types; };
       const std::map<leg_type, double> get_zmp_weight_map () const { return zmp_weight_map; };
       void proc_zmp_weight_map_interpolation () {
           if (!zmp_weight_interpolator->isEmpty()) {
