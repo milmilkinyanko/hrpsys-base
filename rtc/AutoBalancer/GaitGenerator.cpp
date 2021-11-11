@@ -149,7 +149,7 @@ namespace rats
         double first_zmp_offset_x, second_zmp_offset_x;
         if (use_toe_heel_auto_set) {
             first_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].src_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
-            second_zmp_offset_x = set_value_according_to_toe_heel_type(toe_heel_types_list[refzmp_index].dst_type, toe_zmp_offset_x, heel_zmp_offset_x, swing_foot_zmp_offsets.front()(0));
+            second_zmp_offset_x = swing_foot_zmp_offsets.front()(0);
         } else {
             first_zmp_offset_x = toe_zmp_offset_x;
             second_zmp_offset_x = heel_zmp_offset_x;
@@ -387,9 +387,9 @@ namespace rats
       double first_goal_angle, second_goal_angle, first_pos_offset_x, second_pos_offset_x;
       if (use_toe_heel_auto_set) {
           first_goal_angle = set_value_according_to_toe_heel_type(current_src_toe_heel_type, _current_toe_angle, -1 * _current_heel_angle, 0);
-          second_goal_angle = set_value_according_to_toe_heel_type(current_dst_toe_heel_type, _current_toe_angle, -1 * _current_heel_angle, 0);
+          second_goal_angle = 0;
           first_pos_offset_x = set_value_according_to_toe_heel_type(current_src_toe_heel_type, toe_pos_offset_x, heel_pos_offset_x, 0);
-          second_pos_offset_x = set_value_according_to_toe_heel_type(current_dst_toe_heel_type, toe_pos_offset_x, heel_pos_offset_x, 0);
+          second_pos_offset_x = 0;
       } else {
           first_goal_angle = _current_toe_angle;
           second_goal_angle = -1 * _current_heel_angle;
