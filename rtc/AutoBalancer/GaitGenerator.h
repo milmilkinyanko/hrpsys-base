@@ -594,7 +594,6 @@ namespace rats
         std::vector<hrp::Vector3> rectangle_path;
         double max_height = std::max(start(2), goal(2))+height;
         hrp::Vector3 diff_vec = goal - start;
-        diff_vec(2) = 0.0;
         rectangle_path.push_back(current);
         switch (spt) {
         case LIFTOFF:
