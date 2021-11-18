@@ -445,6 +445,7 @@ namespace rats
     rdtg[swing_trajectory_generator_idx].is_touch_ground = is_touch_ground;
     rdtg[swing_trajectory_generator_idx].is_single_walking = is_single_walking;
     if (use_act_states && is_stop_early_foot) rdtg[swing_trajectory_generator_idx].goal_off = rectangle_goal_off;
+    rdtg[swing_trajectory_generator_idx].time_smooth_offset = rectangle_time_smooth_offset;
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height, hrp::Vector3(current_coords.pos));
   };
 
