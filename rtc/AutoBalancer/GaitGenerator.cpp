@@ -843,8 +843,9 @@ namespace rats
           sum_fx = hrp::Vector3::Zero();
           // TODO: tmp_limit
           hrp::Vector3 fx_limit = hrp::Vector3::Zero();
-          fx_limit(0) = safe_leg_margin[0] * total_mass * ref_omega * ref_omega;
-          fx_limit(1) = safe_leg_margin[2] * total_mass * ref_omega * ref_omega;
+          const double tmp_margin = 1e-2; // 1cm
+          fx_limit(0) = (safe_leg_margin[0] - tmp_margin) * total_mass * ref_omega * ref_omega;
+          fx_limit(1) = (safe_leg_margin[2] - tmp_margin) * total_mass * ref_omega * ref_omega;
           for (size_t i = 0; i < 2; i++) {
             des_fxy(i) = std::min(std::max(des_fxy(i), -fx_limit(i)), fx_limit(i));
           }
