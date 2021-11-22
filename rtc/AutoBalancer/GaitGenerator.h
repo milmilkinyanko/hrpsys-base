@@ -434,7 +434,7 @@ namespace rats
       swing_phase_type spt;
       virtual double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current) = 0;
     public:
-      delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0), goal_off(hrp::Vector3::Zero()), is_early_touch(false), time_smooth_offset(3.0) {};
+      delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0), goal_off(hrp::Vector3::Zero()), is_early_touch(false), time_smooth_offset(2.0) {};
       ~delay_hoffarbib_trajectory_generator() { };
       bool is_touch_ground, is_single_walking, is_early_touch;
       hrp::Vector3 goal_off;
@@ -815,7 +815,7 @@ namespace rats
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), rectangle_way_point_offset(0.05, 0.0, 0.0), rectangle_goal_off(hrp::Vector3::Zero()), cdtg(),
-          thp(), use_act_states(true), is_stop_early_foot(false), rectangle_time_smooth_offset(3.0),
+          thp(), use_act_states(true), is_stop_early_foot(false), rectangle_time_smooth_offset(2.0),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
           current_src_toe_heel_type(SOLE), current_dst_toe_heel_type(SOLE)
