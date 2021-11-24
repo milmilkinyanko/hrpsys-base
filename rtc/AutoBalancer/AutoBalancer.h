@@ -362,7 +362,7 @@ class AutoBalancer
 
   // static balance point offsetting
   hrp::Vector3 sbp_offset, sbp_cog_offset;
-  enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force;
+  enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT, MODE_ADDITIONAL_FORCE} use_force;
   std::vector<hrp::Vector3> ref_forces, ref_moments;
 
   unsigned int m_debugLevel;

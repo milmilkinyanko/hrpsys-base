@@ -118,6 +118,7 @@ class ReferenceForceUpdater
   void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
   void updateRefFootOriginExtMoment (const std::string& arm);
   void updateRefObjExtMoment0 (const std::string& arm);
+  void updateAddtionalForce (const std::string& arm);
   void updateRefForces (const std::string& arm);
   inline bool eps_eq(const double a, const double b, const double eps = 1e-3) { return std::fabs((a)-(b)) <= eps; };
 
@@ -199,6 +200,7 @@ class ReferenceForceUpdater
     int update_count;
     bool is_active, is_stopping, is_hold_value;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_force_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_moment_filter;
     void printParam (const std::string print_str)
     {
         std::cerr << "[" << print_str << "]   p_gain = " << p_gain << ", d_gain = " << d_gain << ", i_gain = " << i_gain << std::endl;
@@ -229,6 +231,7 @@ class ReferenceForceUpdater
       update_count = round((1/update_freq)/_dt);
       double default_cutoff_freq = 1e8;
       act_force_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(default_cutoff_freq, _dt, hrp::Vector3::Zero()));
+      act_moment_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(default_cutoff_freq, _dt, hrp::Vector3::Zero()));
     };
   };
   std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
@@ -240,13 +243,15 @@ class ReferenceForceUpdater
   std::map<std::string, size_t> ee_index_map;
   std::map<std::string, ReferenceForceUpdaterParam> m_RFUParam;
   std::vector<hrp::Vector3> ref_force;
+  std::vector<hrp::Vector3> ref_moment;
   std::map<std::string, interpolator*> ref_force_interpolator;
+  std::map<std::string, interpolator*> ref_moment_interpolator;
   std::map<std::string, interpolator*> transition_interpolator;
   std::vector<double> transition_interpolator_ratio;
   hrp::Matrix33 foot_origin_rot;
   bool use_sh_base_pos_rpy;
   int loop;//counter in onExecute
-  const std::string footoriginextmoment_name, objextmoment0_name;
+  const std::string footoriginextmoment_name, objextmoment0_name, additionalforce_name;
 };
 
 

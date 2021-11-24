@@ -143,7 +143,8 @@ module OpenHRP
       /// Mode in which robot's COG is changed according to sensors' force/moment values for hands and feet (and root-link)
       MODE_REF_FORCE_WITH_FOOT,
       /// Mode in which robot's COG is changed according to sensors' force/moment values using ReferenceForceUpdater's ext moment
-      MODE_REF_FORCE_RFU_EXT_MOMENT
+      MODE_REF_FORCE_RFU_EXT_MOMENT,
+      MODE_ADDITIONAL_FORCE
     };
 
     /**
