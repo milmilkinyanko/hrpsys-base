@@ -411,7 +411,7 @@ RTC::ReturnCode_t ReferenceForceUpdater::onExecute(RTC::UniqueId ec_id)
     //   Force sensor's force value is absolute in reference frame
     for (unsigned int i=0; i<m_force.size(); i++ ){
         hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, i);
-        hrp::Vector3 act_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_force[i].data[0], m_force[i].data[1], m_force[i].data[2]);
+        hrp::Vector3 act_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_force[i].data[0], m_force[i].data[1], (i == 2 ? -1 : 1) * m_force[i].data[2]);
         hrp::Vector3 act_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_force[i].data[3], m_force[i].data[4], m_force[i].data[5]);
         for (std::map<std::string, ReferenceForceUpdaterParam>::iterator itr = m_RFUParam.begin(); itr != m_RFUParam.end(); itr++ ) {
             if (ee_index_map[itr->first] == i) {
