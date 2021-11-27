@@ -1304,12 +1304,12 @@ namespace rats
     // <= preprev foot frame
 
     // limit stide of second step of stepping up and down on stair
-    double stair_margin = 0.02, up_max_stride = 0.01, down_max_stride = 0.05;
+    double stair_thre = 0.04, up_max_stride = 0.01, down_max_stride = 0.05;
     double tmp_forward = overwritable_stride_limitation[0], tmp_rear = overwritable_stride_limitation[3];
-    if (prev_fs_pos(2) > lcg.get_default_step_height() - stair_margin) {
+    if (prev_fs_pos(2) > stair_thre) {
       if (prev_fs_pos(0) > 0.0) overwritable_stride_limitation[0] = up_max_stride;
       else overwritable_stride_limitation[3] = up_max_stride;
-    } else if (prev_fs_pos(2) < -(lcg.get_default_step_height() - stair_margin)) {
+    } else if (prev_fs_pos(2) < - stair_thre) {
       if (prev_fs_pos(0) > 0.0) overwritable_stride_limitation[0] = down_max_stride;
       else overwritable_stride_limitation[3] = down_max_stride;
     }
