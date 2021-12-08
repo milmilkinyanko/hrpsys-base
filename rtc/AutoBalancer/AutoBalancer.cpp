@@ -2568,6 +2568,11 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
     }
 }
 
+bool AutoBalancer::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx)
+{
+  return goWheel(wpss[0].wps[0].goal_pos, wpss[0].wps[0].rv_max, wpss[0].wps[0].ra_max);
+}
+
 void AutoBalancer::waitFootSteps()
 {
   //while (gg_is_walking) usleep(10);

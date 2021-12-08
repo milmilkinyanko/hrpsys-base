@@ -66,11 +66,32 @@ module OpenHRP
     };
 
     /**
+     * @struct WheelParam
+     * @brief Wheel parameter for one step
+     */
+    struct WheelParam
+    {
+      double goal_pos;
+      double rv_max;
+      double ra_max;
+    };
+
+    /**
+     * @struct StepParams
+     * @brief Step parameters for multi step
+     */
+    struct WheelParams
+    {
+      sequence<WheelParam> wps;
+    };
+
+    /**
      * @struct FootstepSequence
      * @brief Sequence of foot step.
      */
     typedef sequence<Footstep> FootstepSequence;
     typedef sequence<StepParam> StepParamSequence;
+    typedef sequence<WheelParam> WheelParamSequence;
 
     /**
      * @struct FootstepsSequence
@@ -78,6 +99,7 @@ module OpenHRP
      */
     typedef sequence<Footsteps> FootstepsSequence;
     typedef sequence<StepParams> StepParamsSequence;
+    typedef sequence<WheelParams> WheelParamsSequence;
 
     /**
      * @enum SupportLegState
@@ -686,6 +708,14 @@ module OpenHRP
      * @return true if set successfully, false otherwise
      */
     boolean setFootStepsWithParam(in FootstepsSequence fss, in StepParamsSequence spss, in long overwrite_fs_idx);
+
+    /**
+     * @brief Set footsteps. Returns without waiting for whole steps to be executed.
+     * @param fss is sequence of FootStepWithParam structure.
+              overwrite_fs_idx is index to be overwritten. overwrite_fs_idx is used only in walking.
+     * @return true if set successfully, false otherwise
+     */
+    boolean setFootStepsWithWheel(in FootstepsSequence fss, in StepParamsSequence spss, in WheelParamsSequence wpss, in long overwrite_fs_idx);
 
     /**
      * @brief Wait for whole footsteps are executed.

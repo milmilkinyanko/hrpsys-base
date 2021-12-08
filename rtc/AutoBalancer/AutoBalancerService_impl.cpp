@@ -49,6 +49,11 @@ CORBA::Boolean AutoBalancerService_impl::setFootStepsWithParam(const OpenHRP::Au
   return m_autobalancer->setFootStepsWithParam(fss, spss, overwrite_fs_idx);
 }
 
+CORBA::Boolean AutoBalancerService_impl::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx)
+{
+  return m_autobalancer->setFootStepsWithWheel(fss, spss, wpss, overwrite_fs_idx);
+}
+
 void AutoBalancerService_impl::waitFootSteps()
 {
   return m_autobalancer->waitFootSteps();

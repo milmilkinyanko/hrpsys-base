@@ -24,6 +24,7 @@ public:
   CORBA::Boolean emergencyStop();
   CORBA::Boolean setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
   CORBA::Boolean setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
+  CORBA::Boolean setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx);
   void waitFootSteps();
   void waitFootStepsEarly(CORBA::Double tm);
   CORBA::Boolean startAutoBalancer(const OpenHRP::AutoBalancerService::StrSequence& limbs);

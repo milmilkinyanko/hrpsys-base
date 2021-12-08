@@ -105,6 +105,7 @@ class AutoBalancer
   bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
   bool setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepSequence& fs, const OpenHRP::AutoBalancerService::StepParamSequence& sps, CORBA::Long overwrite_fs_idx);
   bool setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
+  bool setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx);
   void waitFootSteps();
   void waitFootStepsEarly(const double tm);
   bool startAutoBalancer(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
