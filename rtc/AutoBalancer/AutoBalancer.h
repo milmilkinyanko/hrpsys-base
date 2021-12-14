@@ -98,6 +98,7 @@ class AutoBalancer
   bool goPos(const double& x, const double& y, const double& th);
   bool goPosWheel(const double& x, const double& y, const double& th, const double w_x, const double rv_max, const double ra_max, const double tm_off);
   bool goWheel(const double& x, const double& rv_max, const double& ra_max);
+  bool startWheeling();
   bool goVelocity(const double& vx, const double& vy, const double& vth);
   bool goStop();
   bool emergencyStop ();

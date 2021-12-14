@@ -2354,31 +2354,35 @@ bool AutoBalancer::goWheel(const double& x, const double& rv_max, const double& 
       const std::vector<double> a_max_list(1, deg2rad(ra_max)*wheel_radius);
       ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, false);
     }
-
-    // initialize wheel generation
-    hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
-    act_cog.head(2) += sbp_cog_offset.head(2);
-
-    std::vector<std::string> init_swing_leg_names(1, "rleg");
-    std::vector<std::string> init_support_leg_names(1, "lleg");
-    std::vector<step_node> init_support_leg_steps, init_swing_leg_dst_steps;
-    for (std::vector<std::string>::iterator it = init_support_leg_names.begin(); it != init_support_leg_names.end(); it++)
-      init_support_leg_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
-    for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
-      init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
-    gg->set_default_zmp_offsets(default_zmp_offsets);
-    gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
-    gg->is_wheeling = true;
-
-    is_after_walking = true;
-    limit_cog_interpolator->clear();
-
-    return true;
+    ret &= startWheeling();
+    return ret;
   } else {
     std::cerr << "[" << m_profile.instance_name << "] Cannot goWheel while gg_is_wheeling." << std::endl;
-
     return false;
   }
+}
+
+bool AutoBalancer::startWheeling()
+{
+  // initialize wheel generation
+  hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+  act_cog.head(2) += sbp_cog_offset.head(2);
+
+  std::vector<std::string> init_swing_leg_names(1, "rleg");
+  std::vector<std::string> init_support_leg_names(1, "lleg");
+  std::vector<step_node> init_support_leg_steps, init_swing_leg_dst_steps;
+  for (std::vector<std::string>::iterator it = init_support_leg_names.begin(); it != init_support_leg_names.end(); it++)
+    init_support_leg_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+  for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
+    init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+  gg->set_default_zmp_offsets(default_zmp_offsets);
+  gg->initialize_wheel_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
+  gg->is_wheeling = true;
+
+  is_after_walking = true;
+  limit_cog_interpolator->clear();
+
+  return true;
 }
 
 bool AutoBalancer::goVelocity(const double& vx, const double& vy, const double& vth)
@@ -2579,7 +2583,8 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
 
 bool AutoBalancer::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx)
 {
-  bool ret = true;
+  bool ret = false;
+  bool with_footstep = (fss.length() > 1);
   {
     coordinates start_ref_coords;
     std::vector<coordinates> initial_support_legs_coords; // dummy
@@ -2594,9 +2599,11 @@ bool AutoBalancer::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::Foo
       v_max_list[i] = deg2rad(wpss[i].wps[0].rv_max)*wheel_radius;
       a_max_list[i] = deg2rad(wpss[i].wps[0].ra_max)*wheel_radius;
     }
-    ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, true);
+    ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, with_footstep);
   }
-  ret &= setFootStepsWithParam(fss, spss, overwrite_fs_idx, true);
+  if (with_footstep) ret &= setFootStepsWithParam(fss, spss, overwrite_fs_idx, true);
+  else ret &= startWheeling();
+
   return ret;
 }
 
