@@ -2152,7 +2152,8 @@ namespace rats
     footstep_nodes_list.push_back(boost::assign::list_of(sn0));
   };
 
-  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, double v_max, double a_max, const coordinates& start_ref_coords) {
+  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, double v_max, double a_max, const coordinates& start_ref_coords, const bool with_footstep)
+  {
     wheel_nodes_list.clear();
     std::vector<wheel_node> tmp_wheel;
     tmp_wheel.reserve(4); // TODO: consider num_step
@@ -2216,7 +2217,7 @@ namespace rats
       }
     }
 
-    if (footstep_nodes_list.size() > 0) {
+    if (with_footstep) {
       tmp_wheel.push_back(wheel_node(abs_goal_coord, 1e4)); // 歩行時は十分長い時間を追加
     } else {
       tmp_wheel.push_back(wheel_node(abs_goal_coord, 1)); // 最後は直線

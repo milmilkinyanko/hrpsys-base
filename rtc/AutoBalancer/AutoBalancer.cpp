@@ -2161,7 +2161,7 @@ void AutoBalancer::stopABCparamEmergency()
   gg->is_wheeling = false;
 }
 
-bool AutoBalancer::startWalking (const bool is_wheel = false)
+bool AutoBalancer::startWalking (const bool is_wheel)
 {
   if ( control_mode != MODE_ABC ) {
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
@@ -2323,7 +2323,7 @@ bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos because of invalid timing." << std::endl;
     }
     if ( !gg_is_walking ) { // Initializing
-        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords);
+        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords, true);
         ret &= startWalking(true);
     }
     return ret;
@@ -2344,7 +2344,7 @@ bool AutoBalancer::goWheel(const double& x, const double& rv_max, const double& 
     if (is_valid_gait_type == false) return false;
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
-    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords);
+    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords, false);
 
     // initialize wheel generation
     hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
@@ -2472,7 +2472,7 @@ bool AutoBalancer::setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSeq
   return setFootStepsWithParam(fss, spss, overwrite_fs_idx);
 }
 
-bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx)
+bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx, const bool is_wheel)
 {
     if (!is_stop_mode) {
         std::cerr << "[" << m_profile.instance_name << "] setFootStepsList" << std::endl;
@@ -2559,7 +2559,7 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
         } else {
             std::cerr << "[" << m_profile.instance_name << "]  Set normal footsteps" << std::endl;
             gg->set_foot_steps_list(fnsl);
-            ret = startWalking();
+            ret = startWalking(is_wheel);
         }
         return ret;
     } else {
@@ -2570,7 +2570,16 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
 
 bool AutoBalancer::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, const OpenHRP::AutoBalancerService::StepParamsSequence& spss, const OpenHRP::AutoBalancerService::WheelParamsSequence& wpss, CORBA::Long overwrite_fs_idx)
 {
-  return goWheel(wpss[0].wps[0].goal_pos, wpss[0].wps[0].rv_max, wpss[0].wps[0].ra_max);
+  bool ret = true;
+  {
+    coordinates start_ref_coords;
+    std::vector<coordinates> initial_support_legs_coords; // dummy
+    std::vector<leg_type> initial_support_legs; // dummy
+    bool is_valid_gait_type = calc_inital_support_legs(0, initial_support_legs_coords, initial_support_legs, start_ref_coords);
+    ret = gg->go_wheel_param_2_wheel_nodes_list(wpss[0].wps[0].goal_pos, deg2rad(wpss[0].wps[0].rv_max)*wheel_radius, deg2rad(wpss[0].wps[0].ra_max)*wheel_radius, start_ref_coords, true);
+  }
+  ret &= setFootStepsWithParam(fss, spss, overwrite_fs_idx, true);
+  return ret;
 }
 
 void AutoBalancer::waitFootSteps()
