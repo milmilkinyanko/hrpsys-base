@@ -2323,7 +2323,10 @@ bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos because of invalid timing." << std::endl;
     }
     if ( !gg_is_walking ) { // Initializing
-        ret = gg->go_wheel_param_2_wheel_nodes_list(w_x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords, true);
+        const std::vector<double> x_list(1, x);
+        const std::vector<double> v_max_list(1, deg2rad(rv_max)*wheel_radius);
+        const std::vector<double> a_max_list(1, deg2rad(ra_max)*wheel_radius);
+        ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, true);
         ret &= startWalking(true);
     }
     return ret;
@@ -2344,7 +2347,13 @@ bool AutoBalancer::goWheel(const double& x, const double& rv_max, const double& 
     if (is_valid_gait_type == false) return false;
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["rleg"].target_p0 - start_ref_coords.pos), RLEG);
     // gg->set_vel_foot_offset(start_ref_coords.rot.transpose() * (ikp["lleg"].target_p0 - start_ref_coords.pos), LLEG);
-    bool ret = gg->go_wheel_param_2_wheel_nodes_list(x, deg2rad(rv_max)*wheel_radius, deg2rad(ra_max)*wheel_radius, start_ref_coords, false);
+    bool ret = false;
+    {
+      const std::vector<double> x_list(1, x);
+      const std::vector<double> v_max_list(1, deg2rad(rv_max)*wheel_radius);
+      const std::vector<double> a_max_list(1, deg2rad(ra_max)*wheel_radius);
+      ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, false);
+    }
 
     // initialize wheel generation
     hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
@@ -2576,7 +2585,16 @@ bool AutoBalancer::setFootStepsWithWheel(const OpenHRP::AutoBalancerService::Foo
     std::vector<coordinates> initial_support_legs_coords; // dummy
     std::vector<leg_type> initial_support_legs; // dummy
     bool is_valid_gait_type = calc_inital_support_legs(0, initial_support_legs_coords, initial_support_legs, start_ref_coords);
-    ret = gg->go_wheel_param_2_wheel_nodes_list(wpss[0].wps[0].goal_pos, deg2rad(wpss[0].wps[0].rv_max)*wheel_radius, deg2rad(wpss[0].wps[0].ra_max)*wheel_radius, start_ref_coords, true);
+    const size_t wpss_len = wpss.length();
+    std::vector<double> x_list(wpss_len);
+    std::vector<double> v_max_list(wpss_len);
+    std::vector<double> a_max_list(wpss_len);
+    for (size_t i = 0; i < wpss_len; i++) {
+      x_list[i] = wpss[i].wps[0].goal_pos;
+      v_max_list[i] = deg2rad(wpss[i].wps[0].rv_max)*wheel_radius;
+      a_max_list[i] = deg2rad(wpss[i].wps[0].ra_max)*wheel_radius;
+    }
+    ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, true);
   }
   ret &= setFootStepsWithParam(fss, spss, overwrite_fs_idx, true);
   return ret;

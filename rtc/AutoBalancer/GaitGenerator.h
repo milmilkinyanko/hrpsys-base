@@ -1372,7 +1372,7 @@ namespace rats
     void go_single_step_param_2_footstep_nodes_list (const double goal_x, const double goal_y, const double goal_z, const double goal_theta, /* [mm] [mm] [mm] [deg] */
                                                const std::string& tmp_swing_leg,
                                                const coordinates& _support_leg_coords);
-    bool go_wheel_param_2_wheel_nodes_list (const double goal_x, double v_max, double a_max, const coordinates& start_ref_coords, const bool with_footstep);
+    bool go_wheel_param_2_wheel_nodes_list (const std::vector<double>& goal_x_list, const std::vector<double>& v_max_list, const std::vector<double>& a_max_list, const coordinates& start_ref_coords, const bool with_footstep);
     void initialize_velocity_mode (const coordinates& _ref_coords,
 				   const double vel_x, const double vel_y, const double vel_theta, /* [mm/s] [mm/s] [deg/s] */
                                    const std::vector<leg_type>& current_legs);

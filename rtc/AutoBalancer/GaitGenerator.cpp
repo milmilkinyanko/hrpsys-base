@@ -2152,7 +2152,7 @@ namespace rats
     footstep_nodes_list.push_back(boost::assign::list_of(sn0));
   };
 
-  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const double goal_x, double v_max, double a_max, const coordinates& start_ref_coords, const bool with_footstep)
+  bool gait_generator::go_wheel_param_2_wheel_nodes_list (const std::vector<double>& goal_x_list, const std::vector<double>& v_max_list, const std::vector<double>& a_max_list, const coordinates& start_ref_coords, const bool with_footstep)
   {
     wheel_nodes_list.clear();
     std::vector<wheel_node> tmp_wheel;
@@ -2163,7 +2163,8 @@ namespace rats
     tmp_wheel.push_back(wheel_node(start_ref_coords, 1)); // 1番目は直線
 
     coordinates abs_goal_coord = start_ref_coords;
-    {
+    for (size_t i = 0; i < goal_x_list.size(); i++) {
+      double goal_x = goal_x_list[i], v_max = v_max_list[i], a_max = a_max_list[i];
       const double wheel_dt = 5 * dt; // 10 [ms]
       interpolator wheel_traj_interpolator(1, wheel_dt, interpolator::QUINTICSPLINE);
       wheel_traj_interpolator.setName("GaitGenerator wheel_traj_interpolator");
