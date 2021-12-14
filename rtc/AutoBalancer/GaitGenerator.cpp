@@ -1189,9 +1189,13 @@ namespace rats
         is_enlarged_final_time_for_wheel = true;
         double w_remain_time = 0.0;
         for (int i = wheel_major_index; i < wheel_nodes_list.size(); i++) {
-          for (int j = (i == wheel_major_index ? wheel_index : 0); j < wheel_nodes_list.at(i).size() - 1; j++) {
-            if (i == wheel_nodes_list.size() - 1 && j == wheel_nodes_list.at(i).size() - 2) w_remain_time += 1; // 最後の直線
-            else w_remain_time += wheel_nodes_list.at(i).at(j).time;
+          for (int j = (i == wheel_major_index ? wheel_index+1 : 0); j < wheel_nodes_list.at(i).size() - 1; j++) {
+              if (i == wheel_nodes_list.size() - 1 && j == wheel_nodes_list.at(i).size() - 2) {
+                  w_remain_time += 1; // 最後の直線
+              } else {
+                  if (i == wheel_major_index && j == wheel_index+1) w_remain_time += wheel_interpolator->get_remain_time();
+                  else w_remain_time += wheel_nodes_list.at(i).at(j).time;
+              }
           }
         }
         change_step_time(w_remain_time - fg_step_count*dt);
