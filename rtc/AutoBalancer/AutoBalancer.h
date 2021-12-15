@@ -398,7 +398,7 @@ class AutoBalancer
   hrp::Vector3 act_cogvel;
   interpolator *jump_z_hoff_interpolator;
   interpolator *jump_z_cubic_interpolator;
-  bool is_online_jump, is_jump;
+  bool is_online_jump, is_take_off, is_ik_retrieve;
 };
 
 

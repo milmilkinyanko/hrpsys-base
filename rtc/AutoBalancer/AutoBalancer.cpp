@@ -617,7 +617,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     jump_phase = 0;
     act_cogvel = hrp::Vector3::Zero();
     is_online_jump = false;
-    is_jump = false;
+    is_take_off = false;
+    is_ik_retrieve = true;
 
     return RTC::RTC_OK;
 }
@@ -1729,7 +1730,7 @@ void AutoBalancer::solveJumpZ ()
      for (size_t i = 4; i > 2; i--) tmpt += jump_dt[i];
      // double tmpdt = tmpt + jump_dt[2] - jump_remain_time;
      if (jump_remain_time >= tmpt) {
-         if (is_online_jump && is_jump && (st->act_contact_states[0] || st->act_contact_states[1])) { // early touch
+         if (is_online_jump && is_take_off && (st->act_contact_states[0] || st->act_contact_states[1])) { // early touch
              double tmpg = - gg->get_gravitational_acceleration();
              double tmpsv = st->act_cogvel(2);
              jump_z_hoff_interpolator->set(&jump_z[3], &tmpsv, &tmpg);
@@ -1743,7 +1744,7 @@ void AutoBalancer::solveJumpZ ()
              jump_remain_time -= m_dt;
              m_contactStates.data[contact_states_index_map["rleg"]] = false;
              m_contactStates.data[contact_states_index_map["lleg"]] = false;
-             is_jump = !st->act_contact_states[0] && !st->act_contact_states[1];
+             is_take_off = !st->act_contact_states[0] && !st->act_contact_states[1];
              break;
          }
      } else {
@@ -1787,7 +1788,8 @@ void AutoBalancer::solveJumpZ ()
        jump_remain_time = 0.0;
        jump_dz = -1.0;
        jump_phase = 0;
-       is_jump = false;
+       is_take_off = false;
+       is_ik_retrieve = true;
      }
    }
    default:
@@ -2037,6 +2039,7 @@ void AutoBalancer::solveFullbodyIK ()
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
         if (is_natural_walk) normal_ratio = 1e-5;
+        if (!is_ik_retrieve) normal_ratio = 0.0;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 0.0;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
@@ -3052,6 +3055,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
     jump_dt[i] = i_param.jump_via_time_width[i];
   }
   is_online_jump = i_param.is_online_jump;
+  is_ik_retrieve = i_param.is_ik_retrieve;
   return true;
 };
 
@@ -3151,6 +3155,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
     i_param.jump_via_time_width[i] = jump_dt[i];
   }
   i_param.is_online_jump = is_online_jump;
+  i_param.is_ik_retrieve = is_ik_retrieve;
   return true;
 };
 
