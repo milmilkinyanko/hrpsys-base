@@ -599,6 +599,7 @@ void Stabilizer::getActualParametersForST ()
     std::vector<double> limb_gains;
     std::vector<hrp::dvector6> ee_forcemoment_distribution_weight;
     std::vector<double> tmp_toeheel_ratio;
+    double tmp_total_fz = 0.0;
     if (control_mode == MODE_ST) {
       std::vector<hrp::Vector3> ee_pos, cop_pos;
       std::vector<hrp::Matrix33> ee_rot;
@@ -627,6 +628,7 @@ void Stabilizer::getActualParametersForST ()
           ee_forcemoment_distribution_weight[i][j] = ikp.eefm_ee_forcemoment_distribution_weight[j];
         }
         tmp_toeheel_ratio.push_back(toeheel_ratio[i]);
+        tmp_total_fz += tmp_ref_force.back()(2);
       }
 
       // All state variables are foot_origin coords relative
@@ -656,20 +658,20 @@ void Stabilizer::getActualParametersForST ()
         szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
                                          ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                          new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                         eefm_gravitational_acceleration * total_mass, dt,
+                                         tmp_total_fz, dt,
                                          DEBUGP, std::string(print_str));
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQP) {
         szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
                                            ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                            new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                           eefm_gravitational_acceleration * total_mass, dt,
+                                           tmp_total_fz, dt,
                                            DEBUGP, std::string(print_str),
                                            (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP));
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP) {
         szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
                                                       ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                                       new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                      eefm_gravitational_acceleration * total_mass, dt,
+                                                      tmp_total_fz, dt,
                                                       DEBUGP, std::string(print_str),
                                                       (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP), is_contact_list);
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP2) {
@@ -678,7 +680,7 @@ void Stabilizer::getActualParametersForST ()
                                                        new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                        foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
                                                        ee_forcemoment_distribution_weight,
-                                                       eefm_gravitational_acceleration * total_mass, dt,
+                                                       tmp_total_fz, dt,
                                                        DEBUGP, std::string(print_str));
       }
       // for debug output
