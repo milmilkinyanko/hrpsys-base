@@ -275,6 +275,7 @@ class AutoBalancer
   void getTargetParameters();
   void solveSimpleFullbodyIK ();
   void solveFullbodyIK ();
+  void solveJumpZ ();
   void startABCparam(const ::OpenHRP::AutoBalancerService::StrSequence& limbs);
   void stopABCparam();
   void stopABCparamEmergency();
@@ -391,6 +392,12 @@ class AutoBalancer
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
   double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
   bool debug_read_steppable_region;
+
+  double jump_dt[5], jump_z[6], jump_dz, dz_cog, acc_cog, jump_remain_time;
+  size_t jump_phase;
+  hrp::Vector3 act_cogvel;
+  interpolator *jump_z_hoff_interpolator;
+  interpolator *jump_z_cubic_interpolator;
 };
 
 

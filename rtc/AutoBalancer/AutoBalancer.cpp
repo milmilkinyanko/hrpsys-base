@@ -457,6 +457,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
     hand_fix_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
     hand_fix_interpolator->setName(std::string(m_profile.instance_name)+" hand_fix_interpolator");
+    jump_z_hoff_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB, 1);
+    jump_z_hoff_interpolator->setName(std::string(m_profile.instance_name)+" jump_z_hoff_interpolator");
+    jump_z_cubic_interpolator = new interpolator(1, m_dt, interpolator::CUBICSPLINE, 1);
+    jump_z_cubic_interpolator->setName(std::string(m_profile.instance_name)+" jump_z_cubic_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -594,6 +598,25 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     additional_force_applied_link = m_robot->rootLink();
     additional_force_applied_point_offset = hrp::Vector3::Zero();
+
+    jump_dt[0] = 2.0;
+    jump_dt[1] = 0.7;
+    jump_dt[2] = 0.0; // tmp
+    jump_dt[3] = 0.6;
+    jump_dt[4] = 2.0;
+    jump_z[0] = 0.0;
+    jump_z[1] = -0.1;
+    jump_z[2] = 0.0;
+    jump_z[3] = 0.0;
+    jump_z[4] = -0.2;
+    jump_z[5] = 0.0;
+    jump_dz = -1.0;
+    dz_cog = 0.0;
+    acc_cog = 0.0;
+    jump_remain_time = 0.0;
+    jump_phase = 0;
+    act_cogvel = hrp::Vector3::Zero();
+
     return RTC::RTC_OK;
 }
 
@@ -616,6 +639,8 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete limit_cog_interpolator;
   delete hand_fix_interpolator;
   delete st->after_walking_interpolator;
+  delete jump_z_hoff_interpolator;
+  delete jump_z_cubic_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
@@ -1649,6 +1674,105 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
+void AutoBalancer::solveJumpZ ()
+{
+  if (jump_remain_time == 0.0) { // initialize
+    double tmpg = gg->get_gravitational_acceleration();
+    jump_dt[2] = 2 * std::sqrt(2*tmpg*jump_dz) / tmpg;
+    for (size_t i = 0; i < 5; i++) jump_remain_time += jump_dt[i];
+    jump_z_cubic_interpolator->set(&jump_z[0], &act_cogvel(2));
+    jump_z_cubic_interpolator->setGoal(&jump_z[1], jump_dt[0], true);
+  }
+  switch(jump_phase) {
+   case 0:
+   {
+     double tmpt = 0.0;
+     for (size_t i = 4; i > 0; i--) tmpt += jump_dt[i];
+     if (jump_remain_time >= tmpt) {
+       double tmpv;
+       jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+       jump_remain_time -= m_dt;
+       break;
+     } else {
+       double tmpg = - gg->get_gravitational_acceleration();
+       double tmpv = std::sqrt(-2*tmpg*jump_dz);
+       double tmp = 0.0;
+       jump_z_cubic_interpolator->set(&jump_z[1]);
+       jump_z_cubic_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
+       // jump_z_hoff_interpolator->set(&jump_z[1]);
+       // jump_z_hoff_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
+       jump_phase = 1;
+     }
+   }
+   case 1:
+   {
+     double tmpt = 0.0;
+     for (size_t i = 4; i > 1; i--) tmpt += jump_dt[i];
+     if (jump_remain_time >= tmpt) {
+       double tmpv;
+       jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+       // jump_z_hoff_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+       jump_remain_time -= m_dt;
+       break;
+     } else {
+       jump_phase = 2;
+     }
+   }
+   case 2: // jumping
+   {
+     double tmpt = 0.0;
+     for (size_t i = 4; i > 2; i--) tmpt += jump_dt[i];
+     // double tmpdt = tmpt + jump_dt[2] - jump_remain_time;
+     if (jump_remain_time >= tmpt) {
+       double tmpg = - gg->get_gravitational_acceleration();
+       // dz_cog = jump_z[2] - std::sqrt(2*tmpg*jump_dz)*tmpdt + tmpg*tmpdt*tmpdt/2.0;
+       dz_cog = 0.0;
+       acc_cog = tmpg;
+       jump_remain_time -= m_dt;
+       m_contactStates.data[contact_states_index_map["rleg"]] = false;
+       m_contactStates.data[contact_states_index_map["lleg"]] = false;
+       break;
+     } else {
+       double tmpg = - gg->get_gravitational_acceleration();
+       double tmpv = tmpg*jump_dt[2]/2.0 + (jump_z[3]-jump_z[2])/jump_dt[2];
+       jump_z_hoff_interpolator->set(&jump_z[3], &tmpv, &tmpg);
+       jump_z_hoff_interpolator->setGoal(&jump_z[4], jump_dt[3], true);
+       jump_phase = 3;
+     }
+   }
+   case 3:
+   {
+     double tmpt = 0.0;
+     for (size_t i = 4; i > 3; i--) tmpt += jump_dt[i];
+     if (jump_remain_time >= tmpt) {
+       double tmpv;
+       jump_z_hoff_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+       jump_remain_time -= m_dt;
+       break;
+     } else {
+       jump_z_cubic_interpolator->set(&jump_z[4]);
+       jump_z_cubic_interpolator->setGoal(&jump_z[5], jump_dt[4], true);
+       jump_phase = 4;
+     }
+   }
+   case 4:
+   {
+     if (jump_remain_time >= 0.0) {
+       double tmpv;
+       jump_z_cubic_interpolator->get(&dz_cog, &tmpv, &acc_cog, true);
+       jump_remain_time -= m_dt;
+       break;
+     } else {
+       jump_remain_time = 0.0;
+       jump_dz = -1.0;
+     }
+   }
+   default:
+     break;
+  }
+  m_force[0].data[2] = m_force[1].data[2] = m_robot->totalMass() * (gg->get_gravitational_acceleration() + acc_cog) / 2.0;
+}
+
 // assume biped walking
 void AutoBalancer::calcTouchoffRemainTime()
 {
@@ -1751,6 +1875,8 @@ void AutoBalancer::solveFullbodyIK ()
   sbp_cog_offset(2) = 0.0;
 
   if (gg->use_act_states && is_stop_early_foot) stopFootForEarlyTouchDown();
+
+  if (jump_dz >= 0.0) solveJumpZ();
 
   limbStretchAvoidanceControl();
 
@@ -2895,6 +3021,13 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   gg->set_is_stop_early_foot(is_stop_early_foot);
   arm_swing_deg = i_param.arm_swing_deg;
   debug_read_steppable_region = i_param.debug_read_steppable_region;
+  jump_dz = i_param.jump_height;
+  for (size_t i = 0; i < 6; i++) {
+    jump_z[i] = i_param.jump_via_height[i];
+  }
+  for (size_t i = 0; i < 5; i++) {
+    jump_dt[i] = i_param.jump_via_time_width[i];
+  }
   return true;
 };
 
@@ -2986,6 +3119,13 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
   i_param.debug_read_steppable_region = debug_read_steppable_region;
+  i_param.jump_height = jump_dz;
+  for (size_t i = 0; i < 6; i++) {
+    i_param.jump_via_height[i] = jump_z[i];
+  }
+  for (size_t i = 0; i < 5; i++) {
+    i_param.jump_via_time_width[i] = jump_dt[i];
+  }
   return true;
 };
 

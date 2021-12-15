@@ -15,6 +15,7 @@ module OpenHRP
     typedef double DblArray3[3];
     typedef double DblArray4[4];
     typedef double DblArray5[5];
+    typedef double DblArray6[6];
     typedef sequence<boolean> BoolSequence;
 
     /**
@@ -459,6 +460,12 @@ module OpenHRP
       boolean is_stop_early_foot;
       double arm_swing_deg;
       boolean debug_read_steppable_region;
+      /// jump height
+      double jump_height;
+      /// jump via height
+      DblArray6 jump_via_height;
+      /// jump via time width
+      DblArray5 jump_via_time_width;
     };
 
     /**
