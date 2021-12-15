@@ -2323,7 +2323,7 @@ bool AutoBalancer::goPosWheel(const double& x, const double& y, const double& th
         std::cerr << "[" << m_profile.instance_name << "] Cannot goPos because of invalid timing." << std::endl;
     }
     if ( !gg_is_walking ) { // Initializing
-        const std::vector<double> x_list(1, x);
+        const std::vector<double> x_list(1, w_x);
         const std::vector<double> v_max_list(1, deg2rad(rv_max)*wheel_radius);
         const std::vector<double> a_max_list(1, deg2rad(ra_max)*wheel_radius);
         ret = gg->go_wheel_param_2_wheel_nodes_list(x_list, v_max_list, a_max_list, start_ref_coords, true);
