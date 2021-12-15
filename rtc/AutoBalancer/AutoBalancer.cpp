@@ -602,7 +602,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     jump_dt[0] = 2.0;
     jump_dt[1] = 0.7;
     jump_dt[2] = 0.0; // tmp
-    jump_dt[3] = 0.6;
+    jump_dt[3] = 0.7;
     jump_dt[4] = 2.0;
     jump_z[0] = 0.0;
     jump_z[1] = -0.1;
@@ -616,6 +616,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     jump_remain_time = 0.0;
     jump_phase = 0;
     act_cogvel = hrp::Vector3::Zero();
+    is_online_jump = false;
+    is_jump = false;
 
     return RTC::RTC_OK;
 }
@@ -1678,9 +1680,11 @@ void AutoBalancer::solveJumpZ ()
 {
   if (jump_remain_time == 0.0) { // initialize
     double tmpg = gg->get_gravitational_acceleration();
+    double tmpsv = 0.0;
+    if (is_online_jump) tmpsv = st->act_cogvel(2);
     jump_dt[2] = 2 * std::sqrt(2*tmpg*jump_dz) / tmpg;
     for (size_t i = 0; i < 5; i++) jump_remain_time += jump_dt[i];
-    jump_z_cubic_interpolator->set(&jump_z[0], &act_cogvel(2));
+    jump_z_cubic_interpolator->set(&jump_z[0], &tmpsv);
     jump_z_cubic_interpolator->setGoal(&jump_z[1], jump_dt[0], true);
   }
   switch(jump_phase) {
@@ -1695,10 +1699,11 @@ void AutoBalancer::solveJumpZ ()
        break;
      } else {
        double tmpg = - gg->get_gravitational_acceleration();
-       double tmpv = std::sqrt(-2*tmpg*jump_dz);
-       double tmp = 0.0;
-       jump_z_cubic_interpolator->set(&jump_z[1]);
-       jump_z_cubic_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
+       double tmpsv = 0.0;
+       if (is_online_jump) tmpsv = st->act_cogvel(2);
+       double tmpgv = std::sqrt(-2*tmpg*jump_dz);
+       jump_z_cubic_interpolator->set(&jump_z[1], &tmpsv);
+       jump_z_cubic_interpolator->setGoal(&jump_z[2], &tmpgv, &tmpg, jump_dt[1], true);
        // jump_z_hoff_interpolator->set(&jump_z[1]);
        // jump_z_hoff_interpolator->setGoal(&jump_z[2], &tmpv, &tmpg, jump_dt[1], true);
        jump_phase = 1;
@@ -1724,20 +1729,34 @@ void AutoBalancer::solveJumpZ ()
      for (size_t i = 4; i > 2; i--) tmpt += jump_dt[i];
      // double tmpdt = tmpt + jump_dt[2] - jump_remain_time;
      if (jump_remain_time >= tmpt) {
-       double tmpg = - gg->get_gravitational_acceleration();
-       // dz_cog = jump_z[2] - std::sqrt(2*tmpg*jump_dz)*tmpdt + tmpg*tmpdt*tmpdt/2.0;
-       dz_cog = 0.0;
-       acc_cog = tmpg;
-       jump_remain_time -= m_dt;
-       m_contactStates.data[contact_states_index_map["rleg"]] = false;
-       m_contactStates.data[contact_states_index_map["lleg"]] = false;
-       break;
+         if (is_online_jump && is_jump && (st->act_contact_states[0] || st->act_contact_states[1])) { // early touch
+             double tmpg = - gg->get_gravitational_acceleration();
+             double tmpsv = st->act_cogvel(2);
+             jump_z_hoff_interpolator->set(&jump_z[3], &tmpsv, &tmpg);
+             jump_z_hoff_interpolator->setGoal(&jump_z[4], jump_dt[3], true);
+             jump_phase = 3;
+         } else {
+             double tmpg = - gg->get_gravitational_acceleration();
+             // dz_cog = jump_z[2] - std::sqrt(2*tmpg*jump_dz)*tmpdt + tmpg*tmpdt*tmpdt/2.0;
+             dz_cog = 0.0;
+             acc_cog = tmpg;
+             jump_remain_time -= m_dt;
+             m_contactStates.data[contact_states_index_map["rleg"]] = false;
+             m_contactStates.data[contact_states_index_map["lleg"]] = false;
+             is_jump = !st->act_contact_states[0] && !st->act_contact_states[1];
+             break;
+         }
      } else {
-       double tmpg = - gg->get_gravitational_acceleration();
-       double tmpv = tmpg*jump_dt[2]/2.0 + (jump_z[3]-jump_z[2])/jump_dt[2];
-       jump_z_hoff_interpolator->set(&jump_z[3], &tmpv, &tmpg);
-       jump_z_hoff_interpolator->setGoal(&jump_z[4], jump_dt[3], true);
-       jump_phase = 3;
+         if (!is_online_jump || st->act_contact_states[0] || st->act_contact_states[1]) {
+             double tmpg = - gg->get_gravitational_acceleration();
+             double tmpsv = tmpg*jump_dt[2]/2.0 + (jump_z[3]-jump_z[2])/jump_dt[2];
+             if(is_online_jump) tmpsv = st->act_cogvel(2);
+             jump_z_hoff_interpolator->set(&jump_z[3], &tmpsv, &tmpg);
+             jump_z_hoff_interpolator->setGoal(&jump_z[4], jump_dt[3], true);
+             jump_phase = 3;
+         } else { // late touch
+             break;
+         }
      }
    }
    case 3:
@@ -1750,7 +1769,9 @@ void AutoBalancer::solveJumpZ ()
        jump_remain_time -= m_dt;
        break;
      } else {
-       jump_z_cubic_interpolator->set(&jump_z[4]);
+       double tmpsv = 0.0;
+       if(is_online_jump) tmpsv = st->act_cogvel(2);
+       jump_z_cubic_interpolator->set(&jump_z[4], &tmpsv);
        jump_z_cubic_interpolator->setGoal(&jump_z[5], jump_dt[4], true);
        jump_phase = 4;
      }
@@ -1765,6 +1786,8 @@ void AutoBalancer::solveJumpZ ()
      } else {
        jump_remain_time = 0.0;
        jump_dz = -1.0;
+       jump_phase = 0;
+       is_jump = false;
      }
    }
    default:
@@ -3028,6 +3051,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   for (size_t i = 0; i < 5; i++) {
     jump_dt[i] = i_param.jump_via_time_width[i];
   }
+  is_online_jump = i_param.is_online_jump;
   return true;
 };
 
@@ -3126,6 +3150,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   for (size_t i = 0; i < 5; i++) {
     i_param.jump_via_time_width[i] = jump_dt[i];
   }
+  i_param.is_online_jump = is_online_jump;
   return true;
 };
 

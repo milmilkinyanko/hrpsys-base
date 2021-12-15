@@ -466,6 +466,8 @@ module OpenHRP
       DblArray6 jump_via_height;
       /// jump via time width
       DblArray5 jump_via_time_width;
+      /// whether generate jump trajectory online or offline
+      boolean is_online_jump;
     };
 
     /**
