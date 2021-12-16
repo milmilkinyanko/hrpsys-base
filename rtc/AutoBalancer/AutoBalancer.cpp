@@ -2196,6 +2196,13 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
   }
 }
 
+bool AutoBalancer::jumpTo(const double& x, const double& y, const double& z)
+{
+  std::cerr << "jump called!!!!!!!!!!!!!!" << std::endl;
+
+  return true;
+}
+
 bool AutoBalancer::stopAutoBalancer ()
 {
   if (control_mode == MODE_ABC) {

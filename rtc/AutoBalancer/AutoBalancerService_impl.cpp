@@ -24,6 +24,11 @@ CORBA::Boolean AutoBalancerService_impl::goStop()
   return m_autobalancer->goStop();
 };
 
+CORBA::Boolean AutoBalancerService_impl::jumpTo( CORBA::Double x,  CORBA::Double y,  CORBA::Double z)
+{
+  return m_autobalancer->jumpTo(x, y, z);
+};
+
 CORBA::Boolean AutoBalancerService_impl::emergencyStop()
 {
   return m_autobalancer->emergencyStop();
