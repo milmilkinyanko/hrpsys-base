@@ -199,6 +199,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     prev_ref_contact_states.push_back(true);
     // m_actContactStates.data[i] = false;
     act_contact_states.push_back(false);
+    prev_act_contact_states.push_back(false);
     toeheel_ratio.push_back(1.0);
   }
   transition_time = 2.0;
@@ -282,6 +283,7 @@ void Stabilizer::execStabilizer()
       break;
     }
     copy (ref_contact_states.begin(), ref_contact_states.end(), prev_ref_contact_states.begin());
+    copy (act_contact_states.begin(), act_contact_states.end(), prev_act_contact_states.begin());
     if (!transition_interpolator->isEmpty()) {
         for (int i = 0; i < m_robot->numJoints(); i++ ) {
             diff_q[i] = m_robot->joint(i)->q - qRef[i];
@@ -481,7 +483,16 @@ void Stabilizer::getActualParameters ()
     if ((foot_origin_pos - prev_act_foot_origin_pos).norm() > 1e-2) { // assume that origin_pos changes more than 1cm when contact states change
       act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;
     } else {
-      act_cogvel = (act_cog - prev_act_cog)/dt;
+      if (act_contact_states[contact_states_index_map["rleg"]] || act_contact_states[contact_states_index_map["lleg"]]) { // on ground
+          act_cogvel = (act_cog - prev_act_cog)/dt;
+      } else if (prev_act_contact_states[contact_states_index_map["rleg"]] || prev_act_contact_states[contact_states_index_map["lleg"]]) { // take off
+        jump_time_count = 1;
+        jump_initial_velocity = act_cogvel(2);
+        act_cogvel(2) = jump_initial_velocity - eefm_gravitational_acceleration * jump_time_count * dt;
+      } else { // jumping
+        jump_time_count++;
+        act_cogvel(2) = jump_initial_velocity - eefm_gravitational_acceleration * jump_time_count * dt;
+      }
     }
     act_cogvel = act_cogvel_filter->passFilter(act_cogvel);
     prev_act_cog = act_cog;
