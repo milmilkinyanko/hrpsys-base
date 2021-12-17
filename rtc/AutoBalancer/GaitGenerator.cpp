@@ -708,6 +708,7 @@ namespace rats
     jump_takeoff_height = cur_cog(2);
     jump_landing_height = jump_last_cp(2);
     jump_flight_time = t_flight;
+    jump_recover_time = t_squat;
     d_jump_pos = trans;
     d_jump_foot_pos = hrp::Vector3::Zero();
 
@@ -1076,7 +1077,7 @@ namespace rats
          jump_foot_interpolator->setGoal(&tmp, jump_remain_time, true);
          break;
        case JUMPING:
-         jump_remain_time = 1.0;
+         jump_remain_time = jump_recover_time;
          jump_phase = AFTER_JUMP;
          if (!jump_foot_interpolator->isEmpty()) jump_foot_interpolator->clear();
          tmp = d_jump_foot_pos(2);

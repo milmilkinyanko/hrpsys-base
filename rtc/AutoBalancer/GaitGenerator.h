@@ -1197,7 +1197,7 @@ namespace rats
 
     coordinates initial_jump_midcoords, jump_midcoords;
     step_node initial_support_leg, initial_swing_leg;
-    double jump_remain_time, jump_landing_height, jump_takeoff_height, jump_flight_time;
+    double jump_remain_time, jump_landing_height, jump_takeoff_height, jump_flight_time, jump_recover_time;
     hrp::Vector3 jump_last_cp, d_jump_foot_pos, initial_jump_cog, d_jump_pos;
     JumpPhase jump_phase;
     boost::shared_ptr<interpolator> jump_foot_interpolator;
