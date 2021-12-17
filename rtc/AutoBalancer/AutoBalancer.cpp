@@ -1318,6 +1318,7 @@ void AutoBalancer::getTargetParameters()
 
 void AutoBalancer::getOutputParametersForWalking ()
 {
+    int contact_cnt = 0;
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
         // Check whether "it->first" ee_name is included in leg_names. leg_names is equivalent to "swing" + "support" in gg.
@@ -1326,6 +1327,7 @@ void AutoBalancer::getOutputParametersForWalking ()
             gg->get_swing_support_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
             // Set contactStates
             m_contactStates.data[idx] = gg->get_current_support_state_from_ee_name(it->first);
+            if (m_contactStates.data[idx]) contact_cnt++;
             // Set controlSwingSupportTime
             m_controlSwingSupportTime.data[idx] = gg->get_current_swing_time_from_ee_name(it->first);
             // Set limbCOPOffset
@@ -1354,10 +1356,17 @@ void AutoBalancer::getOutputParametersForWalking ()
             m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
         }
     }
+    if (contact_cnt > 0) {
+      double total_fz = m_robot->totalMass() * gg->get_gravitational_acceleration();
+      for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+        if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
+      }
+    }
 };
 
 void AutoBalancer::getOutputParametersForABC ()
 {
+    int contact_cnt = 0;
     // double support by default
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
@@ -1375,6 +1384,7 @@ void AutoBalancer::getOutputParametersForABC ()
         } else {
             m_contactStates.data[idx] = false;
         }
+        if (m_contactStates.data[idx]) contact_cnt++;
         // controlSwingSupportTime is not used while double support period, 1.0 is neglected
         m_controlSwingSupportTime.data[idx] = 1.0;
         // Set limbCOPOffset
@@ -1384,15 +1394,31 @@ void AutoBalancer::getOutputParametersForABC ()
         // Set toe heel ratio is not used while double support
         m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
     }
+    if (contact_cnt > 0) {
+      double total_fz = m_robot->totalMass() * gg->get_gravitational_acceleration();
+      for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+        if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
+      }
+    }
 };
 
 void AutoBalancer::getOutputParametersForJumping ()
 {
+  int contact_cnt = 0;
   for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
     size_t idx = contact_states_index_map[it->first];
+    // if(gg->is_jumping_phase()) m_contactStates.data[idx] = false; // TODO: fix bug on st
+    if (m_contactStates.data[idx]) contact_cnt++;
     // Check whether "it->first" ee_name is included in leg_names. leg_names is equivalent to "swing" + "support" in gg.
     if (std::find(leg_names.begin(), leg_names.end(), it->first) != leg_names.end()) {
       gg->get_jump_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
+    }
+  }
+  if (contact_cnt > 0) {
+    // double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration() - gg->get_cog_acc()(2)); // TODO: consider acc
+    double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration());
+    for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+      if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
     }
   }
 }
@@ -1856,10 +1882,10 @@ void AutoBalancer::solveFullbodyIK ()
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 1.0, weight_normal_interpolator_time = 1.5;
-        if (is_natural_walk) normal_weight = 0.0;
+        if (gg_is_walking && is_natural_walk) normal_weight = 0.0;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
         // roll
-        if (gg->get_use_roll_flywheel()) {
+        if (gg->get_use_roll_flywheel() || gg->is_jumping) {
           if (!prev_roll_state) {
             if (roll_weight_interpolator->isEmpty()) roll_weight = normal_weight;
             else roll_weight_interpolator->get(&roll_weight, true);
@@ -1879,7 +1905,7 @@ void AutoBalancer::solveFullbodyIK ()
           else roll_weight_interpolator->get(&roll_weight, true);
         }
         // pitch
-        if (gg->get_use_pitch_flywheel()) {
+        if (gg->get_use_pitch_flywheel() || gg->is_jumping) {
           if (!prev_pitch_state) {
             if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
             else pitch_weight_interpolator->get(&pitch_weight, true);
@@ -1928,8 +1954,8 @@ void AutoBalancer::solveFullbodyIK ()
         }
         fik->q_ref_constraint_weight.fill(upper_weight);
 
-        prev_roll_state = gg->get_use_roll_flywheel();
-        prev_pitch_state = gg->get_use_pitch_flywheel();
+        prev_roll_state = gg->get_use_roll_flywheel() || gg->is_jumping;
+        prev_pitch_state = gg->get_use_pitch_flywheel() || gg->is_jumping;
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
         if(m_robot->link("RARM_F_JOINT0") != NULL) fik->q_ref_constraint_weight[m_robot->link("RARM_F_JOINT0")->jointId] = 1e-3;

@@ -599,6 +599,7 @@ void Stabilizer::getActualParametersForST ()
     std::vector<double> limb_gains;
     std::vector<hrp::dvector6> ee_forcemoment_distribution_weight;
     std::vector<double> tmp_toeheel_ratio;
+    double tmp_total_fz = 0.0;
     if (control_mode == MODE_ST) {
       std::vector<hrp::Vector3> ee_pos, cop_pos;
       std::vector<hrp::Matrix33> ee_rot;
@@ -627,6 +628,7 @@ void Stabilizer::getActualParametersForST ()
           ee_forcemoment_distribution_weight[i][j] = ikp.eefm_ee_forcemoment_distribution_weight[j];
         }
         tmp_toeheel_ratio.push_back(toeheel_ratio[i]);
+        tmp_total_fz += tmp_ref_force.back()(2);
       }
 
       // All state variables are foot_origin coords relative
@@ -651,25 +653,26 @@ void Stabilizer::getActualParametersForST ()
       }
 
       // Distribute ZMP into each EE force/moment at each COP
-      if (st_algorithm == OpenHRP::AutoBalancerService::EEFM) {
+      if (on_ground) {
+        if (st_algorithm == OpenHRP::AutoBalancerService::EEFM) {
         // Modified version of distribution in Equation (4)-(6) and (10)-(13) in the paper [1].
         szd->distributeZMPToForceMoments(tmp_ref_force, tmp_ref_moment,
                                          ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                          new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                         eefm_gravitational_acceleration * total_mass, dt,
+                                         tmp_total_fz, dt,
                                          DEBUGP, std::string(print_str));
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQP) {
         szd->distributeZMPToForceMomentsQP(tmp_ref_force, tmp_ref_moment,
                                            ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                            new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                           eefm_gravitational_acceleration * total_mass, dt,
+                                           tmp_total_fz, dt,
                                            DEBUGP, std::string(print_str),
                                            (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP));
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP) {
         szd->distributeZMPToForceMomentsPseudoInverse(tmp_ref_force, tmp_ref_moment,
                                                       ee_pos, cop_pos, ee_rot, ee_name, limb_gains, tmp_toeheel_ratio,
                                                       new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
-                                                      eefm_gravitational_acceleration * total_mass, dt,
+                                                      tmp_total_fz, dt,
                                                       DEBUGP, std::string(print_str),
                                                       (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP), is_contact_list);
       } else if (st_algorithm == OpenHRP::AutoBalancerService::EEFMQPCOP2) {
@@ -678,8 +681,9 @@ void Stabilizer::getActualParametersForST ()
                                                        new_refzmp, hrp::Vector3(foot_origin_rot * ref_zmp + foot_origin_pos),
                                                        foot_origin_rot * ref_total_force, foot_origin_rot * ref_total_moment,
                                                        ee_forcemoment_distribution_weight,
-                                                       eefm_gravitational_acceleration * total_mass, dt,
+                                                       tmp_total_fz, dt,
                                                        DEBUGP, std::string(print_str));
+      }
       }
       // for debug output
       new_refzmp = foot_origin_rot.transpose() * (new_refzmp - foot_origin_pos);
@@ -731,12 +735,18 @@ void Stabilizer::getActualParametersForST ()
             if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
-          ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
+          if (!ref_contact_states[i] && !act_contact_states[i])
+            ikp.ee_d_foot_rpy = calcDampingControl(ikp.d_foot_rpy, ikp.eefm_rot_time_const);
+          else
+            ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
           ikp.ee_d_foot_rpy = vlimit(ikp.ee_d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
         }
         if (!eefm_use_force_difference_control) { // Pos
           hrp::Vector3 tmp_damping_gain = (1-transition_smooth_gain) * ikp.eefm_pos_damping_gain * 10 + transition_smooth_gain * ikp.eefm_pos_damping_gain;
-          ikp.ee_d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.ee_d_foot_pos, tmp_damping_gain, ikp.eefm_pos_time_const_support);
+          if (!ref_contact_states[i] && !act_contact_states[i])
+            ikp.ee_d_foot_pos = calcDampingControl(ikp.d_foot_pos, ikp.eefm_pos_time_const_support);
+          else
+            ikp.ee_d_foot_pos = calcDampingControl(ikp.ref_force, sensor_force, ikp.ee_d_foot_pos, tmp_damping_gain, ikp.eefm_pos_time_const_support);
           ikp.ee_d_foot_pos = vlimit(ikp.ee_d_foot_pos, -1 * ikp.eefm_pos_compensation_limit, ikp.eefm_pos_compensation_limit);
         }
         // Convert force & moment as foot origin coords relative

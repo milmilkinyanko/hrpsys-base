@@ -1851,10 +1851,12 @@ namespace rats
       return hrp::Vector3(refcog_vel[0], refcog_vel[1], refcog_vel[2]);
     };
     hrp::Vector3 get_cog_acc () const {
-      double refcog_acc[3];
-      preview_controller_ptr->get_refcog_acc(refcog_acc);
-      return hrp::Vector3(refcog_acc[0], refcog_acc[1], refcog_acc[2]);
+      hrp::Vector3 refcog_acc;
+      // preview_controller_ptr->get_refcog_acc(refcog_acc);
+      foot_guided_controller_ptr->get_acc(refcog_acc);
+      return refcog_acc;
     };
+    bool is_jumping_phase () const { return (jump_phase == JUMPING); };
     const hrp::Vector3& get_refzmp () const { return refzmp;};
     hrp::Vector3 get_cart_zmp () const
     {
