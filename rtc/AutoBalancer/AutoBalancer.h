@@ -98,7 +98,7 @@ class AutoBalancer
   bool goPos(const double& x, const double& y, const double& th);
   bool goVelocity(const double& vx, const double& vy, const double& vth);
   bool goStop();
-  bool jumpTo(const double& x, const double& y, const double& z);
+  bool jumpTo(const double& x, const double& y, const double& z, const double& ts, const double& tf);
   bool emergencyStop ();
   bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
   bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
@@ -284,6 +284,7 @@ class AutoBalancer
   // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRatio
   void getOutputParametersForWalking ();
   void getOutputParametersForABC ();
+  void getOutputParametersForJumping ();
   void getOutputParametersForIDLE ();
   void interpolateLegNamesAndZMPOffsets();
   void calcFixCoordsForAdjustFootstep (rats::coordinates& tmp_fix_coords);
@@ -298,6 +299,7 @@ class AutoBalancer
   void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
   bool startWalking ();
   void stopWalking ();
+  void stopJumping ();
   void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
   // static balance point offsetting
   void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);

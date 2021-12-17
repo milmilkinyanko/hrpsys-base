@@ -1121,6 +1121,7 @@ namespace rats
     double stair_step_time;
     double footguided_balance_time_const;
     size_t num_preview_step;
+    bool is_jumping;
 #ifndef HAVE_MAIN
   private:
 #endif
@@ -1128,6 +1129,7 @@ namespace rats
     enum velocity_mode_flag { VEL_IDLING, VEL_DOING, VEL_ENDING };
     enum emergency_flag { IDLING, EMERGENCY_STOP, STOPPING };
     enum projected_point_region {LEFT, MIDDLE, RIGHT};
+    enum JumpPhase { BEFORE_JUMP, JUMPING, AFTER_JUMP };
 
     /* member variables for gait_generator */
     // Footstep list to be executed
@@ -1193,6 +1195,13 @@ namespace rats
     StepNumPhase step_num_phase;
     WalkingPhase walking_phase;
 
+    coordinates initial_jump_midcoords, jump_midcoords;
+    step_node initial_support_leg, initial_swing_leg;
+    double jump_remain_time, jump_landing_height, jump_takeoff_height, jump_flight_time;
+    hrp::Vector3 jump_last_cp, d_jump_foot_pos, initial_jump_cog, d_jump_pos;
+    JumpPhase jump_phase;
+    boost::shared_ptr<interpolator> jump_foot_interpolator;
+
     /* preview controller parameters */
     //preview_dynamics_filter<preview_control>* preview_controller_ptr;
     preview_dynamics_filter<extended_preview_control>* preview_controller_ptr;
@@ -1245,7 +1254,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4), num_preview_step(2),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), was_read_steppable_height(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false), stair_step_time(0.5), footguided_balance_time_const(0.4), is_slow_stair_mode(false), changed_step_time_stair(false),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), was_read_steppable_height(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false), stair_step_time(0.5), footguided_balance_time_const(0.4), is_slow_stair_mode(false), changed_step_time_stair(false), is_jumping(false),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), sum_fy(hrp::Vector3::Zero()), des_fxy(hrp::Vector3::Zero()), fx_count(0), fy_count(0), debug_set_landing_height(false), debug_landing_height(0.0), front_edge_offset_of_steppable_region(Eigen::Vector2d::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
@@ -1270,6 +1279,8 @@ namespace rats
         zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
         double_support_zmp_interpolator = boost::shared_ptr<interpolator>(new interpolator(1, dt, interpolator::HOFFARBIB));
         double_support_zmp_interpolator->setName("GaitGenerator double_support_zmp_interpolator");
+        jump_foot_interpolator = boost::shared_ptr<interpolator>(new interpolator(1, dt, interpolator::HOFFARBIB));
+        jump_foot_interpolator->setName("GaitGenerator jump_foot_interpolator");
     };
     ~gait_generator () {
       if ( preview_controller_ptr != NULL ) {
@@ -1285,7 +1296,14 @@ namespace rats
                                     const std::vector<step_node>& initial_support_leg_steps,
                                     const std::vector<step_node>& initial_swing_leg_dst_steps,
                                     const double delay = 1.6);
+    void initialize_jump_parameter (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_refcog,
+                                    const std::vector<step_node>& initial_support_leg_steps,
+                                    const std::vector<step_node>& initial_swing_leg_dst_steps,
+                                    const coordinates& start_ref_coords,
+                                    const hrp::Vector3& trans,
+                                    const double t_squat, const double t_flight);
     bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
+    bool proc_one_tick_jump (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
     void update_preview_controller(bool& solved);
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void calc_last_cp(hrp::Vector3& last_cp, const coordinates& cur_step);
@@ -1914,6 +1932,7 @@ namespace rats
       return tmp;
     };
     void get_swing_support_mid_coords(coordinates& ret) const { lcg.get_swing_support_mid_coords(ret); };
+    void get_jump_mid_coords(coordinates& ret) const { ret = jump_midcoords; };
     void get_stride_parameters (double& _stride_fwd_x, double& _stride_outside_y, double& _stride_outside_theta,
                                 double& _stride_bwd_x, double& _stride_inside_y, double& _stride_inside_theta) const
     {
@@ -2027,6 +2046,19 @@ namespace rats
             return false;
         }
         return true;
+    };
+    bool get_jump_ee_coords_from_ee_name (hrp::Vector3& cpos, hrp::Matrix33& crot, const std::string& ee_name) const
+    {
+      if (ee_name == "lleg") { // If support
+        cpos = initial_support_leg.worldcoords.pos + d_jump_foot_pos;
+        crot = initial_support_leg.worldcoords.rot;
+      } else if (ee_name == "rleg") { // If swing
+        cpos = initial_swing_leg.worldcoords.pos + d_jump_foot_pos;
+        crot = initial_swing_leg.worldcoords.rot;
+      } else { // Otherwise
+        return false;
+      }
+      return true;
     };
     // Get current support state (true=support, false=swing) by checking whether given EE name is swing or support
     bool get_current_support_state_from_ee_name (const std::string& ee_name) const

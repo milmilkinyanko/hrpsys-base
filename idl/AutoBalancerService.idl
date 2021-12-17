@@ -649,7 +649,7 @@ module OpenHRP
      */
     boolean goStop();
 
-    boolean jumpTo(in double x, in double y, in double z);
+    boolean jumpTo(in double x, in double y, in double z, in double ts, in double tf);
 
     /**
      * @brief Stop stepping immediately.

@@ -687,6 +687,39 @@ namespace rats
     emergency_flg = IDLING;
   };
 
+  void gait_generator::initialize_jump_parameter (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_refcog,
+                                  const std::vector<step_node>& initial_support_leg_steps,
+                                  const std::vector<step_node>& initial_swing_leg_dst_steps,
+                                  const coordinates& start_ref_coords,
+                                  const hrp::Vector3& trans,
+                                  const double t_squat, const double t_flight)
+  {
+    std::cerr << "jump initialized!!!!!!" << std::endl;
+
+    initial_jump_midcoords = jump_midcoords = start_ref_coords;
+    initial_support_leg = initial_support_leg_steps.front();
+    initial_swing_leg = initial_swing_leg_dst_steps.front();
+    initial_jump_cog = cur_cog;
+    jump_phase = BEFORE_JUMP;
+
+    hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+    jump_last_cp = cur_cog + trans + jump_midcoords.rot * zmp_off;
+    jump_remain_time = t_squat;
+    jump_takeoff_height = cur_cog(2);
+    jump_landing_height = jump_last_cp(2);
+    jump_flight_time = t_flight;
+    d_jump_pos = trans;
+    d_jump_foot_pos = hrp::Vector3::Zero();
+
+    if ( foot_guided_controller_ptr != NULL ) {
+      delete foot_guided_controller_ptr;
+      foot_guided_controller_ptr = NULL;
+    }
+    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_cog(2) - start_ref_coords.pos(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, gravitational_acceleration);
+    foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
+    if (!double_support_zmp_interpolator->isEmpty()) double_support_zmp_interpolator->clear();
+  }
+
   bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
   {
     solved = false;
@@ -952,6 +985,116 @@ namespace rats
     }
     return solved;
   };
+
+  bool gait_generator::proc_one_tick_jump (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
+  {
+    hrp::Vector3 cur_refcog, cur_refcogvel, dc_off;
+    foot_guided_controller_ptr->get_pos(cur_refcog);
+    foot_guided_controller_ptr->get_vel(cur_refcogvel);
+    foot_guided_controller_ptr->get_dc_off(dc_off);
+    cur_cog -= dc_off;
+
+    // calc_cur_cp
+    hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
+    double cur_omega = std::sqrt(gravitational_acceleration / dz(2));
+    double ref_omega = std::sqrt(gravitational_acceleration / dz(2));
+    act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
+    ref_cp = cur_refcog + cur_refcogvel / ref_omega;
+
+    hrp::Vector3 feedforward_zmp;
+    // hrp::Vector3 dz = hrp::Vector3(0, 0, (cur_cog - jump_midcoords.pos)(2));
+    // foot_guided_controller_ptr->set_dz(dz(2));
+    foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
+    if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
+    else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
+
+    hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+    hrp::Vector3 cur_ref_zmp = jump_midcoords.pos + jump_midcoords.rot * zmp_off;
+
+    if (jump_phase == BEFORE_JUMP) {
+      foot_guided_controller_ptr->update_control_jump(zmp, feedforward_zmp, cur_ref_zmp, jump_last_cp, jump_takeoff_height, jump_flight_time, jump_remain_time);
+    } else if (jump_phase == JUMPING) {
+      zmp = feedforward_zmp = cur_refcog;
+      foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
+    } else { // AFTER_JUMP
+      std::vector<LinearTrajectory<hrp::Vector3> > ref_zmp_traj;
+      ref_zmp_traj.reserve(2);
+      ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(cur_ref_zmp, cur_ref_zmp, jump_remain_time));
+      ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(jump_last_cp - dz, jump_last_cp - dz, 1));
+      foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, ref_zmp_traj);
+    }
+    hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
+    foot_guided_controller_ptr->update_state(cog, tmpfxy);
+
+    // convert zmp -> refzmp
+    refzmp = zmp;
+
+    // update foot coords
+    if (jump_phase == JUMPING) {
+      double tmp_ratio;
+      jump_foot_interpolator->get(&tmp_ratio, true);
+      d_jump_foot_pos.head(2) = tmp_ratio * d_jump_pos.head(2);
+      d_jump_foot_pos(2) = cog(2) - initial_jump_cog(2);
+    } else if (jump_phase == AFTER_JUMP) {
+      double tmp_height;
+      jump_foot_interpolator->get(&tmp_height, true);
+      d_jump_foot_pos(2) = tmp_height;
+    }
+    jump_midcoords.pos = initial_jump_midcoords.pos + d_jump_foot_pos;
+
+    tmp[0] = cur_ref_zmp(0);
+    tmp[1] = cur_ref_zmp(2);
+    tmp[21] = feedforward_zmp(0);
+    tmp[22] = feedforward_zmp(2);
+    // tmp[21] = cur_refcogvel(0);
+    // tmp[22] = cur_refcogvel(2);
+    tmp[2] = jump_last_cp(0);
+    tmp[3] = jump_last_cp(2);
+    tmp[4] = refzmp(0);
+    tmp[5] = refzmp(2);
+    tmp[6] = ref_cp(0);
+    tmp[7] = ref_cp(2);
+    tmp[8] = act_cp(0);
+    tmp[9] = act_cp(2);
+    // tmp[8] = cog(0);
+    // tmp[9] = cog(2);
+    // tmp[10] = traj_remain_time;
+    tmp[11] = jump_remain_time;
+
+    if (jump_remain_time > dt) {
+      jump_remain_time -= dt;
+    } else {
+      double tmp = 0.0;
+      switch(jump_phase) {
+       case BEFORE_JUMP:
+         jump_remain_time = jump_flight_time;
+         jump_phase = JUMPING;
+         if (!jump_foot_interpolator->isEmpty()) jump_foot_interpolator->clear();
+         tmp = 0.0;
+         jump_foot_interpolator->set(&tmp);
+         tmp = 1.0;
+         jump_foot_interpolator->setGoal(&tmp, jump_remain_time, true);
+         break;
+       case JUMPING:
+         jump_remain_time = 1.0;
+         jump_phase = AFTER_JUMP;
+         if (!jump_foot_interpolator->isEmpty()) jump_foot_interpolator->clear();
+         tmp = d_jump_foot_pos(2);
+         jump_foot_interpolator->set(&tmp);
+         tmp = d_jump_pos(2);
+         jump_foot_interpolator->setGoal(&tmp, jump_remain_time, true);
+         break;
+       case AFTER_JUMP:
+         is_jumping = false;
+         return false;
+         break;
+       default:
+         break;
+      }
+    }
+
+    return true;
+  }
 
   void gait_generator::update_preview_controller (bool& solved)
   {
