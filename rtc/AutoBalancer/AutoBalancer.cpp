@@ -905,8 +905,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         control_mode = MODE_IDLE;
       }
       m_robot->calcForwardKinematics();
-      hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
-      if (!gg->is_jumping) ref_cog(2) = tmp_ref_cog(2);
     }
 
     // Write Outport
@@ -1283,12 +1281,11 @@ void AutoBalancer::getTargetParameters()
     if (gg_is_walking || gg->is_jumping) {
       prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();
-      if (gg_is_walking) ref_cog(2) = tmp_ref_cog(2); // TODO: use ref_cog(2) by generator
       orig_cog = ref_cog;
     } else {
       ref_cog = tmp_foot_mid_pos;
+      ref_cog(2) = tmp_ref_cog(2);
     }
-    if (!gg->is_jumping) ref_cog(2) = tmp_ref_cog(2);
     limit_cog(ref_cog);
     if (gg_is_walking || gg->is_jumping) {
       ref_zmp = gg->get_refzmp();
@@ -2954,7 +2951,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   // IK limb parameters
   fik->setIKParam(ee_vec, i_param.ik_limb_parameters);
   // Limb stretch avoidance
-  fik->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
+  if (i_param.use_limb_stretch_avoidance) std::cerr << "[" << m_profile.instance_name << "]    use_limb_stretch_avoidance is invalid in current version" << std::endl;
+  // fik->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
   fik->limb_stretch_avoidance_time_const = i_param.limb_stretch_avoidance_time_const;
   for (size_t i = 0; i < 2; i++) {
     fik->limb_stretch_avoidance_vlimit[i] = i_param.limb_stretch_avoidance_vlimit[i];
