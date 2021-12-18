@@ -1024,11 +1024,30 @@ namespace rats
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(jump_last_cp - dz, jump_last_cp - dz, 1));
       foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, ref_zmp_traj);
     }
+    hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp_orig;
+    // if (jump_phase != JUMPING) {
+    //   // project to nominal ground
+    //   project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_refcog);
+    //   project_to_nominal_ground(feedforward_zmp, initial_jump_midcoords.pos, cur_refcog);
+    //   // truncate zmp (assume RLEG, LLEG)
+    //   Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
+    //   if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+    //     zmp.head(2) = tmp_zmp;
+    //   }
+    //   if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+    //     feedforward_zmp.head(2) = tmp_fzmp;
+    //   }
+    //   // revert to zmp height
+    //   project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
+    //   project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
+    //   foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
+    // }
     hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
     foot_guided_controller_ptr->update_state(cog, tmpfxy);
 
     // convert zmp -> refzmp
     refzmp = zmp;
+    if (jump_phase != JUMPING) project_to_nominal_ground(refzmp, initial_jump_midcoords.pos, cog);
 
     // update foot coords
     if (jump_phase == JUMPING) {
@@ -1047,8 +1066,6 @@ namespace rats
     tmp[1] = cur_ref_zmp(2);
     tmp[21] = feedforward_zmp(0);
     tmp[22] = feedforward_zmp(2);
-    // tmp[21] = cur_refcogvel(0);
-    // tmp[22] = cur_refcogvel(2);
     tmp[2] = jump_last_cp(0);
     tmp[3] = jump_last_cp(2);
     tmp[4] = refzmp(0);
@@ -1057,10 +1074,12 @@ namespace rats
     tmp[7] = ref_cp(2);
     tmp[8] = act_cp(0);
     tmp[9] = act_cp(2);
-    // tmp[8] = cog(0);
-    // tmp[9] = cog(2);
-    // tmp[10] = traj_remain_time;
+    tmp[10] = feedforward_zmp_orig(0);
     tmp[11] = jump_remain_time;
+    tmp[12] = feedforward_zmp_orig(2);
+    tmp[13] = refzmp_orig(0);
+    tmp[14] = refzmp_orig(2);
+
 
     if (jump_remain_time > dt) {
       jump_remain_time -= dt;
@@ -1095,6 +1114,11 @@ namespace rats
     }
 
     return true;
+  }
+
+  void gait_generator::project_to_nominal_ground (hrp::Vector3& p, const hrp::Vector3 ground, const hrp::Vector3 cog)
+  {
+    p = cog + ((ground - cog)(2) / (p - cog)(2)) * (p - cog);
   }
 
   void gait_generator::update_preview_controller (bool& solved)

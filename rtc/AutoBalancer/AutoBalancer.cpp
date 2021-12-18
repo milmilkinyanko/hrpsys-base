@@ -1416,8 +1416,7 @@ void AutoBalancer::getOutputParametersForJumping ()
     }
   }
   if (contact_cnt > 0) {
-    // double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration() - gg->get_cog_acc()(2)); // TODO: consider acc
-    double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration());
+    double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration() + gg->get_cog_acc()(2));
     for (size_t i = 0; i < m_contactStates.data.length(); i++) {
       if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
     }

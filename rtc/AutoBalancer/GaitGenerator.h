@@ -1304,6 +1304,7 @@ namespace rats
                                     const double t_squat, const double t_flight);
     bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
     bool proc_one_tick_jump (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
+    void project_to_nominal_ground (hrp::Vector3& p, const hrp::Vector3 ground, const hrp::Vector3 cog);
     void update_preview_controller(bool& solved);
     void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
     void calc_last_cp(hrp::Vector3& last_cp, const coordinates& cur_step);
