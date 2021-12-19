@@ -1565,21 +1565,22 @@ void Stabilizer::calcStateForEmergencySignal()
     Eigen::Vector2d tmp_cp = act_cp.head(2);
     std::vector<bool> tmp_cs(2,true);
     hrp::Vector3 ref_root_rpy = hrp::rpyFromRot(target_root_R);
+    // stop manipulation
     if (!is_walking) {
-      // stop manipulation
       szd->get_margined_vertices(margined_support_polygon_vetices);
       szd->calc_convex_hull(margined_support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
       is_cp_outside = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
-      // start emregency stepping
-      szd->get_vertices(support_polygon_vetices);
-      szd->calc_convex_hull(support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
-      is_emergency_step = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
-    } else if (falling_direction != 0) {
-      // comment in if you use emergency motion
-      // if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0.5) ||
-      //     ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0.5))
-      //   is_emergency_motion = true;
     }
+    // start emregency stepping
+    szd->get_vertices(support_polygon_vetices);
+    szd->calc_convex_hull(support_polygon_vetices, act_contact_states, rel_ee_pos, rel_ee_rot);
+    is_emergency_step = !szd->is_inside_support_polygon(tmp_cp, - sbp_cog_offset);
+    // // comment in if you use emergency motion
+    // if (!is_walking && falling_direction != 0) {
+    //   if (((falling_direction == 1 || falling_direction == 2) && std::fabs(rad2deg(ref_root_rpy(1))) > 0.5) ||
+    //       ((falling_direction == 3 || falling_direction == 4) && std::fabs(rad2deg(ref_root_rpy(0))) > 0.5))
+    //     is_emergency_motion = true;
+    // }
     if (DEBUGP) {
       std::cerr << "[" << print_str << "] CP value " << "[" << act_cp(0) << "," << act_cp(1) << "] [m], "
                 << "sbp cog offset [" << sbp_cog_offset(0) << " " << sbp_cog_offset(1) << "], outside ? "

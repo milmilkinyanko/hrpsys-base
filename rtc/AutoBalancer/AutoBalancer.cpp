@@ -675,7 +675,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
     loop ++;
 
-    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode) {
+    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode && gg->is_steppable_while_jumping()) {
+      if (gg->is_jumping) {
+        gg->is_jumping = false;
+        stopJumping();
+      }
       gg->set_is_emergency_step(true);
       // if (fabs(st->act_cp(0)) > fabs(st->act_cp(1))) {
         if (st->act_cp(0) > 0) goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? -1e-6:1e-6,0);
@@ -1222,14 +1226,13 @@ void AutoBalancer::getTargetParameters()
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
       act_cog.head(2) += sbp_cog_offset.head(2);
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
-      hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       if (gg_is_walking) {
-        gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
+        gg_solved = gg->proc_one_tick(act_cog, act_cogvel, target_cog);
         if (!gg_solved) stopWalking();
         st->falling_direction = gg->get_falling_direction();
         gg->get_swing_support_mid_coords(tmp_fix_coords);
       } else { // is_jumping
-        if (!gg->proc_one_tick_jump(act_cog, act_cogvel)) stopJumping();
+        if (!gg->proc_one_tick_jump(act_cog, act_cogvel, target_cog)) stopJumping();
         gg->get_jump_mid_coords(tmp_fix_coords);
       }
     } else {
@@ -1278,13 +1281,14 @@ void AutoBalancer::getTargetParameters()
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
+    target_cog = tmp_foot_mid_pos;
+    target_cog(2) = tmp_ref_cog(2);
     if (gg_is_walking || gg->is_jumping) {
       prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();
       orig_cog = ref_cog;
     } else {
-      ref_cog = tmp_foot_mid_pos;
-      ref_cog(2) = tmp_ref_cog(2);
+      ref_cog = target_cog;
     }
     limit_cog(ref_cog);
     if (gg_is_walking || gg->is_jumping) {
@@ -2178,7 +2182,6 @@ bool AutoBalancer::startWalking ()
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   act_cog.head(2) += sbp_cog_offset.head(2);
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
-  hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
   {
     Guard guard(m_mutex);
     fik->resetIKFailParam();
@@ -2199,7 +2202,7 @@ bool AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(act_cog, act_cogvel, act_cmp) );
+  while ( !gg->proc_one_tick(act_cog, act_cogvel, target_cog) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
@@ -2237,7 +2240,7 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
     if (gg_is_walking) {
       // std::cerr << "[" << m_profile.instance_name << "] goStop before startAutoBalancer because gg_is_walking is true" << std::endl;
       // goStop();
-      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_waking is true. Please goStop or wait for ending previous goPos." << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_walking is true. Please goStop or wait for ending previous goPos." << std::endl;
       return false;
     }
     fik->resetIKFailParam();
@@ -2251,7 +2254,7 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
 
 bool AutoBalancer::jumpTo(const double& x, const double& y, const double& z, const double& ts, const double& tf)
 {
-  if (!gg->is_jumping) {
+  if (!gg->is_jumping && !gg_is_walking) {
     gg->set_all_limbs(leg_names);
     coordinates start_ref_coords;
     std::vector<coordinates> initial_support_legs_coords; // dummy
@@ -2277,7 +2280,7 @@ bool AutoBalancer::jumpTo(const double& x, const double& y, const double& z, con
     is_after_walking = true;
     limit_cog_interpolator->clear();
 
-     return true;
+    return true;
   } else {
     return false;
   }

@@ -694,8 +694,6 @@ namespace rats
                                   const hrp::Vector3& trans,
                                   const double t_squat, const double t_flight)
   {
-    std::cerr << "jump initialized!!!!!!" << std::endl;
-
     initial_jump_midcoords = jump_midcoords = start_ref_coords;
     initial_support_leg = initial_support_leg_steps.front();
     initial_swing_leg = initial_swing_leg_dst_steps.front();
@@ -721,7 +719,7 @@ namespace rats
     if (!double_support_zmp_interpolator->isEmpty()) double_support_zmp_interpolator->clear();
   }
 
-  bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
+  bool gait_generator::proc_one_tick (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& target_cog)
   {
     solved = false;
     if (lcg.get_lcg_count() >= static_cast<size_t>(footstep_nodes_list[lcg.get_footstep_index()][0].step_time/dt) - 1) { // for go-velocity
@@ -746,7 +744,7 @@ namespace rats
         overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(first_step==RLEG?LLEG:RLEG, footstep_nodes_list[get_overwritable_index() - 1].front().worldcoords, 0, default_step_time, 0, 0)));
         overwrite_footstep_nodes_list.push_back(boost::assign::list_of(step_node(first_step, footstep_nodes_list[get_overwritable_index()].front().worldcoords, 0, default_step_time, 0, 0)));
 
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
         overwrite_footstep_nodes_list.clear();
         emergency_flg = STOPPING;
     } else if ( lcg.get_lcg_count() <= get_overwrite_check_timing() && !updated_vel_footsteps ) {
@@ -770,12 +768,12 @@ namespace rats
             }
             overwrite_footstep_nodes_list.push_back(tmp_fsn);
         }
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
         overwrite_footstep_nodes_list.clear();
       } else if ( !overwrite_footstep_nodes_list.empty() && // If overwrite_footstep_node_list exists
                   (lcg.get_footstep_index() < footstep_nodes_list.size()-1) &&  // If overwrite_footstep_node_list is specified and current footstep is not last footstep.
                   get_overwritable_index() == overwrite_footstep_index ) {
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
         overwrite_footstep_nodes_list.clear();
       }
       updated_vel_footsteps = true;
@@ -899,8 +897,8 @@ namespace rats
         fxy(i) = prev_fxy(i) + tmp_gain * (des_fxy(i) - prev_fxy(i));
       }
       if (debug_set_landing_height && lcg.get_footstep_index() == 0) debug_orig_height = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(2);
-      if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
-      if (use_act_states && modify_footsteps && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+      if (!solved) update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
+      if (use_act_states && modify_footsteps && (lcg.get_footstep_index() > 0 && lcg.get_footstep_index() < footstep_nodes_list.size()-2)) modify_footsteps_for_foot_guided(cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
       else if (is_emergency_step && lcg.get_footstep_index() == footstep_nodes_list.size()-1) {
         is_emergency_step = false;
         default_step_time = orig_default_step_time;
@@ -987,7 +985,7 @@ namespace rats
     return solved;
   };
 
-  bool gait_generator::proc_one_tick_jump (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_cmp)
+  bool gait_generator::proc_one_tick_jump (hrp::Vector3 cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& target_cog)
   {
     hrp::Vector3 cur_refcog, cur_refcogvel, dc_off;
     foot_guided_controller_ptr->get_pos(cur_refcog);
@@ -996,15 +994,15 @@ namespace rats
     cur_cog -= dc_off;
 
     // calc_cur_cp
-    hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
+    hrp::Vector3 dz = hrp::Vector3(0, 0, (target_cog - jump_midcoords.pos)(2));
+    foot_guided_controller_ptr->set_dz(dz(2));
+    // hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
     double cur_omega = std::sqrt(gravitational_acceleration / dz(2));
     double ref_omega = std::sqrt(gravitational_acceleration / dz(2));
     act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
     ref_cp = cur_refcog + cur_refcogvel / ref_omega;
 
     hrp::Vector3 feedforward_zmp;
-    // hrp::Vector3 dz = hrp::Vector3(0, 0, (cur_cog - jump_midcoords.pos)(2));
-    // foot_guided_controller_ptr->set_dz(dz(2));
     foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
     if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
     else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
@@ -1024,24 +1022,24 @@ namespace rats
       ref_zmp_traj.push_back(LinearTrajectory<hrp::Vector3>(jump_last_cp - dz, jump_last_cp - dz, 1));
       foot_guided_controller_ptr->update_control(zmp, feedforward_zmp, ref_zmp_traj);
     }
-    hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp_orig;
-    // if (jump_phase != JUMPING) {
-    //   // project to nominal ground
-    //   project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_refcog);
-    //   project_to_nominal_ground(feedforward_zmp, initial_jump_midcoords.pos, cur_refcog);
-    //   // truncate zmp (assume RLEG, LLEG)
-    //   Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
-    //   if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
-    //     zmp.head(2) = tmp_zmp;
-    //   }
-    //   if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
-    //     feedforward_zmp.head(2) = tmp_fzmp;
-    //   }
-    //   // revert to zmp height
-    //   project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
-    //   project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
-    //   foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
-    // }
+    hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
+    if (jump_phase != JUMPING) {
+      // project to nominal ground
+      project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_refcog);
+      project_to_nominal_ground(feedforward_zmp, initial_jump_midcoords.pos, cur_refcog);
+      // truncate zmp (assume RLEG, LLEG)
+      Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
+      if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+        zmp.head(2) = tmp_zmp;
+      }
+      if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+        feedforward_zmp.head(2) = tmp_fzmp;
+      }
+      // revert to zmp height
+      project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
+      project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
+      foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
+    }
     hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
     foot_guided_controller_ptr->update_state(cog, tmpfxy);
 
@@ -1154,7 +1152,7 @@ namespace rats
 
   // TODO: include zmp height to control input
   //       if not use lcg_count, this function will be more simple
-  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
+  void gait_generator::update_foot_guided_controller (bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog)
   {
     solved = true;
 
@@ -1200,8 +1198,8 @@ namespace rats
     remain_count++;
     traj_remain_count++;
 
-    // hrp::Vector3 dz = hrp::Vector3(0, 0, (cur_cog - rg.get_refzmp_cur())(2));
-    // foot_guided_controller_ptr->set_dz(dz(2));
+    hrp::Vector3 dz = hrp::Vector3(0, 0, (target_cog - rg.get_refzmp_cur())(2));
+    foot_guided_controller_ptr->set_dz(dz(2));
     foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
     if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
     else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
@@ -1344,16 +1342,25 @@ namespace rats
       double_support_zmp_interpolator->clear();
     }
 
-    // truncate zmp (assume RLEG, LLEG)
-    Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
-    if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
-      zmp.head(2) = tmp_zmp;
+    hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
+    {
+      // project to nominal ground
+      project_to_nominal_ground(zmp, rg.get_refzmp_cur(), cur_refcog);
+      project_to_nominal_ground(feedforward_zmp, rg.get_refzmp_cur(), cur_refcog);
+      // truncate zmp (assume RLEG, LLEG)
+      Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
+      if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+        zmp.head(2) = tmp_zmp;
+      }
+      if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
+        feedforward_zmp.head(2) = tmp_fzmp;
+      }
+      // revert to zmp height
+      project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
+      project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
+      // zmp = zmp_filter->passFilter(zmp);
+      foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
     }
-    if (!is_inside_convex_hull(tmp_fzmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
-      feedforward_zmp.head(2) = tmp_fzmp;
-    }
-    // zmp = zmp_filter->passFilter(zmp);
-    foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
     // calc cog
     hrp::Vector3 tmpfxy = hrp::Vector3::Zero();
     if (use_disturbance_compensation) tmpfxy = fxy;
@@ -1605,7 +1612,7 @@ namespace rats
     }
   }
 
-  void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp)
+  void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog)
   {
     double omega = std::sqrt(gravitational_acceleration / foot_guided_controller_ptr->get_dz());
     bool is_modify = false;
@@ -1787,7 +1794,7 @@ namespace rats
         }
         overwrite_footstep_nodes_list.insert(overwrite_footstep_nodes_list.end(), footstep_nodes_list.begin()+lcg.get_footstep_index(), footstep_nodes_list.end());
         // overwrite zmp
-        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+        overwrite_refzmp_queue(overwrite_footstep_nodes_list, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
         overwrite_footstep_nodes_list.clear();
         modified_d_footstep += d_footstep;
         sum_d_footstep_plus += d_footstep;
@@ -2220,7 +2227,7 @@ namespace rats
     }
   };
 
-  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp, const bool& update_vel)
+  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog, const bool& update_vel)
   {
     size_t idx = (update_vel ? get_overwritable_index() : lcg.get_footstep_index());
     footstep_nodes_list.erase(footstep_nodes_list.begin()+idx, footstep_nodes_list.end());
@@ -2298,7 +2305,7 @@ namespace rats
       solved = preview_controller_ptr->update(refzmp, cog, swing_foot_zmp_offsets, rzmp, sfzos, (refzmp_exist_p || finalize_count < preview_controller_ptr->get_delay()-default_step_time/dt));
       rg.update_refzmp();
     } else {
-      update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, cur_cmp);
+      update_foot_guided_controller(solved, cur_cog, cur_cogvel, cur_refcog, cur_refcogvel, target_cog);
     }
   };
 

@@ -1227,7 +1227,7 @@ namespace rats
       }
       _footstep_nodes_list.push_back(sns);
     };
-    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero(), const bool& update_vel = false);
+    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero(), const bool& update_vel = false);
     void calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const;
     void calc_next_coords_velocity_mode (std::vector< std::vector<step_node> >& ret_list, const size_t idx, const size_t future_step_num = 3);
     void append_footstep_list_velocity_mode ();
@@ -1302,11 +1302,11 @@ namespace rats
                                     const coordinates& start_ref_coords,
                                     const hrp::Vector3& trans,
                                     const double t_squat, const double t_flight);
-    bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
-    bool proc_one_tick_jump (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_cmp = hrp::Vector3::Zero());
+    bool proc_one_tick (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero());
+    bool proc_one_tick_jump (hrp::Vector3 cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero());
     void project_to_nominal_ground (hrp::Vector3& p, const hrp::Vector3 ground, const hrp::Vector3 cog);
     void update_preview_controller(bool& solved);
-    void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
+    void update_foot_guided_controller(bool& solved, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog);
     void calc_last_cp(hrp::Vector3& last_cp, const coordinates& cur_step);
     void calc_foot_origin_rot (hrp::Matrix33& foot_rot, const hrp::Matrix33& orig_rot, const hrp::Vector3& n) const;
     void set_first_count_flag ();
@@ -1316,7 +1316,7 @@ namespace rats
     void limit_stride_rectangle (step_node& cur_fs, const step_node& prev_fs, const double (&limit)[5]) const;
     void limit_stride_vision (step_node& cur_fs, hrp::Vector3& short_of_footstep, const step_node& prev_fs, const step_node& preprev_fs, const double& omega, const hrp::Vector3& cur_cp);
     void modify_footsteps_for_recovery ();
-    void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& cur_cmp);
+    void modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog);
     void append_footstep_nodes (const std::vector<std::string>& _legs, const std::vector<coordinates>& _fss)
     {
         std::vector<step_node> tmp_sns;
@@ -1858,6 +1858,8 @@ namespace rats
       return refcog_acc;
     };
     bool is_jumping_phase () const { return (jump_phase == JUMPING); };
+    bool is_steppable_while_jumping () const { return (!is_jumping ||
+                                                       (is_jumping && jump_phase == AFTER_JUMP && jump_remain_time < 0.8*jump_recover_time && act_contact_states[0] && act_contact_states[1])); };
     const hrp::Vector3& get_refzmp () const { return refzmp;};
     hrp::Vector3 get_cart_zmp () const
     {

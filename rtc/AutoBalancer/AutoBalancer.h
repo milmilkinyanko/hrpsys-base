@@ -329,7 +329,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog, target_cog;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
