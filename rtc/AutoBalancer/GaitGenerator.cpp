@@ -1048,15 +1048,13 @@ namespace rats
     if (jump_phase != JUMPING) project_to_nominal_ground(refzmp, initial_jump_midcoords.pos, cog);
 
     // update foot coords
+    if (jump_phase == JUMPING || jump_phase == AFTER_JUMP) {
+      hrp::Vector3 tmp_v;
+      jump_foot_interpolator->get(tmp_v.data(), true);
+      d_jump_foot_pos = tmp_v;
+    }
     if (jump_phase == JUMPING) {
-      double tmp_ratio;
-      jump_foot_interpolator->get(&tmp_ratio, true);
-      d_jump_foot_pos.head(2) = tmp_ratio * d_jump_pos.head(2);
       d_jump_foot_pos(2) = cog(2) - initial_jump_cog(2);
-    } else if (jump_phase == AFTER_JUMP) {
-      double tmp_height;
-      jump_foot_interpolator->get(&tmp_height, true);
-      d_jump_foot_pos(2) = tmp_height;
     }
     jump_midcoords.pos = initial_jump_midcoords.pos + d_jump_foot_pos;
 
@@ -1079,28 +1077,33 @@ namespace rats
     tmp[14] = refzmp_orig(2);
 
 
+    if (jump_phase == JUMPING && jump_remain_time < 0.5*jump_flight_time &&
+        (act_contact_states[0] || act_contact_states[1])) {
+      jump_remain_time = 0.0;
+    }
     if (jump_remain_time > dt) {
       jump_remain_time -= dt;
     } else {
-      double tmp = 0.0;
+      hrp::Vector3 tmp_v = hrp::Vector3::Zero();
       switch(jump_phase) {
        case BEFORE_JUMP:
          jump_remain_time = jump_flight_time;
          jump_phase = JUMPING;
          if (!jump_foot_interpolator->isEmpty()) jump_foot_interpolator->clear();
-         tmp = 0.0;
-         jump_foot_interpolator->set(&tmp);
-         tmp = 1.0;
-         jump_foot_interpolator->setGoal(&tmp, jump_remain_time, true);
+         jump_foot_interpolator->set(tmp_v.data());
+         tmp_v = d_jump_pos;
+         jump_foot_interpolator->setGoal(tmp_v.data(), jump_remain_time, true);
          break;
        case JUMPING:
-         jump_remain_time = jump_recover_time;
-         jump_phase = AFTER_JUMP;
-         if (!jump_foot_interpolator->isEmpty()) jump_foot_interpolator->clear();
-         tmp = d_jump_foot_pos(2);
-         jump_foot_interpolator->set(&tmp);
-         tmp = d_jump_pos(2);
-         jump_foot_interpolator->setGoal(&tmp, jump_remain_time, true);
+         if (act_contact_states[0] || act_contact_states[1]) {
+           jump_remain_time = jump_recover_time;
+           jump_phase = AFTER_JUMP;
+           jump_foot_interpolator->get(tmp_v.data());
+           tmp_v(2) = d_jump_foot_pos(2);
+           jump_foot_interpolator->set(tmp_v.data());
+           tmp_v = d_jump_pos;
+           jump_foot_interpolator->setGoal(tmp_v.data(), jump_remain_time, true);
+         }
          break;
        case AFTER_JUMP:
          is_jumping = false;

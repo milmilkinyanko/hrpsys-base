@@ -1279,7 +1279,7 @@ namespace rats
         zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, _dt, hrp::Vector3::Zero()));
         double_support_zmp_interpolator = boost::shared_ptr<interpolator>(new interpolator(1, dt, interpolator::HOFFARBIB));
         double_support_zmp_interpolator->setName("GaitGenerator double_support_zmp_interpolator");
-        jump_foot_interpolator = boost::shared_ptr<interpolator>(new interpolator(1, dt, interpolator::HOFFARBIB));
+        jump_foot_interpolator = boost::shared_ptr<interpolator>(new interpolator(3, dt, interpolator::HOFFARBIB));
         jump_foot_interpolator->setName("GaitGenerator jump_foot_interpolator");
     };
     ~gait_generator () {
