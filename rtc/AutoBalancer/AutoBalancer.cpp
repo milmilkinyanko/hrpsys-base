@@ -1237,6 +1237,7 @@ void AutoBalancer::getTargetParameters()
       }
     } else {
       tmp_fix_coords = fix_leg_coords;
+      initial_fix_coords = tmp_fix_coords;
     }
     if (!adjust_footstep_interpolator->isEmpty()) {
         calcFixCoordsForAdjustFootstep(tmp_fix_coords);
@@ -1282,7 +1283,7 @@ void AutoBalancer::getTargetParameters()
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
     target_cog = tmp_foot_mid_pos;
-    target_cog(2) = tmp_ref_cog(2);
+    target_cog(2) = (tmp_ref_cog - tmp_fix_coords.pos + initial_fix_coords.pos)(2);
     if (gg_is_walking || gg->is_jumping) {
       prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();

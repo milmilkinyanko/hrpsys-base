@@ -1244,7 +1244,9 @@ namespace rats
       cur_pos = initial_foot_mid_coords.pos + initial_foot_mid_coords.rot * zmp_off;
       mid_pos = cur_pos;
     } else {
-      mid_pos = 0.5 * (cur_pos + next_pos);
+      mid_pos = cur_steps.front().worldcoords.rot.transpose() * next_pos;
+      mid_pos(1) = 0.5 * (cur_steps.front().worldcoords.rot.transpose() * (cur_pos + next_pos))(1);
+      mid_pos = cur_steps.front().worldcoords.rot * mid_pos;
     }
     if ((step_num_phase == BEFORE_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == LAST) {
