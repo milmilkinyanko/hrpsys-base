@@ -582,7 +582,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_natural_walk = false;
     is_stop_early_foot = false;
 
-    cog_z_constraint = 1e-3;
+    cog_z_constraint = 1;
     arm_swing_deg = 30.0;
 
     debug_read_steppable_region = false;
