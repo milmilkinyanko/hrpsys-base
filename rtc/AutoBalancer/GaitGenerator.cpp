@@ -1265,25 +1265,27 @@ namespace rats
       cur_pos = initial_foot_mid_coords.pos + initial_foot_mid_coords.rot * zmp_off;
       mid_pos = cur_pos;
     } else {
-      mid_pos = cur_steps.front().worldcoords.rot.transpose() * next_pos;
-      mid_pos(1) = 0.5 * (cur_steps.front().worldcoords.rot.transpose() * (cur_pos + next_pos))(1);
-      mid_pos = cur_steps.front().worldcoords.rot * mid_pos;
+      mid_pos = 0.5 * (cur_pos + next_pos);
     }
+    bool is_after_last2 = false;
     if ((step_num_phase == BEFORE_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == LAST) {
       next_pos = mid_pos;
+      is_after_last2 = true;
     }
+    mid2_pos = 0.5 * (next_pos + next2_pos);
     if ((step_num_phase == BEFORE2_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == BEFORE_LAST || step_num_phase == LAST) {
-      next2_pos = mid_pos;
+      if (is_after_last2) next2_pos = mid_pos;
+      else {
+        hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+        hrp::Vector3 last_foot_pos = footstep_nodes_list[step_num - 2].front().worldcoords.pos + footstep_nodes_list[step_num - 2].front().worldcoords.rot * zmp_off;
+        next2_pos = 0.5 * (next_pos + last_foot_pos);
+      }
+      mid2_pos = next2_pos;
     }
     if (step_num_phase == LAST) {
       cur_pos = mid_pos;
-    }
-    if (step_num_phase == BEFORE2_LAST) {
-      mid2_pos = mid_pos;
-    } else {
-      mid2_pos = 0.5 * (next_pos + next2_pos);
     }
     coordinates cur_step = coordinates(cur_pos, cur_steps.front().worldcoords.rot);
     hrp::Vector3 last_cp = next_pos;
