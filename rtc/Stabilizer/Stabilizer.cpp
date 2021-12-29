@@ -40,7 +40,7 @@ static const char* stabilizer_spec[] =
     "language",          "C++",
     "lang_type",         "compile",
     // Configuration variables
-    "conf.default.debugLevel", "0",
+    "conf.default.debugLevel", "1",
     ""
   };
 // </rtc-template>
@@ -103,7 +103,7 @@ Stabilizer::Stabilizer(RTC::Manager* manager)
     emergency_check_mode(OpenHRP::StabilizerService::NO_CHECK),
     szd(NULL),
     // </rtc-template>
-    m_debugLevel(0)
+    m_debugLevel(1)
 {
   m_service0.stabilizer(this);
 }
@@ -117,8 +117,8 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   std::cerr << "[" << m_profile.instance_name << "] onInitialize()" << std::endl;
   // <rtc-template block="bind_config">
   // Bind variables and configuration variable
-  bindParameter("debugLevel", m_debugLevel, "0");
-  
+  bindParameter("debugLevel", m_debugLevel, "1");
+
   // </rtc-template>
 
   // Registration: InPort/OutPort/Service
@@ -162,15 +162,15 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   addOutPort("allRefWrench", m_allRefWrenchOut);
   addOutPort("allEEComp", m_allEECompOut);
   addOutPort("debugData", m_debugDataOut);
-  
+
   // Set service provider to Ports
   m_StabilizerServicePort.registerProvider("service0", "StabilizerService", m_service0);
-  
+
   // Set service consumers to Ports
-  
+
   // Set CORBA Service Ports
   addPort(m_StabilizerServicePort);
-  
+
   // </rtc-template>
   RTC::Properties& prop = getProperties();
   coil::stringTo(dt, prop["dt"].c_str());
@@ -187,7 +187,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
 
   // parameters for internal robot model
   m_robot = hrp::BodyPtr(new hrp::Body());
-  if (!loadBodyFromModelLoader(m_robot, prop["model"].c_str(), 
+  if (!loadBodyFromModelLoader(m_robot, prop["model"].c_str(),
                                CosNaming::NamingContext::_duplicate(naming.getRootContext())
                                )){
     std::cerr << "[" << m_profile.instance_name << "]failed to load model[" << prop["model"] << "]" << std::endl;
@@ -545,6 +545,7 @@ RTC::ReturnCode_t Stabilizer::onDeactivated(RTC::UniqueId ec_id)
   return RTC::RTC_OK;
 }
 
+// memo: feedback用のセンサ値getしてる？
 #define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
 #define DEBUGP2 (loop%10==0)
 RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
@@ -1520,7 +1521,7 @@ void Stabilizer::calcTPCC() {
       // target at ee => target at link-origin
       hrp::Vector3 target_link_p[stikp.size()];
       hrp::Matrix33 target_link_R[stikp.size()];
-        
+
       for (size_t i = 0; i < stikp.size(); i++) {
         rats::rotm3times(target_link_R[i], target_ee_R[i], stikp[i].localR.transpose());
         target_link_p[i] = target_ee_p[i] - target_ee_R[i] * stikp[i].localCOPPos;
@@ -1546,13 +1547,14 @@ void Stabilizer::calcTPCC() {
       }
 }
 
-
+// EE: EndEffector
+// 先端の力をFB Control?
 void Stabilizer::calcEEForceMomentControl() {
 
     // stabilizer loop
       // return to referencea
-      m_robot->rootLink()->R = target_root_R;
-      m_robot->rootLink()->p = target_root_p;
+      m_robot->rootLink()->R = target_root_R; // Rotational Matrix
+      m_robot->rootLink()->p = target_root_p; // position
       for ( int i = 0; i < m_robot->numJoints(); i++ ) {
         m_robot->joint(i)->q = qrefv[i];
       }
@@ -1630,6 +1632,7 @@ void Stabilizer::calcEEForceMomentControl() {
             // foot force difference control version
             // total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
             // foot force independent damping control
+            // TODO: ここを変更する？
             tmpp[i] = target_ee_p[i] - current_d_foot_pos[i];
           } else {
             tmpp[i] = target_ee_p[i];
@@ -2771,6 +2774,11 @@ void Stabilizer::calcRUNST() {
         //dleg_x[i] = m_tau_x[i].update(m_wrenches[i].data[3], tau_xl[i]);
         dleg_x[i] = m_tau_x[i].update(0,0);
         dleg_y[i] = m_tau_y[i].update(tau_y_total, tau_yl[i]);
+        // TODO: xdがターゲット
+        // これをadjust
+        //hoge
+        //dleg_y[i] += 1000.0f;
+        //hoge
         if (DEBUGP2) {
           std::cerr << i << " dleg_x " << dleg_x[i] << std::endl;
           std::cerr << i << " dleg_y " << dleg_y[i] << std::endl;
@@ -2791,13 +2799,18 @@ void Stabilizer::calcRUNST() {
       }
       // 1=>left, 2=>right
       double refdfz = 0;
-      dpz = m_f_z.update((m_wrenches[0].data[2] - m_wrenches[1].data[2]), refdfz);
-      //target_p[0](2) = target_foot_p[0](2) + dpz/2;
-      //target_p[1](2) = target_foot_p[1](2) - dpz/2;
-      target_p[0](2) = target_foot_p[0](2);
-      target_p[1](2) = target_foot_p[1](2);
-
-      // IK
+      //dpz = m_f_z.update((m_wrenches[0].data[2] - m_wrenches[1].data[2]), refdfz);
+      // TODO
+      // p: x-y-zのVector3?
+      dpz=20.0;
+      target_p[0](2) = target_foot_p[0](2) + dpz/2;
+      target_p[1](2) = target_foot_p[1](2) - dpz/2;
+      //target_p[0](2) = target_foot_p[0](2);
+      //target_p[1](2) = target_foot_p[1](2);
+      std::cout << "target_p[0](2): " << target_p[0](2)
+                << "target_p[1](2): " << target_p[1](2)
+                << std::endl;
+        // IK
       for (size_t i = 0; i < 2; i++) {
         hrp::Link* target = m_robot->link(target_name[i]);
         hrp::Vector3 vel_p, vel_r;

@@ -26,7 +26,7 @@ typedef coil::Guard<coil::Mutex> Guard;
 #endif
 
 #define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
-#define DEBUGP2 (loop%10==0)
+#define DEBUGP2 (loop%100==0)
 
 void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
 {
@@ -1269,10 +1269,17 @@ void Stabilizer::calcRUNST() {
       // 1=>left, 2=>right
       double refdfz = 0;
       dpz = m_f_z.update((wrenches[0][2] - wrenches[1][2]), refdfz);
-      //target_p[0](2) = target_foot_p[0](2) + dpz/2;
-      //target_p[1](2) = target_foot_p[1](2) - dpz/2;
-      target_p[0](2) = target_foot_p[0](2);
-      target_p[1](2) = target_foot_p[1](2);
+        // TODO: 変更した
+        dpz = 1e7;
+        // hoge
+      target_p[0](2) = target_foot_p[0](2) + dpz/2;
+      target_p[1](2) = target_foot_p[1](2) - dpz/2;
+//      target_p[0](2) = target_foot_p[0](2);
+//      target_p[1](2) = target_foot_p[1](2);
+    if(DEBUGP2) {
+        std::cout << "##############target_p(2): " << target_p[0](2) << ", " << target_p[1](2) << std::endl;
+    }
+
 
       // IK
       for (size_t i = 0; i < 2; i++) {
@@ -1787,6 +1794,7 @@ void Stabilizer::calcEEForceMomentControl()
 
   // solveIK
   //   IK target is link origin pos and rot, not ee pos and rot.
+  // TODO: link originなのでend effectorから見た時のことを考える
   std::vector<hrp::Vector3> tmpp(stikp.size());
   std::vector<hrp::Matrix33> tmpR(stikp.size());
   double tmp_d_pos_z_root = 0.0;
@@ -1795,10 +1803,13 @@ void Stabilizer::calcEEForceMomentControl()
       // Add damping_control compensation to target value
       if (is_feedback_control_enable[i]) {
         rats::rotm3times(tmpR[i], target_ee_R[i], hrp::rotFromRpy(-1*stikp[i].ee_d_foot_rpy));
-        // foot force difference control version
-        // total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
         // foot force independent damping control
         tmpp[i] = target_ee_p[i] - (foot_origin_rot * stikp[i].d_foot_pos);
+          // foot force difference control version
+//          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
+        double zctrl = 0.0;
+        tmpp[i](2) = tmpp[i](2) + (i==0?1:-1) * zctrl;
+
       } else {
         tmpp[i] = target_ee_p[i];
         tmpR[i] = target_ee_R[i];
@@ -1808,8 +1819,16 @@ void Stabilizer::calcEEForceMomentControl()
       tmpp[i] = tmpp[i] + (foot_origin_rot * stikp[i].d_pos_swing);
     }
   }
+//    if(DEBUGP2) {
+        std::cout << "########target_pos(0): " << tmpp[0](0) << ", " << tmpp[1](0) << std::endl;
+        std::cout << "#########target_pos(1): " << tmpp[0](1) << ", " << tmpp[1](1) << std::endl;
+        std::cout << "##########target_pos(2): " << tmpp[0](2) << ", " << tmpp[1](2) << std::endl;
+        std::cout << "###########target_R(0): " << tmpR[0](0) << ", " << tmpR[1](0) << std::endl;
+        std::cout << "############target_R(1): " << tmpR[0](1) << ", " << tmpR[1](1) << std::endl;
+        std::cout << "#############target_R(2): " << tmpR[0](2) << ", " << tmpR[1](2) << std::endl;
+//    }
 
-  limbStretchAvoidanceControl(tmpp ,tmpR);
+    limbStretchAvoidanceControl(tmpp ,tmpR);
 
   // IK
   for (size_t i = 0; i < stikp.size(); i++) {
