@@ -1807,8 +1807,28 @@ void Stabilizer::calcEEForceMomentControl()
         tmpp[i] = target_ee_p[i] - (foot_origin_rot * stikp[i].d_foot_pos);
           // foot force difference control version
 //          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
+        // TODO: stabilizer調整
+//        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
+//        if(DEBUGP2) {
+//            std::cout << "## rf: " << tmpp[0](0) << ", " << tmpp[1](0) << std::endl;
+//        }
         double zctrl = 0.0;
         tmpp[i](2) = tmpp[i](2) + (i==0?1:-1) * zctrl;
+        if(DEBUGP2) {
+            std::cout << "## wrench(l): "
+                      << wrenches.at(0)[0] << ", "
+                      << wrenches.at(0)[1] << ", "
+                      << wrenches.at(0)[2] << std::endl;
+            std::cout << "## wrench(r): "
+                      << wrenches.at(1)[0] << ", "
+                      << wrenches.at(1)[1] << ", "
+                      << wrenches.at(1)[2] << std::endl;
+        }
+
+//        double thetactrl=0.15;
+//        hrp::Vector3 adjust_rpy = hrp::Vector3((i==0?1:-1) *thetactrl, 0, 0);
+        //rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(adjust_rpy));
+        // ここまで
 
       } else {
         tmpp[i] = target_ee_p[i];
@@ -1820,12 +1840,12 @@ void Stabilizer::calcEEForceMomentControl()
     }
   }
 //    if(DEBUGP2) {
-        std::cout << "########target_pos(0): " << tmpp[0](0) << ", " << tmpp[1](0) << std::endl;
-        std::cout << "#########target_pos(1): " << tmpp[0](1) << ", " << tmpp[1](1) << std::endl;
-        std::cout << "##########target_pos(2): " << tmpp[0](2) << ", " << tmpp[1](2) << std::endl;
-        std::cout << "###########target_R(0): " << tmpR[0](0) << ", " << tmpR[1](0) << std::endl;
-        std::cout << "############target_R(1): " << tmpR[0](1) << ", " << tmpR[1](1) << std::endl;
-        std::cout << "#############target_R(2): " << tmpR[0](2) << ", " << tmpR[1](2) << std::endl;
+//        std::cout << "########target_pos(0): " << tmpp[0](0) << ", " << tmpp[1](0) << std::endl;
+//        std::cout << "#########target_pos(1): " << tmpp[0](1) << ", " << tmpp[1](1) << std::endl;
+//        std::cout << "##########target_pos(2): " << tmpp[0](2) << ", " << tmpp[1](2) << std::endl;
+//        std::cout << "###########target_R(0): " << tmpR[0](0) << ", " << tmpR[1](0) << std::endl;
+//        std::cout << "############target_R(1): " << tmpR[0](1) << ", " << tmpR[1](1) << std::endl;
+//        std::cout << "#############target_R(2): " << tmpR[0](2) << ", " << tmpR[1](2) << std::endl;
 //    }
 
     limbStretchAvoidanceControl(tmpp ,tmpR);
