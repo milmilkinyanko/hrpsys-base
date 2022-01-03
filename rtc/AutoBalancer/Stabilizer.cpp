@@ -1798,8 +1798,10 @@ void Stabilizer::calcEEForceMomentControl()
   std::vector<hrp::Vector3> tmpp(stikp.size());
   std::vector<hrp::Matrix33> tmpR(stikp.size());
   double tmp_d_pos_z_root = 0.0;
-  for (size_t i = 0; i < stikp.size(); i++) {
-    if (is_ik_enable[i]) {
+
+
+    for (size_t i = 0; i < stikp.size(); i++) {
+        if (is_ik_enable[i]) {
       // Add damping_control compensation to target value
       if (is_feedback_control_enable[i]) {
         rats::rotm3times(tmpR[i], target_ee_R[i], hrp::rotFromRpy(-1*stikp[i].ee_d_foot_rpy));
@@ -1807,24 +1809,6 @@ void Stabilizer::calcEEForceMomentControl()
         tmpp[i] = target_ee_p[i] - (foot_origin_rot * stikp[i].d_foot_pos);
           // foot force difference control version
 //          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
-        // TODO: stabilizer調整
-//        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
-//        if(DEBUGP2) {
-//            std::cout << "## rf: " << tmpp[0](0) << ", " << tmpp[1](0) << std::endl;
-//        }
-        double zctrl = 0.0;
-        tmpp[i](2) = tmpp[i](2) + (i==0?1:-1) * zctrl;
-        if(DEBUGP2) {
-            std::cout << "## wrench(l): "
-                      << wrenches.at(0)[0] << ", "
-                      << wrenches.at(0)[1] << ", "
-                      << wrenches.at(0)[2] << std::endl;
-            std::cout << "## wrench(r): "
-                      << wrenches.at(1)[0] << ", "
-                      << wrenches.at(1)[1] << ", "
-                      << wrenches.at(1)[2] << std::endl;
-        }
-
 //        double thetactrl=0.15;
 //        hrp::Vector3 adjust_rpy = hrp::Vector3((i==0?1:-1) *thetactrl, 0, 0);
         //rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(adjust_rpy));
@@ -1837,6 +1821,7 @@ void Stabilizer::calcEEForceMomentControl()
       // Add swing ee compensation
       rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(rel_ee_rot_for_ik[i].transpose() * stikp[i].d_rpy_swing));
       tmpp[i] = tmpp[i] + (foot_origin_rot * stikp[i].d_pos_swing);
+
     }
   }
 //    if(DEBUGP2) {
@@ -1850,8 +1835,36 @@ void Stabilizer::calcEEForceMomentControl()
 
     limbStretchAvoidanceControl(tmpp ,tmpR);
 
-  // IK
-  for (size_t i = 0; i < stikp.size(); i++) {
+    // TODO: stabilizer調整
+    // 場所ここであってる？
+//        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
+    double force_z_l = wrenches.at(0)[2]; // TODO: ここの左右があってるかは要確認
+    double force_z_r = wrenches.at(1)[2]; // TODO: ここの左右があってるかは要確認
+    double foot_force_z_diff = force_z_l - force_z_r;
+//        if(DEBUGP2) {
+    std::cout << "## wrench: "
+              << force_z_l
+              << ", "
+              << force_z_r
+              << std::endl;
+//        }
+    //double zctrl = calcZctrlFromFootForceDiff(foot_force_z_diff);
+    double Kp = 1e-5;
+    double Dp = 1e-7;
+    double Ip = 1e-7;
+    double diff_foot_force_z_diff = (foot_force_z_diff - this->m_prev_foot_force_z_diff);
+    double eps = 0.05; // 指数減衰
+    this->m_integral_foot_force_z_diff = this->m_integral_foot_force_z_diff * (1-eps) + foot_force_z_diff;
+    double zctrl = Kp * foot_force_z_diff + Dp * diff_foot_force_z_diff + Ip * this->m_integral_foot_force_z_diff;
+    std::cout<< "### zctrl: "<<zctrl<<std::endl;
+    this->m_prev_foot_force_z_diff = foot_force_z_diff;
+
+    for(int i = 0; i < this->stikp.size(); i++) {
+        tmpp[i](2) = tmpp[i](2) + (i == 0 ? 1 : -1) * zctrl;
+    }
+
+    // IK
+    for (size_t i = 0; i < stikp.size(); i++) {
     if (is_ik_enable[i]) {
       for (size_t jj = 0; jj < stikp[i].ik_loop_count; jj++) {
         jpe_v[i]->calcInverseKinematics2Loop(tmpp[i], tmpR[i], 1.0, 0.001, 0.01, &qrefv, transition_smooth_gain,
