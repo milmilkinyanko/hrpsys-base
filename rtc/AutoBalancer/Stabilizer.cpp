@@ -1849,18 +1849,20 @@ void Stabilizer::calcEEForceMomentControl()
               << std::endl;
 //        }
     //double zctrl = calcZctrlFromFootForceDiff(foot_force_z_diff);
-    double Kp = 1e-5;
+    double Kp = 6e-7;
     double Dp = 1e-7;
-    double Ip = 1e-7;
+    double Ip = 1e-8;
     double diff_foot_force_z_diff = (foot_force_z_diff - this->m_prev_foot_force_z_diff);
-    double eps = 0.05; // 指数減衰
+    double eps = 0.1; // 指数減衰
     this->m_integral_foot_force_z_diff = this->m_integral_foot_force_z_diff * (1-eps) + foot_force_z_diff;
     double zctrl = Kp * foot_force_z_diff + Dp * diff_foot_force_z_diff + Ip * this->m_integral_foot_force_z_diff;
-    std::cout<< "### zctrl: "<<zctrl<<std::endl;
+    std::cout << "### zctrl: " << zctrl << ", P: " << Kp * foot_force_z_diff << ", D: " << Dp * diff_foot_force_z_diff << ", I: " << Ip * this->m_integral_foot_force_z_diff << std::endl;
     this->m_prev_foot_force_z_diff = foot_force_z_diff;
+    // this->zmp_origin_off;
+
 
     for(int i = 0; i < this->stikp.size(); i++) {
-        tmpp[i](2) = tmpp[i](2) + (i == 0 ? 1 : -1) * zctrl;
+        tmpp[i](2) = tmpp[i](2) - (i == 0 ? 1 : -1) * zctrl;
     }
 
     // IK
