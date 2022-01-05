@@ -220,6 +220,7 @@ public:
     return (prev_act_force_z[idx] > 25.0);
   };
   void calcDiffFootOriginExtMoment ();
+  double calcZctrlFromFootForceDiff(double foot_force_z_diff);
 };
 
 #endif // STABILIZER_COMPONENT_H

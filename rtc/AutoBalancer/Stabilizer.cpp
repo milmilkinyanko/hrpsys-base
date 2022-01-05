@@ -1800,19 +1800,56 @@ void Stabilizer::calcEEForceMomentControl()
   double tmp_d_pos_z_root = 0.0;
 
 
+//        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
+    double force_z_l = wrenches.at(0)[2]; // TODO: ここの左右があってるかは要確認
+    double force_z_r = wrenches.at(1)[2]; // TODO: ここの左右があってるかは要確認
+    double force_x_l = wrenches.at(0)[0];
+    double force_x_r = wrenches.at(1)[0];
+    double foot_force_z_diff = force_z_l - force_z_r;
+//    if(DEBUGP2) {
+    std::cout << "## force (L): "
+              << force_z_l
+              << ", "
+              << force_x_l
+              << ", "
+              << std::atan2(force_x_l, force_z_l)
+              << std::endl;
+    std::cout << "## force (R): "
+              << force_z_r
+              << ", "
+              << force_x_r
+              << ", "
+              << std::atan2(force_x_r, force_z_r)
+              << std::endl;
+
+//    }
+    double zctrl = calcZctrlFromFootForceDiff(foot_force_z_diff);
+
+
     for (size_t i = 0; i < stikp.size(); i++) {
         if (is_ik_enable[i]) {
-      // Add damping_control compensation to target value
+            // Add damping_control compensation to target value
       if (is_feedback_control_enable[i]) {
         rats::rotm3times(tmpR[i], target_ee_R[i], hrp::rotFromRpy(-1*stikp[i].ee_d_foot_rpy));
         // foot force independent damping control
         tmpp[i] = target_ee_p[i] - (foot_origin_rot * stikp[i].d_foot_pos);
           // foot force difference control version
 //          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
-//        double thetactrl=0.15;
-//        hrp::Vector3 adjust_rpy = hrp::Vector3((i==0?1:-1) *thetactrl, 0, 0);
-        //rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(adjust_rpy));
-        // ここまで
+
+
+          // TODO: stabilizer調整
+          // 場所ここであってる？
+//          for(int i = 0; i < this->stikp.size(); i++) {
+              tmpp[i](2) = tmpp[i](2) + (i == 0 ? 1 : -1) * zctrl;
+
+              double thetactrl = i==0 ? std::atan2(force_x_l, force_z_l) : std::atan2(force_x_r, force_z_r);
+              if (0.15 < std::abs(thetactrl) && std::abs(thetactrl) < 0.8) {
+                  double k = 0.9;
+                  hrp::Vector3 adjust_rpy = hrp::Vector3(0, k * thetactrl, 0);
+                  rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(-adjust_rpy));
+              }
+//          }
+          // ここまで
 
       } else {
         tmpp[i] = target_ee_p[i];
@@ -1835,35 +1872,8 @@ void Stabilizer::calcEEForceMomentControl()
 
     limbStretchAvoidanceControl(tmpp ,tmpR);
 
-    // TODO: stabilizer調整
-    // 場所ここであってる？
-//        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
-    double force_z_l = wrenches.at(0)[2]; // TODO: ここの左右があってるかは要確認
-    double force_z_r = wrenches.at(1)[2]; // TODO: ここの左右があってるかは要確認
-    double foot_force_z_diff = force_z_l - force_z_r;
-//        if(DEBUGP2) {
-    std::cout << "## wrench: "
-              << force_z_l
-              << ", "
-              << force_z_r
-              << std::endl;
-//        }
-    //double zctrl = calcZctrlFromFootForceDiff(foot_force_z_diff);
-    double Kp = 6e-7;
-    double Dp = 1e-7;
-    double Ip = 1e-8;
-    double diff_foot_force_z_diff = (foot_force_z_diff - this->m_prev_foot_force_z_diff);
-    double eps = 0.1; // 指数減衰
-    this->m_integral_foot_force_z_diff = this->m_integral_foot_force_z_diff * (1-eps) + foot_force_z_diff;
-    double zctrl = Kp * foot_force_z_diff + Dp * diff_foot_force_z_diff + Ip * this->m_integral_foot_force_z_diff;
-    std::cout << "### zctrl: " << zctrl << ", P: " << Kp * foot_force_z_diff << ", D: " << Dp * diff_foot_force_z_diff << ", I: " << Ip * this->m_integral_foot_force_z_diff << std::endl;
-    this->m_prev_foot_force_z_diff = foot_force_z_diff;
-    // this->zmp_origin_off;
 
 
-    for(int i = 0; i < this->stikp.size(); i++) {
-        tmpp[i](2) = tmpp[i](2) - (i == 0 ? 1 : -1) * zctrl;
-    }
 
     // IK
     for (size_t i = 0; i < stikp.size(); i++) {
@@ -2091,3 +2101,22 @@ void Stabilizer::calcDiffFootOriginExtMoment ()
               << "diff ext_moment = " << diff_foot_origin_ext_moment.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[mm]" << std::endl;
   }
 };
+
+double Stabilizer::calcZctrlFromFootForceDiff(double foot_force_z_diff){
+    const double T = 1.0 / 500.0;
+    const double tau = 1e-3;
+    // 要計算
+//    const double K = 6e-7;
+//    const double D = 1e-7;
+//    const double C = 1e-8;
+   const double K =0.1636e-5;
+   const double D =0.0458e-5;
+   const double C =0.1838e-5;
+
+    double num = (4*D + 4*K*tau + C*T*T + 2*K*T + 2*C*T*tau) + (2*C*T*T - 8*D - 8*K*tau) * foot_force_z_diff + (4*D + 4*K*tau + C*T*T - 2*K*T - 2*C*T*tau) * this->m_prev_foot_force_z_diff;
+    double den = (2*T + 4*tau) + (-8*tau, 4*tau) * foot_force_z_diff + (-2*T) * this->m_prev_foot_force_z_diff;
+    double u = num / den;
+    std::cout << "### zctrl: " << u << std::endl;
+    this->m_prev_foot_force_z_diff = foot_force_z_diff;
+    return u;
+}
