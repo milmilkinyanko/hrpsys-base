@@ -1837,20 +1837,6 @@ void Stabilizer::calcEEForceMomentControl()
 //          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
 
 
-          // TODO: stabilizer調整
-          // 場所ここであってる？
-//          for(int i = 0; i < this->stikp.size(); i++) {
-              tmpp[i](2) = tmpp[i](2) + (i == 0 ? 1 : -1) * zctrl;
-
-              double thetactrl = i==0 ? std::atan2(force_x_l, force_z_l) : std::atan2(force_x_r, force_z_r);
-              if (0.15 < std::abs(thetactrl) && std::abs(thetactrl) < 0.8) {
-                  double k = 0.9;
-                  hrp::Vector3 adjust_rpy = hrp::Vector3(0, k * thetactrl, 0);
-                  rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(-adjust_rpy));
-              }
-//          }
-          // ここまで
-
       } else {
         tmpp[i] = target_ee_p[i];
         tmpR[i] = target_ee_R[i];
@@ -1870,8 +1856,24 @@ void Stabilizer::calcEEForceMomentControl()
 //        std::cout << "#############target_R(2): " << tmpR[0](2) << ", " << tmpR[1](2) << std::endl;
 //    }
 
+
+
     limbStretchAvoidanceControl(tmpp ,tmpR);
 
+
+    // TODO: stabilizer調整
+    // 場所ここであってる？
+          for(int i = 0; i < this->stikp.size(); i++) {
+            tmpp[i](2) = tmpp[i](2) - (i == 0 ? 0.5 : -0.5) * zctrl;
+
+//              double thetactrl = i==0 ? std::atan2(force_x_l, force_z_l) : std::atan2(force_x_r, force_z_r);
+//              if (0.15 < std::abs(thetactrl) && std::abs(thetactrl) < 0.8) {
+//                  double k = 0.9;
+//                  hrp::Vector3 adjust_rpy = hrp::Vector3(0, k * thetactrl, 0);
+//                  rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(-adjust_rpy));
+//              }
+          }
+    // ここまで
 
 
 
@@ -2102,21 +2104,36 @@ void Stabilizer::calcDiffFootOriginExtMoment ()
   }
 };
 
-double Stabilizer::calcZctrlFromFootForceDiff(double foot_force_z_diff){
+double Stabilizer::calcZctrlFromFootForceDiff(double input){
     const double T = 1.0 / 500.0;
     const double tau = 1e-3;
     // 要計算
 //    const double K = 6e-7;
 //    const double D = 1e-7;
 //    const double C = 1e-8;
-   const double K =0.1636e-5;
-   const double D =0.0458e-5;
-   const double C =0.1838e-5;
+   const double K =0.1636 * 1e-5;
+   const double D =0.0458 * 1e-5;
+   const double C =0.1838 * 1e-5;
 
-    double num = (4*D + 4*K*tau + C*T*T + 2*K*T + 2*C*T*tau) + (2*C*T*T - 8*D - 8*K*tau) * foot_force_z_diff + (4*D + 4*K*tau + C*T*T - 2*K*T - 2*C*T*tau) * this->m_prev_foot_force_z_diff;
-    double den = (2*T + 4*tau) + (-8*tau, 4*tau) * foot_force_z_diff + (-2*T) * this->m_prev_foot_force_z_diff;
-    double u = num / den;
+   // IIRフィルタの構成
+   // H(z) = \sum_0^M b_r z^{-r} / (1 - \sum_1^N a_k z^{-k})
+   // y[n] = \sum_1^N a_k y[n-k] + \sum_0^M b_r x[n-r]
+   // 今回, N=2, M=2なのでy[n-1], y[n-2], x[n-1], x[n-2]は記憶する必要がある
+    double b0 = (4*D + 4*K*tau + C*T*T + 2*K*T + 2*C*T*tau) / (2*T + 4*tau);
+    double b1 = (2*C*T*T - 8*D - 8*K*tau) / (2*T + 4*tau);
+    double b2 = (4*D + 4*K*tau + C*T*T - 2*K*T - 2*C*T*tau) / (2*T + 4*tau);
+    double a1 = (8*tau) / (2*T + 4*tau);
+    double a2 = (2*T - 4*tau) / (2*T + 4*tau);
+    double u = a1 * this->m_zctrl_pid_output_n_1
+                + a2 * this->m_zctrl_pid_output_n_2
+                + b0 * input
+                + b1 * this->m_zctrl_pid_input_n_1
+                + b2 * this->m_zctrl_pid_input_n_2;
+
     std::cout << "### zctrl: " << u << std::endl;
-    this->m_prev_foot_force_z_diff = foot_force_z_diff;
+    this->m_zctrl_pid_input_n_2 = this->m_zctrl_pid_input_n_1;
+    this->m_zctrl_pid_input_n_1 = input;
+    this->m_zctrl_pid_output_n_2 = this->m_zctrl_pid_output_n_1;
+    this->m_zctrl_pid_output_n_1 = u;
     return u;
 }
