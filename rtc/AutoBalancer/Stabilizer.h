@@ -50,6 +50,10 @@ private:
   hrp::BodyPtr m_robot;
   double dt;
   std::string print_str;
+  double m_zctrl_pid_input_n_2 = 0.0;
+  double m_zctrl_pid_input_n_1 = 0.0;
+  double m_zctrl_pid_output_n_2 = 0.0;
+  double m_zctrl_pid_output_n_1 = 0.0;
 
 public:
   enum cphase {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
@@ -158,10 +162,6 @@ public:
   interpolator *after_walking_interpolator;
   bool use_footguided_stabilizer;
   double footguided_balance_time_const;
-  double m_zctrl_pid_input_n_2 = 0.0;
-  double m_zctrl_pid_input_n_1 = 0.0;
-  double m_zctrl_pid_output_n_2 = 0.0;
-  double m_zctrl_pid_output_n_1 = 0.0;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
@@ -223,6 +223,14 @@ public:
   };
   void calcDiffFootOriginExtMoment ();
   double calcZctrlFromFootForceDiff(double foot_force_z_diff);
+
+  void updateShiftRegister(double input, double output){
+      this->m_zctrl_pid_input_n_2 = this->m_zctrl_pid_input_n_1;
+      this->m_zctrl_pid_input_n_1 = input;
+      this->m_zctrl_pid_output_n_2 = this->m_zctrl_pid_output_n_1;
+      this->m_zctrl_pid_output_n_1 = output;
+      return;
+  }
 };
 
 #endif // STABILIZER_COMPONENT_H

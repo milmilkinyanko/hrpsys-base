@@ -1856,8 +1856,8 @@ void Stabilizer::calcEEForceMomentControl()
 
     //        hrp::Sensor* force_sensor_rf = m_robot->sensor<hrp::ForceSensor>("rfsensor");
     double force_z_l = wrenches.at(0)[2];  // TODO: ここの左右があってるかは要確認
-    double force_z_r = wrenches.at(1)[2];  // TODO: ここの左右があってるかは要確認
     double force_x_l = wrenches.at(0)[0];
+    double force_z_r = wrenches.at(1)[2];  // TODO: ここの左右があってるかは要確認
     double force_x_r = wrenches.at(1)[0];
     double foot_force_z_diff = force_z_l - force_z_r;
     //    if(DEBUGP2) {
@@ -1884,31 +1884,61 @@ void Stabilizer::calcEEForceMomentControl()
         if (is_ik_enable[i]) {
             // Add damping_control compensation to target value
             if (is_feedback_control_enable[i]) {
+
+                hrp::Vector3 adjust_rpy = hrp::Vector3::Zero();
+                bool is_adjust_enable = true;
+                if (is_adjust_enable) {
+                    // TODO: stabilizer調整
+                    // 場所ここであってる？
+                    double cog_theta = std::atan2(this->act_cog(0), this->act_cog(2));
+                    double THRESHOLD = 2.0;
+                    // 外れ値の場合
+                    if (cog_theta > THRESHOLD) {
+                        cog_theta -= M_PI;
+                    } else if (cog_theta < -THRESHOLD) {
+                        cog_theta += M_PI;
+                    }
+                    double theta_foot_force = i == 0
+                                                  ? std::atan2(force_x_l, force_z_l)
+                                                  : std::atan2(force_x_r, force_z_r);
+                    // 外れ値の場合
+                    if (theta_foot_force > THRESHOLD) {
+                        theta_foot_force -= M_PI;
+                    } else if (theta_foot_force < -THRESHOLD) {
+                        theta_foot_force += M_PI;
+                    }
+                    const double OFFSET = M_PI / 20.0;  // たまたまこの数字が良さそうなだけ、物理的な意味は特にない
+                    double thetactrl = theta_foot_force - (cog_theta + OFFSET);
+                    std::cout << "## TH" << i << ": " << cog_theta << ", " << theta_foot_force << ", " << thetactrl << std::endl;
+                    if (std::abs(thetactrl) > 0.1) {
+                        std::cout << "theta changed: " << i << std::endl;
+                        double k = 0.007;
+                        double clamp = 1.0;  // 大き過ぎたら丸める
+                        adjust_rpy = adjust_rpy + hrp::Vector3(0., k * (std::min(std::max(thetactrl, -clamp), clamp)), 0.);
+                        //                    rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(-adjust_rpy));
+                    }
+                    // memo: minusしてるのがよくない？
+                    // 片方だけにplusするべき？
+                    double kz = 0.01;
+                    double clampz = 10e-3;
+                    tmpp[i](2) = tmpp[i](2) + (i == 0 ? 0.5 : -0.5) * kz * (std::min(std::max(zctrl, -clampz), clampz));
+                    // ここまで
+                } else {
+                }
+                std::cout << "## ee_d_rpy" << i << ": "
+                          << stikp[i].ee_d_foot_rpy(0) << ", "
+                          << stikp[i].ee_d_foot_rpy(1) << ", "
+                          << stikp[i].ee_d_foot_rpy(2) << std::endl;
+                std::cout << "## adjust" << i << ": "
+                          << adjust_rpy(1) << std::endl;
+
+                // TODO: 符号わかんない
+                stikp[i].ee_d_foot_rpy = stikp[i].ee_d_foot_rpy + adjust_rpy;
                 rats::rotm3times(tmpR[i], target_ee_R[i], hrp::rotFromRpy(-1 * stikp[i].ee_d_foot_rpy));
                 // foot force independent damping control
                 tmpp[i] = target_ee_p[i] - (foot_origin_rot * stikp[i].d_foot_pos);
                 // foot force difference control version
                 //          total_target_foot_p[i](2) = target_foot_p[i](2) + (i==0?0.5:-0.5)*zctrl;
-
-
-                // TODO: stabilizer調整
-                // 場所ここであってる？
-                double cog_theta = std::atan2(this->act_cog(0), this->act_cog(2));
-                for(int i = 0; i < this->stikp.size(); i++) {
-                    //        tmpp[i](2) = tmpp[i](2) + (i==0 ? 1 : -1) * 0.5 * zctrl;
-                    //        // memo: minusしてるのがよくない？
-                    //        // 片方だけにplusするべき？
-                    double thetactrl = i == 0
-                                       ? std::atan2(force_x_l, force_z_l)
-                                       : std::atan2(force_x_r, force_z_r);
-                    std::cout << cog_theta << ", " << thetactrl << ", " << thetactrl - (cog_theta+0.15) << std::endl;
-                    if (std::abs(thetactrl - (cog_theta+0.15)) > 0.1 ) {
-                        double k = 0.2;
-                        hrp::Vector3 adjust_rpy = hrp::Vector3(0, k * thetactrl, 0);
-                        rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(-adjust_rpy));
-                    }
-                }
-                // ここまで
 
 
 
@@ -1935,18 +1965,6 @@ void Stabilizer::calcEEForceMomentControl()
     limbStretchAvoidanceControl(tmpp, tmpR);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
     std::cout << "## target_pos(z): " << tmpp[0](2) << ", " << tmpp[1](2) << ", po: " << this->stikp.size() << std::endl;
     std::cout << "## cog: "
               << this->act_cog(0) << ", "
@@ -1957,15 +1975,16 @@ void Stabilizer::calcEEForceMomentControl()
               << this->act_zmp(1) << ", "
               << this->act_zmp(2) << std::endl;
 
-
         // IK
     for (size_t i = 0; i < stikp.size(); i++) {
         if (is_ik_enable[i]) {
             for (size_t jj = 0; jj < stikp[i].ik_loop_count; jj++) {
-                jpe_v[i]->calcInverseKinematics2Loop(tmpp[i], tmpR[i], 1.0, 0.001, 0.01, &qrefv, transition_smooth_gain,
+                std::cout << "IK-" << stikp[i].ee_name << ": " << jj << std::endl;
+                bool popopoik = jpe_v[i]->calcInverseKinematics2Loop(tmpp[i], tmpR[i], 1.0, 0.001, 0.01, &qrefv, transition_smooth_gain,
                     // stikp[i].localCOPPos;
                     stikp[i].localp,
                     stikp[i].localR);
+                std::cout << "\033[31mIK solve: " << (popopoik ? "true" : "false") << "\033[m" << std::endl;
             }
         }
     }
@@ -2195,8 +2214,8 @@ double Stabilizer::calcZctrlFromFootForceDiff(double input)
     //    const double D = 1e-7;
     //    const double C = 1e-8;
     const double K = 6.2894e-6;
-    const double D = 3.3079e-5;
-    const double C = 1.4207e-4;
+    const double D = 3.3079e-6;
+    const double C = 1.4207e-6;
 
     // IIRフィルタの構成
     // H(z) = \sum_0^M b_r z^{-r} / (1 - \sum_1^N a_k z^{-k})
@@ -2223,9 +2242,6 @@ double Stabilizer::calcZctrlFromFootForceDiff(double input)
                + b2 * this->m_zctrl_pid_input_n_2;
 
     std::cout << "### zctrl: " << u << std::endl;
-    this->m_zctrl_pid_input_n_2 = this->m_zctrl_pid_input_n_1;
-    this->m_zctrl_pid_input_n_1 = input;
-    this->m_zctrl_pid_output_n_2 = this->m_zctrl_pid_output_n_1;
-    this->m_zctrl_pid_output_n_1 = u;
+    this->updateShiftRegister(input, u);
     return u;
 }
