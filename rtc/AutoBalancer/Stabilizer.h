@@ -54,6 +54,8 @@ private:
   double m_zctrl_pid_input_n_1 = 0.0;
   double m_zctrl_pid_output_n_2 = 0.0;
   double m_zctrl_pid_output_n_1 = 0.0;
+  double m_zctrl_output_sum = 0.0;
+  double m_zctrl_output_sum_sum = 0.0;
 
 public:
   enum cphase {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
@@ -224,13 +226,7 @@ public:
   void calcDiffFootOriginExtMoment ();
   double calcZctrlFromFootForceDiff(double foot_force_z_diff);
 
-  void updateShiftRegister(double input, double output){
-      this->m_zctrl_pid_input_n_2 = this->m_zctrl_pid_input_n_1;
-      this->m_zctrl_pid_input_n_1 = input;
-      this->m_zctrl_pid_output_n_2 = this->m_zctrl_pid_output_n_1;
-      this->m_zctrl_pid_output_n_1 = output;
-      return;
-  }
+  double updateShiftRegister(double input, double output);
 };
 
 #endif // STABILIZER_COMPONENT_H
